@@ -19,8 +19,8 @@ void db_connect(PGconn ** conn) {
   //PGconn *conn;
   /*static char *static_conn_string =
       "postgresql://postgres.your-tenant-id:your-super-secret-and-long-postgres-password@192.168.100.78:5432/postgres";*/
-  static char *static_conn_string =
-      "postgresql://postgres.your-tenant-id:your-super-secret-and-long-postgres-password@192.168.100.78:6543/postgres";
+  static char *static_conn_string;
+  static_conn_string = getenv("PG_CONN_STRING");
   /* Make a connection to the database */
   *conn = PQconnectdb(static_conn_string);
   /* Check to see that the backend connection was successfully made */

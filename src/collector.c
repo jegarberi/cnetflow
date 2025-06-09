@@ -242,6 +242,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 
       uv_mutex_lock((func_args->mutex));
       memset(tmp[data_counter], 0, 65536);
+      if (nread > 65536) {
+        fprintf(STDERR, "nread > 65536\n");
+        return;
+      }
       memcpy(tmp[data_counter], buf->base, nread);
       // collector_config->parse_v5(tmp,nread);
       uint32_t *exporter_ptr = NULL;
@@ -255,7 +259,6 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
 
       if (work_req == NULL) {
-        exit(-1);
         signal_handler(SIGABRT);
       }
       uv_work_cb work_cb = (void *) collector_config->parse_v5;

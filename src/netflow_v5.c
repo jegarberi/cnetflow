@@ -161,7 +161,10 @@ void *parse_v5(parse_args_t *args_data) {
     goto unlock_mutex_parse_v5;
   }
   swap_endianness((void *) &(header->count), sizeof(header->count));
-
+  if (header->count > 30) {
+    fprintf(stderr, "Too many flows\n");
+    goto unlock_mutex_parse_v5;
+  }
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
   swap_endianness((void *) &(header->unix_secs), sizeof(header->unix_secs));
   swap_endianness((void *) &(header->unix_nsecs), sizeof(header->unix_nsecs));
