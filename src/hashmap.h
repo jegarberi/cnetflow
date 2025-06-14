@@ -5,7 +5,7 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 #include <stdint.h>
-#include <uv/unix.h>
+
 
 #include "arena.h"
 #include <uv.h>
