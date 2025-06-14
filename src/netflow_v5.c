@@ -19,6 +19,14 @@ static void exit_nicely() {
   }
 }
 
+/**
+ * Inserts a batch of NetFlow v5 records into a PostgreSQL database.
+ *
+ * @param conn       A pointer to the PostgreSQL connection object. Must be an open and valid connection.
+ * @param exporter   A unique identifier for the exporter sending the flow data. Must be non-zero.
+ * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
+ * @param count      The number of records in the `flows` array. Must be greater than zero.
+ */
 static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t *flows, int count) {
   prepare_statement(conn);
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK || exporter == 0 || count == 0) {
@@ -36,14 +44,16 @@ static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t
   PQclear(res);
   */
   for (int i = 0; i < count; i++) {
-    int nParams = 12;
-    const char *const paramValues[12] = {
+    int nParams = 18;
+    const char *const paramValues[18] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output,prot
         &exporter,           &(flows[i].srcaddr), &(flows[i].srcport), &(flows[i].dstaddr),
         &(flows[i].dstport), &(flows[i].First),   &(flows[i].Last),    &(flows[i].dPkts),
         &(flows[i].dOctets), &(flows[i].input),   &(flows[i].output),  &(flows[i].prot),
+        &(flows[i].tos), &(flows[i].src_as),   &(flows[i].dst_as),  &(flows[i].src_mask),
+        &(flows[i].dst_mask),&(flows[i].tcp_flags)
     };
-    const int paramLengths[12] = {
+    const int paramLengths[18] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output
         sizeof(exporter), // 1
         sizeof(flows[i].srcaddr), // 2
@@ -57,8 +67,14 @@ static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t
         sizeof(flows[i].input), // 10
         sizeof(flows[i].output), // 11
         sizeof(flows[i].prot), // 12
+        sizeof(flows[i].tos), // 13
+        sizeof(flows[i].src_as), // 14
+        sizeof(flows[i].dst_as), // 15
+        sizeof(flows[i].src_mask), // 16
+        sizeof(flows[i].dst_mask), // 17
+        sizeof(flows[i].tcp_flags), // 17
     };
-    const int paramFormats[12] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    const int paramFormats[18] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     const int resultFormat = 0;
 
     res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
@@ -100,6 +116,13 @@ static void printf_v5(FILE *file, const netflow_v5_record_t *flow) {
   fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, flow->srcport, ip_dst_str, flow->dstport, flow->prot);
 }
 
+/**
+ * Prepares a PostgreSQL prepared statement named "insert_flows" for inserting NetFlow data
+ * into the "public.flows" table. The statement includes 12 parameters to support the necessary
+ * columns in the table and checks for any errors during the preparation process.
+ *
+ * @param conn   A pointer to the PostgreSQL connection object. Must be an open and valid connection.
+ */
 static void prepare_statement(PGconn *conn) {
   if (conn == NULL) {
     db_connect(conn);
@@ -110,25 +133,32 @@ static void prepare_statement(PGconn *conn) {
   }
   PGresult *res;
   char stmtName[] = "insert_flows";
-  const int nParams = 12;
+  const int nParams = 18;
   char query[] = "insert into public.flows "
-                 "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,output,prot) values($1, $2, "
-                 "$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)";
+                 "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,output,prot,tos,src_as,dst_as,src_mask,dst_mask,tcp_flags) values($1, $2, "
+                 "$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)";
 
-  const Oid paramTypes[12] = {
-      INT4OID, // 1 INT4OID for exporter (integer)
-      INT4OID, // 2 INT4OID for srcaddr (integer)
-      INT2OID, // 3 INT2OID for srcport (smallint)
-      INT4OID, // 4 INT4OID for dstaddr (integer)
-      INT2OID, // 5 INT2OID for dstport (smallint)
-      INT4OID, // 6 INT4OID for First (integer)
-      INT4OID, // 7 INT4OID for Last (integer)
-      INT4OID, // 8 INT4OID for dPkts (integer)
-      INT4OID, // 9 INT4OID for dOctets (integer)
-      INT2OID, // 10 INT2OID for input (smallint)
-      INT2OID, // 11 INT2OID for output (smallint)
-      CHAROID, // 12 INT2OID for prot (byte)
+  const Oid paramTypes[18] = {
+    INT4OID, // 1 INT4OID for exporter (integer)
+    INT4OID, // 2 INT4OID for srcaddr (integer)
+    INT2OID, // 3 INT2OID for srcport (smallint)
+    INT4OID, // 4 INT4OID for dstaddr (integer)
+    INT2OID, // 5 INT2OID for dstport (smallint)
+    INT4OID, // 6 INT4OID for First (integer)
+    INT4OID, // 7 INT4OID for Last (integer)
+    INT4OID, // 8 INT4OID for dPkts (integer)
+    INT4OID, // 9 INT4OID for dOctets (integer)
+    INT2OID, // 10 INT2OID for input (smallint)
+    INT2OID, // 11 INT2OID for output (smallint)
+    CHAROID, // 12 CHAROID for prot (byte)
+    CHAROID, // 13 CHAROID for tos (byte)
+    INT2OID, // 14 INT2OID for srcas (smallint)
+    INT2OID, // 15 INT2OID for dstas (smallint)
+    CHAROID, // 16 CHAROID for src_mask (byte)
+    CHAROID, // 17 CHAROID for dst_mask (byte)
+    CHAROID, // 18 CHAROID for tcp_flags (byte)
   };
+
 
   res = PQprepare(conn, stmtName, query, nParams, paramTypes);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
@@ -145,8 +175,19 @@ static void prepare_statement(PGconn *conn) {
 }
 
 
-void *parse_v5(parse_args_t *args_data) {
-
+/**
+ * Parses and processes NetFlow v5 data from the provided arguments structure,
+ * updating flow timestamps, swapping endianness where necessary, and inserting
+ * the parsed records into a database. This function also manages concurrency
+ * using a mutex lock during processing.
+ *
+ * @param args_data   A pointer to a `parse_args_t` structure containing NetFlow
+ *                    v5 data to be parsed and processed. Must include a valid
+ *                    data buffer and mutex for synchronization.
+ * @return            A pointer to result or data processed (depends on the
+ *                    function usage; typically NULL if no return object is needed).
+ */
+void *parse_v5(const parse_args_t *args_data) {
   db_connect(&conn);
   parse_args_t args_copy;
   parse_args_t *args;
@@ -170,6 +211,7 @@ void *parse_v5(parse_args_t *args_data) {
   swap_endianness((void *) &(header->unix_nsecs), sizeof(header->unix_nsecs));
   swap_endianness((void *) &(header->flow_sequence), sizeof(header->flow_sequence));
   swap_endianness((void *) &(header->sampling_interval), sizeof(header->sampling_interval));
+
   uint32_t now = (uint32_t) time(NULL);
   uint32_t diff = now - (uint32_t) (header->SysUptime / 1000);
 
@@ -220,4 +262,5 @@ void *parse_v5(parse_args_t *args_data) {
   insert_v5(conn,args->exporter, records, header->count);
 unlock_mutex_parse_v5:
   uv_mutex_unlock(lock);
+  return NULL;
 }

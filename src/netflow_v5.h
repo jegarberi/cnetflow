@@ -49,5 +49,5 @@ static void prepare_statement(PGconn *conn);
 static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t *flows, int count);
 static void exit_nicely();
 static void printf_v5(FILE *, const netflow_v5_record_t *);
-void *parse_v5(parse_args_t *);
+void *parse_v5(const parse_args_t *);
 #endif // NETFLOW_V5_H

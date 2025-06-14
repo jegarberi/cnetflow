@@ -24,7 +24,7 @@ typedef struct {
 arena_status arena_create(arena_struct_t *arena, const size_t capacity);
 void *arena_alloc(arena_struct_t *arena, size_t bytes);
 // void* arena_alloc(data_t *args);
-void arena_clean(arena_struct_t *arena);
-void arena_destroy(arena_struct_t *arena);
-void *area_realloc(arena_struct_t *arena);
+int arena_clean(arena_struct_t *arena);
+int arena_destroy(arena_struct_t *arena);
+int arena_realloc(arena_struct_t *arena, size_t bytes);
 #endif // ARENA_H

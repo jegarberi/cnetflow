@@ -1,0 +1,8 @@
+[Unit]
+Description=Cnetflow service.
+
+[Service]
+ExecStart=/usr/local/cnetflow/cnetflow
+
+[Install]
+WantedBy=multi-user.target

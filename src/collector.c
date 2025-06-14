@@ -11,10 +11,12 @@
 #include <string.h>
 #include <uv.h>
 #include "arena.h"
+#include "dyn_array.h"
 #include "netflow.h"
 #include "netflow_ipfix.h"
 #include "netflow_v5.h"
 #include "netflow_v9.h"
+
 #define true 1
 #define false 0
 #define STDERR stderr
@@ -30,6 +32,16 @@ uv_loop_t *loop_pool;
 
 uv_thread_t threads[7];
 size_t thread_counter;
+/**
+ * Converts an IPv4 address in integer format to a string representation.
+ *
+ * @param addr The IPv4 address, represented as an unsigned integer.
+ * @return A pointer to a statically allocated string containing the
+ *         human-readable IPv4 address in dotted decimal notation.
+ *         Note: The returned pointer is to a static buffer and should not
+ *         be freed by the caller. Its content may be overwritten by
+ *         subsequent calls to inet_ntoa or related functions.
+ */
 char *ip_int_to_str(const unsigned int addr) {
 
   struct in_addr ip_addr;
@@ -39,6 +51,20 @@ char *ip_int_to_str(const unsigned int addr) {
 }
 
 // https://gist.github.com/jkomyno/45bee6e79451453c7bbdc22d033a282e
+
+
+/**
+ * Converts a sockaddr structure to a human-readable IP address string.
+ *
+ * @param sa A pointer to a sockaddr structure containing the address
+ *           to be converted. It must be properly initialized.
+ * @param s A pointer to a character array where the result will be stored.
+ *          The array should have enough space to hold the resulting address.
+ * @param maxlen The maximum length of the character array `s`.
+ * @return A pointer to the resulting string containing the IP address.
+ *         Returns NULL if the address family is unrecognized or if an
+ *         error occurs. The content of `s` will be "Unknown AF" in such cases.
+ */
 char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen) {
   switch (sa->sa_family) {
     case AF_INET:
@@ -72,6 +98,16 @@ void signal_handler(const int signal) {
       break;
   }
 }
+/**
+ * Initializes the given collector configuration with default function pointers
+ * and memory management routines.
+ *
+ * @param col_conf A pointer to a collector_t structure to be initialized.
+ *                 This structure will be updated with default configuration
+ *                 values, including pointers to allocation, deallocation,
+ *                 and parsing functions.
+ * @return An int8_t value indicating success. Always returns 0.
+ */
 int8_t collector_default(collector_t *col_conf) {
 
   collector_config = col_conf;
@@ -90,6 +126,18 @@ int8_t collector_setup(collector_t *collector) {
   return 0;
 }
 
+/**
+ * Callback function for memory allocation used with libuv handles.
+ *
+ * This function is called when libuv requires a buffer to operate with during
+ * asynchronous operations. It manages buffer allocation and ensures the buffer
+ * is returned to the caller.
+ *
+ * @param handle A pointer to the libuv handle for which the buffer is being allocated.
+ * @param suggested_size The recommended size for the buffer as determined by libuv.
+ * @param buf A pointer to a uv_buf_t structure where the allocated buffer's
+ *            base address and size will be stored.
+ */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   static uv_buf_t buffer[1024] = {0};
   static volatile int buffer_index = 0;
@@ -144,7 +192,18 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   return buf;
   */
 }
+/**
+ * Initializes and starts the collector process, setting up signal handlers,
+ * memory allocation, and UDP server for receiving data packets.
+ *
+ * @param collector A pointer to a `collector_t` structure containing
+ *                  configuration and function pointers for the collector module.
+ * @return Returns 0 on successful initialization and execution,
+ *         or -1 if an error occurs during setup or runtime.
+ *         Specific error messages are logged to standard error.
+ */
 int8_t collector_start(collector_t *collector) {
+
   thread_counter = 0;
   signal(SIGINT, signal_handler);
   signal(SIGUSR1, signal_handler);
@@ -156,6 +215,9 @@ int8_t collector_start(collector_t *collector) {
     fprintf(STDERR, "arena_create failed: %d\n", err);
     goto error_no_arena;
   }
+  init_v9(arena_collector, 1000000);
+  dyn_array_t * dyn_arr ;
+  dyn_array_create(arena_collector,1024,sizeof(int8_t));
   fprintf(stderr, "collector_init...\n");
 
   loop_udp = uv_default_loop();
@@ -192,6 +254,17 @@ error_no_arena:
   fprintf(STDERR, "exit collector_thread\n");
   return -1;
 }
+/**
+ * Handles incoming UDP packets, parses the data, and processes it according
+ * to the detected NetFlow version.
+ *
+ * @param handle Pointer to the UV UDP handle associated with the packet.
+ * @param nread The number of bytes read from the UDP packet. If zero, no data was read.
+ * @param buf Pointer to a `uv_buf_t` structure containing the data buffer associated with the packet.
+ * @param addr Pointer to a `sockaddr` structure containing the address of the sender.
+ *             If NULL, the sender's address is unavailable.
+ * @param flags Flags associated with the received packet (e.g., status or additional information).
+ */
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
   static parse_args_t *func_args;
   if (nread == 0) {
@@ -227,7 +300,9 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   static void *tmp[1024] = {0};
   static uv_work_t *work_req[1024] = {0};
   uv_work_t *tmp_worker = NULL;
+  uv_work_cb work_cb;
   static size_t data_counter = 0;
+
   if (tmp[data_counter] == NULL) {
     tmp[data_counter] = collector_config->alloc(arena_collector, 65536);
   }
@@ -235,11 +310,43 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     tmp_worker = arena_alloc(arena_collector, sizeof(uv_work_t));
     work_req[data_counter] = tmp_worker;
   }
+  uint32_t *exporter_ptr = NULL;
   switch (nf_version) {
     case NETFLOW_V5:
-    case NETFLOW_V9:
-    case NETFLOW_IPFIX:
+      uv_mutex_lock((func_args->mutex));
+      memset(tmp[data_counter], 0, 65536);
+      if (nread > 65536) {
+        fprintf(STDERR, "nread > 65536\n");
+        return;
+      }
+      memcpy(tmp[data_counter], buf->base, nread);
+      // collector_config->parse_v5(tmp,nread);
 
+      exporter_ptr = &(addr->sa_data[2]);
+      func_args->exporter = *(uint32_t *) exporter_ptr;
+      //swap_endianness(&func_args->exporter, sizeof(uint32_t));
+      //func_args->exporter = (uint32_t)(*(&(addr->sa_data[2])) | *(&(addr->sa_data[3]) ) << 8 | *(&(addr->sa_data[4])) << 16 | *(&(addr->sa_data[5])) << 24);
+      //func_args->exporter = addr->sa_data[2] << 0 | addr->sa_data[3] << 8 | addr->sa_data[4] << 16 | addr->sa_data[5] << 24;
+      func_args->data = tmp[data_counter];
+      func_args->len = nread;
+      // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
+      if (work_req == NULL) {
+        signal_handler(SIGABRT);
+      }
+      work_cb = (void *) collector_config->parse_v5;
+      work_req[data_counter]->data = (parse_args_t *) func_args;
+      uv_queue_work(loop_pool, work_req[data_counter], work_cb, NULL);
+
+      //      collector_config->parse_v5(func_args);
+
+      /*func_args->data = tmp;
+      func_args->size = nread;
+      */
+      ///
+
+      data_counter++;
+      break;
+    case NETFLOW_V9:
       uv_mutex_lock((func_args->mutex));
       memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
@@ -257,13 +364,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       func_args->data = tmp[data_counter];
       func_args->len = nread;
       // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
-
       if (work_req == NULL) {
         signal_handler(SIGABRT);
       }
-      uv_work_cb work_cb = (void *) collector_config->parse_v5;
+      work_cb = (void *) collector_config->parse_v9;
       work_req[data_counter]->data = (parse_args_t *) func_args;
-
       uv_queue_work(loop_pool, work_req[data_counter], work_cb, NULL);
 
       //      collector_config->parse_v5(func_args);
@@ -274,6 +379,8 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       ///
 
       data_counter++;
+      break;
+    case NETFLOW_IPFIX:
       break;
     default:
       fprintf(STDERR, "unsupported nf version %d\n", nf_version);

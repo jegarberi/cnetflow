@@ -11,11 +11,21 @@ static void exit_nicely(PGconn *conn) {
   exit(1);
 }
 
+/**
+ * Establishes a connection to a PostgreSQL database using the connection string
+ * obtained from the environment variable "PG_CONN_STRING". If a connection is
+ * already present, it returns without taking any action. On a successful connection,
+ * it sets a secure search path and validates the connection status.
+ *
+ * @param conn A pointer to a `PGconn` pointer. If the connection is not already
+ *             established, this function will populate it with a valid connection
+ *             object. If the connection fails, the application will terminate.
+ */
 void db_connect(PGconn ** conn) {
   if (*conn != NULL) {
     return;
   }
-  int nFields = 0, i = 0, j = 0;
+
   //PGconn *conn;
   /*static char *static_conn_string =
       "postgresql://postgres.your-tenant-id:your-super-secret-and-long-postgres-password@192.168.100.78:5432/postgres";*/
@@ -29,13 +39,27 @@ void db_connect(PGconn ** conn) {
     exit_nicely(*conn);
   }
   /* Set always-secure search path, so malicious users can't take control. */
+
   PGresult *res;
+
   res = PQexec(*conn, "SELECT pg_catalog.set_config('search_path', '', false)");
   if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-    fprintf(stderr, "SET failed: %s", PQerrorMessage(*conn));
+    fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) failed: %s\n", PQerrorMessage(*conn));
     PQclear(res);
     exit_nicely(*conn);
   }
+  PQclear(res);
+  fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) succesfull: %s\n", PQerrorMessage(*conn));
+
+  res = PQexec(*conn, "DEALLOCATE ALL");
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+    fprintf(stderr, "DEALLOCATE ALL UNsuccessfull: %s\n", PQerrorMessage(*conn));
+    PQclear(res);
+    exit_nicely(*conn);
+  }
+  PQclear(res);
+  fprintf(stderr, "DEALLOCATE ALL successfull\n");
+
   //return conn;
   /*
    * Fetch rows from pg_database, the system catalog of databases

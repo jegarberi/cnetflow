@@ -7,6 +7,18 @@
 #include <stdint.h>
 #include <string.h>
 
+/**
+ * Detects the NetFlow version from the provided data.
+ *
+ * This function analyzes the given raw data to determine the version of the
+ * NetFlow protocol being used. It also handles byte-order conversion based
+ * on the detected system endianness. Versions are returned as defined in the
+ * NETFLOW_VERSION enum.
+ *
+ * @param data Pointer to the raw data that contains the NetFlow version information.
+ * @return The detected NetFlow version as a value of type NETFLOW_VERSION.
+ *         Returns NETFLOW_UNKNOWN if the version cannot be determined.
+ */
 NETFLOW_VERSION detect_version(void *data) {
   if (endianness == NETFLOW_NO_ENDIAN) {
     endianness = detect_endianness();
@@ -27,6 +39,17 @@ NETFLOW_VERSION detect_version(void *data) {
       return NETFLOW_UNKNOWN;
   }
 }
+/**
+ * Detects the system's endianness.
+ *
+ * This function evaluates the system's endianness by analyzing the layout
+ * of a test value in memory. It determines whether the system is big-endian
+ * or little-endian and returns the corresponding value of the `endianness_e` enum.
+ *
+ * @return The system's endianness as a value of type `endianness_e`.
+ *         Returns `NETFLOW_BIG_ENDIAN` for big-endian systems and `NETFLOW_LITTLE_ENDIAN`
+ *         for little-endian systems.
+ */
 endianness_e detect_endianness(void) {
   uint64_t endianness_test = 65535;
   uint64_t *ptr = &endianness_test;
@@ -38,6 +61,19 @@ endianness_e detect_endianness(void) {
   }
 }
 
+/**
+ * Swaps the endianness of a value in memory based on the system's endianness.
+ *
+ * This function handles conversion of values from little-endian to big-endian
+ * and vice versa. Before performing the conversion, the function detects the
+ * system's endianness if it has not already been determined. If the system
+ * endianness is big-endian, no swapping is performed. The function supports
+ * swapping for 16-bit, 32-bit, and 64-bit values.
+ *
+ * @param value Pointer to the value in memory whose endianness is to be swapped.
+ *              The value is modified in place.
+ * @param len   The length of the value in bytes. Supported lengths are 2, 4, and 8 bytes.
+ */
 void swap_endianness(void *value, size_t len) {
   if (endianness == NETFLOW_NO_ENDIAN) {
     endianness = detect_endianness();
@@ -64,6 +100,15 @@ void swap_endianness(void *value, size_t len) {
   }
 }
 
+/**
+ * Swaps the byte order of a 64-bit unsigned integer.
+ *
+ * This function reverses the endianness of the provided 64-bit value,
+ * converting it between big-endian and little-endian formats.
+ *
+ * @param value The 64-bit unsigned integer whose byte order is to be swapped.
+ * @return The 64-bit unsigned integer with the byte order reversed.
+ */
 uint64_t swap_endian_64(uint64_t value) {
   return ((value & 0xFF00000000000000ULL) >> 56) | ((value & 0x00FF000000000000ULL) >> 40) |
          ((value & 0x0000FF0000000000ULL) >> 24) | ((value & 0x000000FF00000000ULL) >> 8) |
@@ -71,13 +116,47 @@ uint64_t swap_endian_64(uint64_t value) {
          ((value & 0x000000000000FF00ULL) << 40) | ((value & 0x00000000000000FFULL) << 56);
 }
 
+/**
+ * Reverses the byte order of a 32-bit integer to swap endianness.
+ *
+ * This function takes a 32-bit unsigned integer and reverses its byte order,
+ * effectively converting it from little-endian to big-endian or vice versa.
+ *
+ * @param value The 32-bit unsigned integer whose byte order is to be swapped.
+ * @return The 32-bit unsigned integer with its byte order reversed.
+ */
 uint32_t swap_endian_32(uint32_t value) {
   return ((value & 0xFF000000) >> 24) | ((value & 0x00FF0000) >> 8) | ((value & 0x0000FF00) << 8) |
          ((value & 0x000000FF) << 24);
 }
 
+/**
+ * Swaps the byte order of a 16-bit unsigned integer.
+ *
+ * This function reverses the byte order (endianness) of the provided 16-bit
+ * value, effectively converting it between little-endian and big-endian formats.
+ *
+ * @param value The 16-bit unsigned integer to have its byte order swapped.
+ * @return The 16-bit unsigned integer with the byte order reversed.
+ */
 uint16_t swap_endian_16(uint16_t value) { return (value >> 8) | (value << 8); }
 
+/**
+ * Converts data into a consistent endianness format based on the system's detected endianness and the specified
+ * conditions.
+ *
+ * This function processes raw data by first determining if the system endianness has been identified. If not, it
+ * detects the endianness and adjusts the data accordingly. The function then ensures the data is in little-endian
+ * format when required or keeps it unchanged if no conversion is needed. Note that the function supports conversions
+ * for data lengths of 1, 2, or 4 bytes.
+ *
+ * @param buf Pointer to the buffer where the processed data should be stored.
+ * @param data Pointer to the raw data that needs to be processed.
+ * @param len Length of the data in bytes, which determines the type of conversion.
+ *            Supported values are 1, 2, or 4 bytes.
+ * @return A pointer to the buffer containing the converted data.
+ *         If no conversion is needed, the data is directly copied to the buffer.
+ */
 void *fix_endianness(void *buf, void *data, size_t len) {
   memset(buf, 0, len);
   if (endianness == NETFLOW_NO_ENDIAN) {
