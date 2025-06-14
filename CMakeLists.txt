@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(cnetflow C)
-SET(CMAKE_BUILD_TYPE Debug)
+
 SET (CMAKE_C_COMPILER             "/usr/bin/gcc")
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
 SET (CMAKE_C_FLAGS_DEBUG          "-g -Wall -Wextra -pedantic ")

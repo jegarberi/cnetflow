@@ -119,7 +119,7 @@ void *parse_v9(const parse_args_t *args_data) {
           uint16_t l = (uint16_t) template->templates[0].fields[field].field_length;
           swap_endianness(&t, sizeof(t));
           swap_endianness(&l, sizeof(l));
-          fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l);
+          fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l,"");
 
         }
         pos += (field_count * 4) + 4 ;
