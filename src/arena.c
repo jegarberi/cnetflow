@@ -49,12 +49,13 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     return NULL;
   }
   void *address = NULL;
-  if (((size_t) arena->base_address + arena->offset) % 8 == 0) {
+  size_t padding = ((size_t) arena->base_address + arena->offset) % 8;
+  if (padding == 0) {
     address = (void *) ((arena->base_address) + arena->offset);
     arena->offset += bytes;
 
   } else {
-    size_t padding = (size_t) arena->base_address + arena->offset;
+
     address = (void *) ((arena->base_address) + arena->offset + padding);
     arena->offset += bytes + padding;
 

@@ -4,11 +4,19 @@
 
 #ifndef NETFLOW_V9_H
 #define NETFLOW_V9_H
+
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
 #include "collector.h"
 #include "netflow.h"
-
-
+#include "db_psql.h"
+#include "hashmap.h"
+#include "fields.h"
+#include "arena.h"
 
 typedef struct {
   uint16_t field_type; //This field gives the number of fields in this template record. Because a template FlowSet may contain multiple template records, this field allows the parser to determine the end of the current template record and the start of the next.

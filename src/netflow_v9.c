@@ -1,20 +1,14 @@
 //
 // Created by jon on 6/3/25.
 //
+
+
 #include "netflow_v9.h"
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include "collector.h"
-#include "db_psql.h"
-#include "hashmap.h"
-#include "netflow_v9.h"
-#include "fields.h";
 static PGconn *conn;
 static hashmap_t *templates_hashmap;
+extern arena_struct_t *arena_collector;
+
 void init_v9(arena_struct_t *arena, const size_t cap) {
   fprintf(stderr, "Initializing v9 [templates_hashmap]...\n");
   templates_hashmap = hashmap_create(arena, cap);
@@ -55,6 +49,7 @@ void *parse_v9(const parse_args_t *args_data) {
   uint8_t process_flow = 1;
   size_t flowset_base = 0;
   size_t flowset_end = 0;
+  size_t total_flowsets = 0;
   uint16_t len = 0;
   size_t total_packet_length = args->len;
   fprintf(stderr, "args->len: %d\n", total_packet_length);
@@ -90,6 +85,7 @@ void *parse_v9(const parse_args_t *args_data) {
     swap_endianness(&flowset->template.length, sizeof(flowset->template.length));
     uint16_t flowset_id = flowset->template.flowset_id;
     uint16_t length = flowset->template.length;
+    uint16_t *template = NULL;
     fprintf(stderr, "flowset_id: %d\n", flowset_id);
     fprintf(stderr, "length: %d\n", length);
 
@@ -97,12 +93,13 @@ void *parse_v9(const parse_args_t *args_data) {
       // this is a template flowset
       fprintf(stderr, "this is a template flowset\n");
       size_t has_more_templates = 1;
-      size_t pos = 0 ;
-      //end = flowset_base + length;
+      size_t pos = 0;
+      // end = flowset_base + length;
       size_t template_counter = 0;
       while (has_more_templates) {
         size_t delta = pos - flowset_base;
-        netflow_v9_flow_header_template_t *template = (netflow_v9_flow_header_template_t *) (args->data + pos + flowset_base);
+        netflow_v9_flow_header_template_t *template =
+            (netflow_v9_flow_header_template_t *) (args->data + pos + flowset_base);
         // ptr = &(template->templates[template_counter].template_id);
         // swap_endianness(&template->template_id,sizeof(template->template_id));
         uint16_t template_id = template->templates[0].template_id;
@@ -112,23 +109,40 @@ void *parse_v9(const parse_args_t *args_data) {
         swap_endianness(&field_count, sizeof(field_count));
         fprintf(stderr, "template_id: %d\n", template_id);
         fprintf(stderr, "field count: %d\n", field_count);
-        //size_t start_fields = template->templates[0].fields;
-        // size_t end_fields = start_fields + field_count * 4;
+        // size_t start_fields = template->templates[0].fields;
+        //  size_t end_fields = start_fields + field_count * 4;
         for (size_t field = 0; field < field_count; field++) {
           uint16_t t = (uint16_t) template->templates[0].fields[field].field_type;
           uint16_t l = (uint16_t) template->templates[0].fields[field].field_length;
           swap_endianness(&t, sizeof(t));
           swap_endianness(&l, sizeof(l));
-          fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l,"");
-
+          // fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l,"");
         }
-        pos += (field_count * 4) + 4 ;
+        pos += (field_count * 4) + 4;
         char key[255];
         snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
         fprintf(stderr, "key: %s\n", key);
-
-        fprintf(stderr, "template_counter: %d\n", template_counter);
+        uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_hashmap, key, strlen(key));
+        uint16_t *temp;
+        size_t template_init = &template->templates[0].fields[0].field_type;
+        if (template_hashmap == NULL) {
+          fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
+          size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
+          fprintf(stderr, "template_init: %lu template_end: %lu\n", template_init, template_end);
+          temp = arena_alloc(arena_collector, sizeof(uint16_t) * field_count * 2 * 2);
+          memcpy(temp, (void *)(template_init - sizeof(int16_t)*2), sizeof(uint16_t) * field_count * 2);
+          if (hashmap_set(templates_hashmap, arena_collector, key, strlen(key), temp)) {
+            fprintf(stderr, "Error saving template in hashmap [%s]...\n", key);
+          } else {
+            fprintf(stderr, "Template saved in hashmap [%s]...\n", key);
+          }
+          // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
+        } else {
+          memcpy(template_hashmap, (void *)(template_init - sizeof(int16_t)*2), sizeof(uint16_t) * field_count * 2);
+        }
+        fprintf(stderr, "template_counter: %lu\n", template_counter);
         template_counter++;
+        total_flowsets++;
         if (pos >= length - 4) {
           has_more_templates = 0;
         }
@@ -142,7 +156,7 @@ void *parse_v9(const parse_args_t *args_data) {
       snprintf(key, 255, "%s-%u\0", ip_int_to_str(args->exporter), template_id);
       fprintf(stderr, "key: %s\n", key);
       uint16_t *temp;
-      uint16_t *template = (uint16_t *) hashmap_get(templates_hashmap, key, sizeof(key));
+      template = (uint16_t *) hashmap_get(templates_hashmap, key, strlen(key));
       if (template == NULL) {
         fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
       }
