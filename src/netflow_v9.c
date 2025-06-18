@@ -116,7 +116,7 @@ void *parse_v9(const parse_args_t *args_data) {
           uint16_t l = (uint16_t) template->templates[0].fields[field].field_length;
           swap_endianness(&t, sizeof(t));
           swap_endianness(&l, sizeof(l));
-          // fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l,"");
+          fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l, ipfix_field_types[t].name);
         }
         pos += (field_count * 4) + 4;
         char key[255];
@@ -130,7 +130,7 @@ void *parse_v9(const parse_args_t *args_data) {
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
           fprintf(stderr, "template_init: %lu template_end: %lu\n", template_init, template_end);
           temp = arena_alloc(arena_collector, sizeof(uint16_t) * field_count * 2 * 2);
-          memcpy(temp, (void *)(template_init - sizeof(int16_t)*2), sizeof(uint16_t) * field_count * 2);
+          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * field_count * 2);
           if (hashmap_set(templates_hashmap, arena_collector, key, strlen(key), temp)) {
             fprintf(stderr, "Error saving template in hashmap [%s]...\n", key);
           } else {
@@ -138,7 +138,7 @@ void *parse_v9(const parse_args_t *args_data) {
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
         } else {
-          memcpy(template_hashmap, (void *)(template_init - sizeof(int16_t)*2), sizeof(uint16_t) * field_count * 2);
+          memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * field_count * 2);
         }
         fprintf(stderr, "template_counter: %lu\n", template_counter);
         template_counter++;

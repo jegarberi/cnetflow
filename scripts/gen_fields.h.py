@@ -464,9 +464,9 @@ def format_entry(entry):
     except Exception as e:
         test_ipfix = False
     if test_ipfix is False:
-        ret = f"    {{0, 0, {entry['ftype']}, 0, NULL, NULL}},"
+        ret = f"    {{0, {entry['ftype']}, 0, NULL, NULL, NULL}},"
     else:
-        ret = f"    {{{entry['eno']}, {entry['ftype']}, IPFIX_FT_{IPFIXFieldType(entry['ftype']).name}, {entry['length']},{entry['coding']},\"{entry['name']}\", \"{entry['documentation']}\"}},"
+        ret = f"    {{{entry['eno']}, IPFIX_FT_{IPFIXFieldType(entry['ftype']).name}, {entry['length']},{entry['coding']},\"{entry['name']}\", \"{entry['documentation']}\"}},"
 
     return ret
 
@@ -476,6 +476,9 @@ formatted_lines = [format_entry(entry)
 
 # Add terminating entry
 formatted_lines.append("    {0, 0, -1, 0, NULL, NULL}")
+
+for ftype in IPFIXFieldType:
+    print(f"#define IPFIX_FT_{ftype.name} {ftype.value}")
 
 # Wrap with array definition
 formatted_array = "ipfix_field_type_t ipfix_field_types[] = {\n" + "\n".join(formatted_lines) + "\n};"
