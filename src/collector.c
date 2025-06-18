@@ -30,7 +30,7 @@ uv_loop_t *loop_udp;
 uv_loop_t *loop_pool;
 
 
-uv_thread_t threads[7];
+//uv_thread_t threads[7];
 size_t thread_counter;
 /**
  * Converts an IPv4 address in integer format to a string representation.
