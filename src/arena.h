@@ -45,4 +45,5 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes);
 int arena_clean(arena_struct_t *arena);
 int arena_destroy(arena_struct_t *arena);
 int arena_realloc(arena_struct_t *arena, size_t bytes);
+int arena_free(arena_struct_t *arena, void *address);
 #endif // ARENA_H

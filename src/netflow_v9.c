@@ -174,5 +174,6 @@ void *parse_v9(const parse_args_t *args_data) {
 unlock_mutex_parse_v9:
   uv_mutex_unlock(lock);
   args->status = collector_data_status_done;
+  arena_free(arena_collector, args_data->data);
   return NULL;
 }

@@ -85,7 +85,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   arena->offset += padding + bytes;
   memset(address, 0, padding + bytes);
   arena->allocations++;
-  arena->max_allocations;
+  arena->max_allocations++;
   if (arena->first_chunk == NULL) {
     arena->first_chunk = address;
     arena->first_chunk->base_address = address;

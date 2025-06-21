@@ -152,7 +152,9 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  static uv_buf_t buffer[POOL_SIZE] = {0};
+  buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);
+  buf->len = suggested_size;
+  /*static uv_buf_t buffer[POOL_SIZE] = {0};
   static volatile int buffer_index = 0;
 
   if (buffer[buffer_index].base == NULL) {
@@ -180,7 +182,8 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
     }
     */
-  }
+  /*
+}
 
   buf->base = buffer[buffer_index].base;
   buf->len = buffer[buffer_index].len;
@@ -224,7 +227,7 @@ int8_t collector_start(collector_t *collector) {
   signal(SIGUSR2, signal_handler);
   signal(SIGHUP, signal_handler);
   arena_collector = malloc(sizeof(arena_struct_t));
-  const arena_status err = arena_create(arena_collector, (size_t) 1024 * 1024 * 1024);
+  const arena_status err = arena_create(arena_collector, (size_t) 7 * 1024 * 1024 * 1024);
   if (err != ok) {
     fprintf(STDERR, "arena_create failed: %d\n", err);
     goto error_no_arena;
@@ -286,13 +289,21 @@ error_no_arena:
  * @param flags Flags associated with the received packet (e.g., status or additional information).
  */
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
-  static parse_args_t *func_args = NULL;
+  parse_args_t *func_args = NULL;
   if (buf->base == NULL) {
     fprintf(STDERR, "got buf->base == NULL\n");
     return;
   }
   if (nread == 0) {
     return;
+  }
+  NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);
+  switch (nf_version) {
+    case NETFLOW_V5:
+    case NETFLOW_V9:
+      break;
+    default:
+      return;
   }
   if (addr == NULL) {
     fprintf(STDERR, "got udp packet! handle: %p ip: NULL flags: %d\n", (void *) handle, flags);
@@ -320,7 +331,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   fprintf(STDERR,"\n");
   */
-  NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);
+
 
   static void *tmp[POOL_SIZE] = {0};
   static uv_work_t *work_req[POOL_SIZE] = {0};
