@@ -22,7 +22,7 @@
 #define STDERR stderr
 // #define MALLOC(x,y) arena_alloc(x,y)
 // #define MALLOC(x,y) malloc(y)
-#define POOL_SIZE 1024
+#define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
 arena_struct_t *arena_collector;
 static collector_t *collector_config;
@@ -42,7 +42,7 @@ void print_rss_max_usage() {
     printf("ru_maxrss reached... quitting...");
     signal_handler(SIGINT);
   }
-  printf("ru_maxrss: %f GB\n", (float) (usage.ru_maxrss) / (1024 * 1024));
+  fprintf(STDERR, "ru_maxrss: %f GB\n", (float) (usage.ru_maxrss) / (1024 * 1024));
 }
 
 /**
@@ -163,6 +163,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     } else {
       buffer[buffer_index].len = suggested_size;
     }
+
     /*
     memset(buffer[buffer_index], 0, sizeof(uv_buf_t));
     char *tmp = NULL;
@@ -240,8 +241,8 @@ int8_t collector_start(collector_t *collector) {
   uv_timer_t timer_req_rss;
   uv_timer_init(loop_timer_snmp, &timer_req_snmp);
   uv_timer_init(loop_timer_rss, &timer_req_rss);
-  uv_timer_start(&loop_timer_snmp, snmp_test, 30000, 30000);
-  uv_timer_start(&loop_timer_rss, print_rss_max_usage, 1000, 60000);
+  uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
+  uv_timer_start(&timer_req_rss, print_rss_max_usage, 1000, 1000);
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
   uv_udp_init(loop_udp, udp_server);
 
@@ -285,7 +286,11 @@ error_no_arena:
  * @param flags Flags associated with the received packet (e.g., status or additional information).
  */
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
-  static parse_args_t *func_args;
+  static parse_args_t *func_args = NULL;
+  if (buf->base == NULL) {
+    fprintf(STDERR, "got buf->base == NULL\n");
+    return;
+  }
   if (nread == 0) {
     return;
   }
@@ -306,7 +311,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     func_args->data = NULL;
     func_args->mutex = collector_config->alloc(arena_collector, sizeof(uv_mutex_t));
     uv_mutex_init(func_args->mutex);
-    // func_args->status = collector_data_status_init;
+    func_args->status = collector_data_status_init;
   }
 
   /*
@@ -334,11 +339,12 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   switch (nf_version) {
     case NETFLOW_V5:
       if (uv_mutex_trylock((func_args->mutex))) {
-        fprintf(STDERR, "uv_mutex_trylock failed\n");
-        fprintf(STDERR, "we are dropping packets\n");
+        fprintf(STDERR, "NETFLOW_V5 [%lu] uv_mutex_trylock failed\n", data_counter);
+        fprintf(STDERR, "NETFLOW_V5 [%lu] we are dropping packets\n", data_counter);
+        data_counter++;
         return;
       }
-      memset(tmp[data_counter], 0, 65536);
+      // memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
         fprintf(STDERR, "nread > 65536\n");
         return;
@@ -373,11 +379,12 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       break;
     case NETFLOW_V9:
       if (uv_mutex_trylock((func_args->mutex))) {
-        fprintf(STDERR, "uv_mutex_trylock failed\n");
-        fprintf(STDERR, "we are dropping packets\n");
+        fprintf(STDERR, "NETFLOW_V9 [%lu] uv_mutex_trylock failed\n", data_counter);
+        fprintf(STDERR, "NETFLOW_V9 [%lu] we are dropping packets\n", data_counter);
+        data_counter++;
         return;
       }
-      memset(tmp[data_counter], 0, 65536);
+      // memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
         fprintf(STDERR, "nread > 65536\n");
         return;

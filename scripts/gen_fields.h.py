@@ -52,6 +52,7 @@ class IPFIXFieldType(IntEnum):
     FLOW_SAMPLER_ID = 48
     FLOW_SAMPLER_MODE = 49
     FLOW_SAMPLER_RANDOM_INTERVAL = 50
+    VENDOR_PROPIETARY = 51
     MINIMUMTTL = 52
     MAXIMUMTTL = 53
     FRAGMENTIDENTIFICATION = 54
@@ -277,6 +278,7 @@ original_entries = [
     [0, IPFIXFieldType.FLOW_SAMPLER_MODE, 1, "IPFIX_CODING_UINT", "flow_sampler_mode", "Netflow Flow Sampler Mode"],
     [0, IPFIXFieldType.FLOW_SAMPLER_RANDOM_INTERVAL, 4, "IPFIX_CODING_UINT", "flow_sampler_random_interval",
      "Netflow Packet Sample Interval"],
+    [0, IPFIXFieldType.VENDOR_PROPIETARY, 4, "IPFIX_CODING_UINT", "*Vendor Proprietary*", ""],
     [0, IPFIXFieldType.MINIMUMTTL, 1, "IPFIX_CODING_UINT", "minimumTTL", ""],
     [0, IPFIXFieldType.MAXIMUMTTL, 1, "IPFIX_CODING_UINT", "maximumTTL", ""],
     [0, IPFIXFieldType.FRAGMENTIDENTIFICATION, 4, "IPFIX_CODING_UINT", "fragmentIdentification", ""],

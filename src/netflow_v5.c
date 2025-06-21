@@ -201,13 +201,13 @@ static void prepare_statement(PGconn *conn) {
  *                    function usage; typically NULL if no return object is needed).
  */
 void *parse_v5(const parse_args_t *args_data) {
-  db_connect(&conn);
   parse_args_t args_copy;
   parse_args_t *args;
   args = &args_copy;
   memcpy(args, args_data->data, sizeof(parse_args_t));
   uv_mutex_t *lock = args->mutex;
-  // args->status = collector_data_status_processing;
+  db_connect(&conn);
+  args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v5_header_t *header = (netflow_v5_header_t *) (args->data);
   netflow_v5_record_t records[30] = {0};
@@ -276,6 +276,6 @@ void *parse_v5(const parse_args_t *args_data) {
   insert_v5(conn, args->exporter, records, header->count);
 unlock_mutex_parse_v5:
   uv_mutex_unlock(lock);
-  // args->status = collector_data_status_done;
+  args->status = collector_data_status_done;
   return NULL;
 }

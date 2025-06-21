@@ -47,6 +47,7 @@
 #define IPFIX_FT_FLOW_SAMPLER_ID 48
 #define IPFIX_FT_FLOW_SAMPLER_MODE 49
 #define IPFIX_FT_FLOW_SAMPLER_RANDOM_INTERVAL 50
+#define IPFIX_FT_VENDOR_PROPIETARY 51
 #define IPFIX_FT_MINIMUMTTL 52
 #define IPFIX_FT_MAXIMUMTTL 53
 #define IPFIX_FT_FRAGMENTIDENTIFICATION 54
@@ -268,7 +269,7 @@ ipfix_field_type_t ipfix_field_types[] = {
     {0, IPFIX_FT_FLOW_SAMPLER_ID, 1,IPFIX_CODING_UINT,"flow_sampler_id", "Netflow Flow Sampler ID"},
     {0, IPFIX_FT_FLOW_SAMPLER_MODE, 1,IPFIX_CODING_UINT,"flow_sampler_mode", "Netflow Flow Sampler Mode"},
     {0, IPFIX_FT_FLOW_SAMPLER_RANDOM_INTERVAL, 4,IPFIX_CODING_UINT,"flow_sampler_random_interval", "Netflow Packet Sample Interval"},
-    {0, 51, 0, NULL, NULL, NULL},
+    {0, IPFIX_FT_VENDOR_PROPIETARY, 4,IPFIX_CODING_UINT,"*Vendor Proprietary*", ""},
     {0, IPFIX_FT_MINIMUMTTL, 1,IPFIX_CODING_UINT,"minimumTTL", ""},
     {0, IPFIX_FT_MAXIMUMTTL, 1,IPFIX_CODING_UINT,"maximumTTL", ""},
     {0, IPFIX_FT_FRAGMENTIDENTIFICATION, 4,IPFIX_CODING_UINT,"fragmentIdentification", ""},

@@ -18,7 +18,8 @@ typedef struct {
   size_t len;
   uv_mutex_t *mutex;
   uint32_t exporter;
-  // collector_data_status status;
+  collector_data_status status;
+  size_t index;
 } parse_args_t;
 
 typedef struct {

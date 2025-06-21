@@ -27,26 +27,35 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   }
   arena->size = capacity;
   arena->offset = 0;
+  arena->allocations = 0;
+  arena->first_chunk = NULL;
   arena->end = (size_t) arena->base_address + arena->size;
   memset(arena->base_address, 0, arena->size);
+
   return ok;
 }
 
 /**
- * Allocates a block of memory from the specified arena.
- * Ensures the memory block is aligned to an 8-byte boundary,
- * and adjusts the arena's offset accordingly.
+ * Allocates a block of memory from the specified arena with the requested size.
+ * Ensures that the allocated memory is aligned to an 8-byte boundary, and updates
+ * the arena's internal state to reflect this allocation.
  *
- * @param arena A pointer to an `arena_struct_t` structure that manages the memory pool.
- *              The arena must be properly initialized before calling this function.
- * @param bytes The number of bytes to allocate from the arena.
- * @return A pointer to the allocated memory block if there is sufficient space
- *         in the arena; otherwise, returns `NULL`.
+ * If there's sufficient space and a free slot is available in previously
+ * allocated chunks, it reuses that chunk. Otherwise, it allocates a new
+ * memory region within the arena.
+ *
+ * @param arena A pointer to an `arena_struct_t` structure representing the memory
+ *              arena from which memory should be allocated.
+ * @param bytes The number of bytes to allocate, excluding alignment adjustment. Must be non-zero.
+ * @return A pointer to the allocated memory block, or `NULL` if the allocation fails
+ *         due to insufficient space or invalid input.
  */
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   if (bytes == 0) {
     return NULL;
   }
+  arena_chunk_t *chunk;
+  bytes = bytes + sizeof(arena_chunk_t);
 
   // Calculate padding to ensure 8-byte alignment
   size_t current_addr = (size_t) ((char *) arena->base_address + arena->offset);
@@ -56,14 +65,45 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   if (arena->offset + padding + bytes > arena->size) {
     return NULL;
   }
+  if (arena->free_slots > 0) {
+    chunk = arena->first_chunk;
+    while (chunk->next != NULL) {
+      if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
+        // we can use this chunk
+        chunk->occupied = 1;
+        arena->free_slots--;
+        return (void *) chunk->base_address;
+      }
+      chunk = chunk->next;
+    }
+  }
 
   // The aligned address for allocation
   void *address = (void *) ((char *) arena->base_address + arena->offset + padding);
 
   // Update the offset
   arena->offset += padding + bytes;
-
-  return address;
+  memset(address, 0, padding + bytes);
+  arena->allocations++;
+  arena->max_allocations;
+  if (arena->first_chunk == NULL) {
+    arena->first_chunk = address;
+    arena->first_chunk->base_address = address;
+    arena->first_chunk->occupied = 1;
+    arena->first_chunk->next = NULL;
+    arena->first_chunk->size = bytes;
+  } else {
+    chunk = arena->first_chunk;
+    while (chunk->next != NULL) {
+      chunk = chunk->next;
+    }
+    chunk->next = address;
+    chunk->next->base_address = address + sizeof(arena_chunk_t);
+    chunk->next->occupied = 1;
+    chunk->next->next = NULL;
+    chunk->next->size = bytes;
+  }
+  return address + sizeof(arena_chunk_t);
 }
 
 /**
@@ -143,4 +183,34 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
     // Memory block was moved. Any existing pointers into the arena are now invalid.
     return 1;
   }
+}
+
+
+/**
+ * Frees a memory chunk in the arena associated with the given address.
+ * Updates the internal linked list of chunks to include the newly freed chunk
+ * and marks it as occupied within the arena's management structure.
+ *
+ * @param arena A pointer to the `arena_struct_t` structure representing the memory arena.
+ * @param address The starting address of the memory chunk to be freed.
+ * @return An integer status code:
+ *         - Returns `0` if the arena has no existing chunks.
+ *         - Otherwise, performs the operation to logically "free" the address.
+ */
+int arena_free(arena_struct_t *arena, void *address) {
+  if (arena->first_chunk == NULL) {
+    return 0;
+  }
+  arena_chunk_t *chunk = arena->first_chunk;
+  while (chunk->next != NULL) {
+    if (chunk->base_address == address) {
+      break;
+    }
+    chunk = chunk->next;
+  }
+  chunk->occupied = 0;
+  chunk->free = 1;
+
+  arena->free_slots++;
+  return 0;
 }
