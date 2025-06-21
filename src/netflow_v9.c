@@ -22,6 +22,7 @@ void *parse_v9(const parse_args_t *args_data) {
   args = &args_copy;
   memcpy(args, args_data->data, sizeof(parse_args_t));
   uv_mutex_t *lock = args->mutex;
+  // args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v9_header_t *header = (netflow_v9_header_t *) (args->data);
 
@@ -172,5 +173,6 @@ void *parse_v9(const parse_args_t *args_data) {
 
 unlock_mutex_parse_v9:
   uv_mutex_unlock(lock);
+  // args->status = collector_data_status_done;
   return NULL;
 }

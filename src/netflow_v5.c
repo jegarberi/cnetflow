@@ -27,7 +27,7 @@ static void exit_nicely() {
  * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
-static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t *flows, int count) {
+static void insert_v5(PGconn *conn, uint32_t exporter, const netflow_v5_record_t *flows, int count) {
   prepare_statement(conn);
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK || exporter == 0 || count == 0) {
     exit(-1);
@@ -47,12 +47,24 @@ static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t
     int nParams = 18;
     const char *const paramValues[18] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output,prot
-        &exporter,           &(flows[i].srcaddr), &(flows[i].srcport), &(flows[i].dstaddr),
-        &(flows[i].dstport), &(flows[i].First),   &(flows[i].Last),    &(flows[i].dPkts),
-        &(flows[i].dOctets), &(flows[i].input),   &(flows[i].output),  &(flows[i].prot),
-        &(flows[i].tos), &(flows[i].src_as),   &(flows[i].dst_as),  &(flows[i].src_mask),
-        &(flows[i].dst_mask),&(flows[i].tcp_flags)
-    };
+        &exporter,
+        &(flows[i].srcaddr),
+        &(flows[i].srcport),
+        &(flows[i].dstaddr),
+        &(flows[i].dstport),
+        &(flows[i].First),
+        &(flows[i].Last),
+        &(flows[i].dPkts),
+        &(flows[i].dOctets),
+        &(flows[i].input),
+        &(flows[i].output),
+        &(flows[i].prot),
+        &(flows[i].tos),
+        &(flows[i].src_as),
+        &(flows[i].dst_as),
+        &(flows[i].src_mask),
+        &(flows[i].dst_mask),
+        &(flows[i].tcp_flags)};
     const int paramLengths[18] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output
         sizeof(exporter), // 1
@@ -135,28 +147,29 @@ static void prepare_statement(PGconn *conn) {
   char stmtName[] = "insert_flows";
   const int nParams = 18;
   char query[] = "insert into public.flows "
-                 "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,output,prot,tos,src_as,dst_as,src_mask,dst_mask,tcp_flags) values($1, $2, "
+                 "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,output,prot,tos,src_as,dst_"
+                 "as,src_mask,dst_mask,tcp_flags) values($1, $2, "
                  "$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)";
 
   const Oid paramTypes[18] = {
-    INT4OID, // 1 INT4OID for exporter (integer)
-    INT4OID, // 2 INT4OID for srcaddr (integer)
-    INT2OID, // 3 INT2OID for srcport (smallint)
-    INT4OID, // 4 INT4OID for dstaddr (integer)
-    INT2OID, // 5 INT2OID for dstport (smallint)
-    INT4OID, // 6 INT4OID for First (integer)
-    INT4OID, // 7 INT4OID for Last (integer)
-    INT4OID, // 8 INT4OID for dPkts (integer)
-    INT4OID, // 9 INT4OID for dOctets (integer)
-    INT2OID, // 10 INT2OID for input (smallint)
-    INT2OID, // 11 INT2OID for output (smallint)
-    CHAROID, // 12 CHAROID for prot (byte)
-    CHAROID, // 13 CHAROID for tos (byte)
-    INT2OID, // 14 INT2OID for srcas (smallint)
-    INT2OID, // 15 INT2OID for dstas (smallint)
-    CHAROID, // 16 CHAROID for src_mask (byte)
-    CHAROID, // 17 CHAROID for dst_mask (byte)
-    CHAROID, // 18 CHAROID for tcp_flags (byte)
+      INT4OID, // 1 INT4OID for exporter (integer)
+      INT4OID, // 2 INT4OID for srcaddr (integer)
+      INT2OID, // 3 INT2OID for srcport (smallint)
+      INT4OID, // 4 INT4OID for dstaddr (integer)
+      INT2OID, // 5 INT2OID for dstport (smallint)
+      INT4OID, // 6 INT4OID for First (integer)
+      INT4OID, // 7 INT4OID for Last (integer)
+      INT4OID, // 8 INT4OID for dPkts (integer)
+      INT4OID, // 9 INT4OID for dOctets (integer)
+      INT2OID, // 10 INT2OID for input (smallint)
+      INT2OID, // 11 INT2OID for output (smallint)
+      CHAROID, // 12 CHAROID for prot (byte)
+      CHAROID, // 13 CHAROID for tos (byte)
+      INT2OID, // 14 INT2OID for srcas (smallint)
+      INT2OID, // 15 INT2OID for dstas (smallint)
+      CHAROID, // 16 CHAROID for src_mask (byte)
+      CHAROID, // 17 CHAROID for dst_mask (byte)
+      CHAROID, // 18 CHAROID for tcp_flags (byte)
   };
 
 
@@ -194,6 +207,7 @@ void *parse_v5(const parse_args_t *args_data) {
   args = &args_copy;
   memcpy(args, args_data->data, sizeof(parse_args_t));
   uv_mutex_t *lock = args->mutex;
+  // args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v5_header_t *header = (netflow_v5_header_t *) (args->data);
   netflow_v5_record_t records[30] = {0};
@@ -228,8 +242,8 @@ void *parse_v5(const parse_args_t *args_data) {
     */
     swap_endianness((void *) &(records[i].First), sizeof((records[i].First)));
     swap_endianness((void *) &(records[i].Last), sizeof((records[i].Last)));
-    records[i].First = records[i].First/1000 + diff;
-    records[i].Last = records[i].Last/1000 + diff;
+    records[i].First = records[i].First / 1000 + diff;
+    records[i].Last = records[i].Last / 1000 + diff;
     swap_endianness((void *) &(records[i].First), sizeof((records[i].First)));
     swap_endianness((void *) &(records[i].Last), sizeof((records[i].Last)));
     /*
@@ -259,8 +273,9 @@ void *parse_v5(const parse_args_t *args_data) {
     printf_v5(stdout, &records[i]);
   }
   // swap_endianness((void *) &args->exporter, sizeof(args->exporter));
-  insert_v5(conn,args->exporter, records, header->count);
+  insert_v5(conn, args->exporter, records, header->count);
 unlock_mutex_parse_v5:
   uv_mutex_unlock(lock);
+  // args->status = collector_data_status_done;
   return NULL;
 }

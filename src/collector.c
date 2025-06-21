@@ -3,35 +3,48 @@
 //
 
 #include "collector.h"
-
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <uv.h>
 #include "arena.h"
+#include "cnetflow_snmp.h"
 #include "dyn_array.h"
 #include "netflow.h"
 #include "netflow_ipfix.h"
 #include "netflow_v5.h"
 #include "netflow_v9.h"
-
 #define true 1
 #define false 0
 #define STDERR stderr
 // #define MALLOC(x,y) arena_alloc(x,y)
 // #define MALLOC(x,y) malloc(y)
-
+#define POOL_SIZE 1024
+#define MAX_THREAD_COUNTER 7
 arena_struct_t *arena_collector;
 static collector_t *collector_config;
 
 uv_loop_t *loop_udp;
 uv_loop_t *loop_pool;
+uv_loop_t *loop_timer_snmp;
+uv_loop_t *loop_timer_rss;
 
-
-//uv_thread_t threads[7];
+// uv_thread_t threads[7];
 size_t thread_counter;
+
+void print_rss_max_usage() {
+  struct rusage usage;
+  getrusage(RUSAGE_SELF, &usage);
+  if ((float) usage.ru_maxrss / (1024 * 1024) > 8.0) {
+    printf("ru_maxrss reached... quitting...");
+    signal_handler(SIGINT);
+  }
+  printf("ru_maxrss: %f GB\n", (float) (usage.ru_maxrss) / (1024 * 1024));
+}
+
 /**
  * Converts an IPv4 address in integer format to a string representation.
  *
@@ -139,7 +152,7 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  static uv_buf_t buffer[1024] = {0};
+  static uv_buf_t buffer[POOL_SIZE] = {0};
   static volatile int buffer_index = 0;
 
   if (buffer[buffer_index].base == NULL) {
@@ -174,7 +187,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
           buffer_index, (size_t *) handle, suggested_size, buf->base, buf->len, arena_collector->offset);
   // memset(buffer[buffer_index].base, 0, suggested_size);
   buffer_index++;
-  if (buffer_index >= 1024) {
+  if (buffer_index >= POOL_SIZE) {
     buffer_index = 0;
   }
 
@@ -216,13 +229,19 @@ int8_t collector_start(collector_t *collector) {
     goto error_no_arena;
   }
   init_v9(arena_collector, 1000000);
-  dyn_array_t * dyn_arr ;
-  dyn_array_create(arena_collector,1024,sizeof(int8_t));
+  dyn_array_t *dyn_arr;
+  dyn_array_create(arena_collector, 1024, sizeof(int8_t));
   fprintf(stderr, "collector_init...\n");
-
+  loop_timer_rss = uv_default_loop();
+  loop_timer_snmp = uv_default_loop();
   loop_udp = uv_default_loop();
   loop_pool = uv_default_loop();
-
+  uv_timer_t timer_req_snmp;
+  uv_timer_t timer_req_rss;
+  uv_timer_init(loop_timer_snmp, &timer_req_snmp);
+  uv_timer_init(loop_timer_rss, &timer_req_rss);
+  uv_timer_start(&loop_timer_snmp, snmp_test, 30000, 30000);
+  uv_timer_start(&loop_timer_rss, print_rss_max_usage, 1000, 60000);
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
   uv_udp_init(loop_udp, udp_server);
 
@@ -287,6 +306,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     func_args->data = NULL;
     func_args->mutex = collector_config->alloc(arena_collector, sizeof(uv_mutex_t));
     uv_mutex_init(func_args->mutex);
+    // func_args->status = collector_data_status_init;
   }
 
   /*
@@ -297,8 +317,8 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   */
   NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);
 
-  static void *tmp[1024] = {0};
-  static uv_work_t *work_req[1024] = {0};
+  static void *tmp[POOL_SIZE] = {0};
+  static uv_work_t *work_req[POOL_SIZE] = {0};
   uv_work_t *tmp_worker = NULL;
   uv_work_cb work_cb;
   static size_t data_counter = 0;
@@ -313,7 +333,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   uint32_t *exporter_ptr = NULL;
   switch (nf_version) {
     case NETFLOW_V5:
-      uv_mutex_lock((func_args->mutex));
+      if (uv_mutex_trylock((func_args->mutex))) {
+        fprintf(STDERR, "uv_mutex_trylock failed\n");
+        fprintf(STDERR, "we are dropping packets\n");
+        return;
+      }
       memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
         fprintf(STDERR, "nread > 65536\n");
@@ -324,9 +348,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 
       exporter_ptr = &(addr->sa_data[2]);
       func_args->exporter = *(uint32_t *) exporter_ptr;
-      //swap_endianness(&func_args->exporter, sizeof(uint32_t));
-      //func_args->exporter = (uint32_t)(*(&(addr->sa_data[2])) | *(&(addr->sa_data[3]) ) << 8 | *(&(addr->sa_data[4])) << 16 | *(&(addr->sa_data[5])) << 24);
-      //func_args->exporter = addr->sa_data[2] << 0 | addr->sa_data[3] << 8 | addr->sa_data[4] << 16 | addr->sa_data[5] << 24;
+      // swap_endianness(&func_args->exporter, sizeof(uint32_t));
+      // func_args->exporter = (uint32_t)(*(&(addr->sa_data[2])) | *(&(addr->sa_data[3]) ) << 8 | *(&(addr->sa_data[4]))
+      // << 16 | *(&(addr->sa_data[5])) << 24); func_args->exporter = addr->sa_data[2] << 0 | addr->sa_data[3] << 8 |
+      // addr->sa_data[4] << 16 | addr->sa_data[5] << 24;
       func_args->data = tmp[data_counter];
       func_args->len = nread;
       // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
@@ -347,7 +372,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       data_counter++;
       break;
     case NETFLOW_V9:
-      uv_mutex_lock((func_args->mutex));
+      if (uv_mutex_trylock((func_args->mutex))) {
+        fprintf(STDERR, "uv_mutex_trylock failed\n");
+        fprintf(STDERR, "we are dropping packets\n");
+        return;
+      }
       memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
         fprintf(STDERR, "nread > 65536\n");
@@ -358,9 +387,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       uint32_t *exporter_ptr = NULL;
       exporter_ptr = &(addr->sa_data[2]);
       func_args->exporter = *(uint32_t *) exporter_ptr;
-      //swap_endianness(&func_args->exporter, sizeof(uint32_t));
-      //func_args->exporter = (uint32_t)(*(&(addr->sa_data[2])) | *(&(addr->sa_data[3]) ) << 8 | *(&(addr->sa_data[4])) << 16 | *(&(addr->sa_data[5])) << 24);
-      //func_args->exporter = addr->sa_data[2] << 0 | addr->sa_data[3] << 8 | addr->sa_data[4] << 16 | addr->sa_data[5] << 24;
+      // swap_endianness(&func_args->exporter, sizeof(uint32_t));
+      // func_args->exporter = (uint32_t)(*(&(addr->sa_data[2])) | *(&(addr->sa_data[3]) ) << 8 | *(&(addr->sa_data[4]))
+      // << 16 | *(&(addr->sa_data[5])) << 24); func_args->exporter = addr->sa_data[2] << 0 | addr->sa_data[3] << 8 |
+      // addr->sa_data[4] << 16 | addr->sa_data[5] << 24;
       func_args->data = tmp[data_counter];
       func_args->len = nread;
       // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
@@ -388,11 +418,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   // memset((void *) buf->base, 0, nread);
   // memset((void *) buf, 0, sizeof(uv_buf_t));
-  if (data_counter >= 1024) {
+  if (data_counter >= POOL_SIZE) {
     data_counter = 0;
   }
   thread_counter++;
-  if (thread_counter > 7) {
+  if (thread_counter > MAX_THREAD_COUNTER) {
     thread_counter = 0;
   }
 }
