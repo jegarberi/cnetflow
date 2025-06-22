@@ -21,18 +21,19 @@ static void exit_nicely(PGconn *conn) {
  *             established, this function will populate it with a valid connection
  *             object. If the connection fails, the application will terminate.
  */
-void db_connect(PGconn ** conn) {
+void db_connect(PGconn **conn) {
+
+
   if (*conn != NULL) {
     return;
   }
-
-  //PGconn *conn;
   /*static char *static_conn_string =
       "postgresql://postgres.your-tenant-id:your-super-secret-and-long-postgres-password@192.168.100.78:5432/postgres";*/
-  static char *static_conn_string;
-  static_conn_string = getenv("PG_CONN_STRING");
+  const char *static_conn_string = getenv("PG_CONN_STRING");
   /* Make a connection to the database */
-  *conn = PQconnectdb(static_conn_string);
+  PGconn *conn_ptr;
+  conn_ptr = PQconnectdb(static_conn_string);
+  *conn = conn_ptr;
   /* Check to see that the backend connection was successfully made */
   if (PQstatus(*conn) != CONNECTION_OK) {
     fprintf(stderr, "%s", PQerrorMessage(*conn));
@@ -51,6 +52,7 @@ void db_connect(PGconn ** conn) {
   PQclear(res);
   fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) succesfull: %s\n", PQerrorMessage(*conn));
 
+  /*
   res = PQexec(*conn, "DEALLOCATE ALL");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
     fprintf(stderr, "DEALLOCATE ALL UNsuccessfull: %s\n", PQerrorMessage(*conn));
@@ -59,8 +61,9 @@ void db_connect(PGconn ** conn) {
   }
   PQclear(res);
   fprintf(stderr, "DEALLOCATE ALL successfull\n");
+  */
 
-  //return conn;
+  // return conn;
   /*
    * Fetch rows from pg_database, the system catalog of databases
    */

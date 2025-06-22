@@ -8,12 +8,11 @@
 #include "arena.h"
 #include "collector.h"
 #include "db_psql.h"
-static PGconn *conn;
+
 arena_struct_t *arena_collector;
-static void exit_nicely() {
+static void exit_nicely(PGconn *conn) {
   if (conn != NULL) {
     fprintf(stderr, PQerrorMessage(conn));
-
     PQfinish(conn);
     exit(-1);
   }
@@ -27,12 +26,14 @@ static void exit_nicely() {
  * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
-static void insert_v5(PGconn *conn, uint32_t exporter, const netflow_v5_record_t *flows, int count) {
-  prepare_statement(conn);
+static void insert_v5(uint32_t exporter, const netflow_v5_record_t *flows, int count) {
+  PGconn *conn;
+  db_connect(&conn);
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK || exporter == 0 || count == 0) {
     exit(-1);
   }
   PGresult *res;
+  prepare_statement(conn);
   /*
   res = PQexec(conn, "BEGIN");
   if (PQresultStatus(res) != PGRES_COMMAND_OK)
@@ -90,20 +91,20 @@ static void insert_v5(PGconn *conn, uint32_t exporter, const netflow_v5_record_t
     const int resultFormat = 0;
 
     res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+    /*if (PQresultStatus(res) != PGRES_COMMAND_OK) {
       fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
       PQclear(res);
       prepare_statement(conn);
       res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
-        exit_nicely();
+        exit_nicely(conn);
       }
       PQclear(res);
-    }
+    }*/
     PQclear(res);
   }
-
+  PQfinish(conn);
   /* end the transaction */
   /*
   res = PQexec(conn, "END");
@@ -136,13 +137,11 @@ static void printf_v5(FILE *file, const netflow_v5_record_t *flow) {
  * @param conn   A pointer to the PostgreSQL connection object. Must be an open and valid connection.
  */
 static void prepare_statement(PGconn *conn) {
-  if (conn == NULL) {
-    db_connect(conn);
-    if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
-      fprintf(stderr, "Connection to database failed: %s", conn ? PQerrorMessage(conn) : "NULL connection");
-      exit_nicely();
-    }
+  if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
+    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    exit_nicely(conn);
   }
+
   PGresult *res;
   char stmtName[] = "insert_flows";
   const int nParams = 18;
@@ -181,7 +180,7 @@ static void prepare_statement(PGconn *conn) {
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
       PQclear(res);
-      exit_nicely();
+      exit_nicely(conn);
     }
   }
   PQclear(res);
@@ -205,8 +204,7 @@ void *parse_v5(const parse_args_t *args_data) {
   parse_args_t *args;
   args = &args_copy;
   memcpy(args, args_data->data, sizeof(parse_args_t));
-  uv_mutex_t *lock = args->mutex;
-  db_connect(&conn);
+  // uv_mutex_t *lock = args->mutex;
   args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v5_header_t *header = (netflow_v5_header_t *) (args->data);
@@ -273,9 +271,9 @@ void *parse_v5(const parse_args_t *args_data) {
     printf_v5(stdout, &records[i]);
   }
   // swap_endianness((void *) &args->exporter, sizeof(args->exporter));
-  insert_v5(conn, args->exporter, records, header->count);
+  insert_v5(args->exporter, records, header->count);
 unlock_mutex_parse_v5:
-  uv_mutex_unlock(lock);
+  // uv_mutex_unlock(lock);
   args->status = collector_data_status_done;
   arena_free(arena_collector, args_data->data);
   return NULL;

@@ -16,7 +16,7 @@ typedef enum {
 typedef struct {
   void *data;
   size_t len;
-  uv_mutex_t *mutex;
+  // uv_mutex_t *mutex;
   uint32_t exporter;
   collector_data_status status;
   size_t index;

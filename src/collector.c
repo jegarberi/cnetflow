@@ -292,6 +292,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   parse_args_t *func_args = NULL;
   if (buf->base == NULL) {
     fprintf(STDERR, "got buf->base == NULL\n");
+    exit(-1);
     return;
   }
   if (nread == 0) {
@@ -315,15 +316,15 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     fprintf(STDERR, "got udp packet! handle: %p ip: %s flags: %d bytes: %d\n", (void *) handle, address_str, flags,
             nread);
   }
-  if (func_args == NULL) {
-    func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));
-    func_args->exporter = 0;
-    func_args->len = 0;
-    func_args->data = NULL;
-    func_args->mutex = collector_config->alloc(arena_collector, sizeof(uv_mutex_t));
-    uv_mutex_init(func_args->mutex);
-    func_args->status = collector_data_status_init;
-  }
+  // if (func_args == NULL) {
+  func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));
+  func_args->exporter = 0;
+  func_args->len = 0;
+  func_args->data = NULL;
+  // func_args->mutex = collector_config->alloc(arena_collector, sizeof(uv_mutex_t));
+  // uv_mutex_init(func_args->mutex);
+  func_args->status = collector_data_status_init;
+  //}
 
   /*
   for (int i = 0; i < nread; ++i) {
@@ -349,12 +350,12 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   uint32_t *exporter_ptr = NULL;
   switch (nf_version) {
     case NETFLOW_V5:
-      if (uv_mutex_trylock((func_args->mutex))) {
+      /*if (uv_mutex_trylock((func_args->mutex))) {
         fprintf(STDERR, "NETFLOW_V5 [%lu] uv_mutex_trylock failed\n", data_counter);
         fprintf(STDERR, "NETFLOW_V5 [%lu] we are dropping packets\n", data_counter);
         data_counter++;
         return;
-      }
+      }*/
       // memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
         fprintf(STDERR, "nread > 65536\n");
@@ -389,12 +390,12 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       data_counter++;
       break;
     case NETFLOW_V9:
-      if (uv_mutex_trylock((func_args->mutex))) {
+      /*if (uv_mutex_trylock((func_args->mutex))) {
         fprintf(STDERR, "NETFLOW_V9 [%lu] uv_mutex_trylock failed\n", data_counter);
         fprintf(STDERR, "NETFLOW_V9 [%lu] we are dropping packets\n", data_counter);
         data_counter++;
         return;
-      }
+      }*/
       // memset(tmp[data_counter], 0, 65536);
       if (nread > 65536) {
         fprintf(STDERR, "nread > 65536\n");

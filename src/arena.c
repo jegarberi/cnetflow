@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <uv.h>
 
 //
 // Created by jon on 6/2/25.
@@ -28,10 +29,13 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   arena->size = capacity;
   arena->offset = 0;
   arena->allocations = 0;
+  arena->max_allocations = 0;
+  arena->free_slots = 0;
+  arena->capacity = capacity;
   arena->first_chunk = NULL;
   arena->end = (size_t) arena->base_address + arena->size;
   memset(arena->base_address, 0, arena->size);
-
+  uv_mutex_init(&arena->mutex);
   return ok;
 }
 
@@ -54,6 +58,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   if (bytes == 0) {
     return NULL;
   }
+  uv_mutex_lock(&arena->mutex);
   arena_chunk_t *chunk;
   bytes = bytes + sizeof(arena_chunk_t);
 
@@ -70,9 +75,12 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     while (chunk->next != NULL) {
       if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
         // we can use this chunk
+        fprintf(stderr, "using freed chunk [%p]\n", chunk->data_address);
         chunk->occupied = 1;
+        chunk->free == 0;
         arena->free_slots--;
-        return (void *) chunk->base_address;
+        uv_mutex_unlock(&arena->mutex);
+        return (void *) chunk->data_address;
       }
       chunk = chunk->next;
     }
@@ -88,7 +96,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   arena->max_allocations++;
   if (arena->first_chunk == NULL) {
     arena->first_chunk = address;
-    arena->first_chunk->base_address = address;
+    arena->first_chunk->data_address = address + sizeof(arena_chunk_t);
     arena->first_chunk->occupied = 1;
     arena->first_chunk->next = NULL;
     arena->first_chunk->size = bytes;
@@ -98,11 +106,12 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
       chunk = chunk->next;
     }
     chunk->next = address;
-    chunk->next->base_address = address + sizeof(arena_chunk_t);
+    chunk->next->data_address = address + sizeof(arena_chunk_t);
     chunk->next->occupied = 1;
     chunk->next->next = NULL;
     chunk->next->size = bytes;
   }
+  uv_mutex_unlock(&arena->mutex);
   return address + sizeof(arena_chunk_t);
 }
 
@@ -141,6 +150,10 @@ int arena_destroy(arena_struct_t *arena) {
   arena->size = 0;
   arena->offset = 0;
   arena->end = 0;
+  arena->allocations = 0;
+  arena->max_allocations = 0;
+  arena->free_slots = 0;
+  arena->capacity = 0;
   return 0;
 }
 
@@ -162,7 +175,9 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
   if (arena == NULL) {
     return -1;
   }
-
+  if (bytes_to_add < 1) {
+    return 0;
+  }
   void *old_base_address = arena->base_address;
   size_t new_size = arena->size + bytes_to_add;
 
@@ -201,9 +216,10 @@ int arena_free(arena_struct_t *arena, void *address) {
   if (arena->first_chunk == NULL) {
     return 0;
   }
+  uv_mutex_lock(&arena->mutex);
   arena_chunk_t *chunk = arena->first_chunk;
   while (chunk->next != NULL) {
-    if (chunk->base_address == address) {
+    if (chunk->data_address == address) {
       break;
     }
     chunk = chunk->next;
@@ -212,5 +228,6 @@ int arena_free(arena_struct_t *arena, void *address) {
   chunk->free = 1;
 
   arena->free_slots++;
+  uv_mutex_unlock(&arena->mutex);
   return 0;
 }

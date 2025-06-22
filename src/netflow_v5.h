@@ -6,10 +6,10 @@
 #define NETFLOW_V5_H
 #include <stddef.h>
 #include <stdint.h>
-#include "collector.h"
 #include <time.h>
-#include "netflow.h"
+#include "collector.h"
 #include "db_psql.h"
+#include "netflow.h"
 typedef struct {
   uint16_t version;
   uint16_t count;
@@ -46,8 +46,8 @@ typedef struct {
 } netflow_v5_record_t;
 
 static void prepare_statement(PGconn *conn);
-static void insert_v5(PGconn * conn,uint32_t exporter, const netflow_v5_record_t *flows, int count);
-static void exit_nicely();
+static void insert_v5(uint32_t exporter, const netflow_v5_record_t *flows, int count);
+static void exit_nicely(PGconn *conn);
 static void printf_v5(FILE *, const netflow_v5_record_t *);
 void *parse_v5(const parse_args_t *);
 #endif // NETFLOW_V5_H

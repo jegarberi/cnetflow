@@ -6,6 +6,7 @@
 #define ARENA_H
 #include <stddef.h>
 #include <stdint.h>
+#include <uv/unix.h>
 
 #define MAX_ALLOCATIONS 102400
 
@@ -17,7 +18,7 @@ typedef struct chunk {
   uint8_t free;
   size_t size;
   struct chunk *next;
-  void *base_address;
+  void *data_address;
 } arena_chunk_t;
 
 typedef struct arena {
@@ -28,6 +29,7 @@ typedef struct arena {
   size_t max_allocations;
   size_t free_slots;
   size_t capacity;
+  uv_mutex_t mutex;
   arena_chunk_t *first_chunk;
   void *base_address;
 } arena_struct_t;
