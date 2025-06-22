@@ -202,8 +202,9 @@ static void prepare_statement(PGconn *conn) {
 void *parse_v5(const parse_args_t *args_data) {
   parse_args_t args_copy;
   parse_args_t *args;
+  memcpy(&args_copy, args_data, sizeof(parse_args_t));
   args = &args_copy;
-  memcpy(args, args_data->data, sizeof(parse_args_t));
+
   // uv_mutex_t *lock = args->mutex;
   args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
