@@ -77,7 +77,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
         // we can use this chunk
         fprintf(stderr, "using freed chunk [%p]\n", chunk->data_address);
         chunk->occupied = 1;
-        chunk->free == 0;
+        chunk->free = 0;
         arena->free_slots--;
         uv_mutex_unlock(&arena->mutex);
         return (void *) chunk->data_address;
