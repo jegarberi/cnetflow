@@ -166,7 +166,7 @@ void *fix_endianness(void *buf, void *data, size_t len) {
     memcpy(buf, data, len);
     switch (len) {
       case 1:
-        memcpy(buf, (uint8_t *) data, 2);
+        memcpy(buf, (uint8_t *) data, 1);
         break;
       case 2:
         int16_t *ptr16 = (uint16_t *) data;

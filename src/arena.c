@@ -55,10 +55,13 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
  *         due to insufficient space or invalid input.
  */
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
+  void *address;
+  uv_mutex_lock(&arena->mutex);
   if (bytes == 0) {
+    uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
-  uv_mutex_lock(&arena->mutex);
+
   arena_chunk_t *chunk;
   bytes = bytes + sizeof(arena_chunk_t);
 
@@ -71,6 +74,13 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
+  /*
+  address = (void *) ((char *) arena->base_address + arena->offset + padding);
+  arena->offset += padding + bytes;
+  memset(address, 0, padding + bytes);
+  uv_mutex_unlock(&arena->mutex);
+  return address;
+  */
   if (arena->free_slots > 0) {
     chunk = arena->first_chunk;
     while (chunk->next != NULL) {
@@ -88,7 +98,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   }
 
   // The aligned address for allocation
-  void *address = (void *) ((char *) arena->base_address + arena->offset + padding);
+  address = (void *) ((char *) arena->base_address + arena->offset + padding);
 
   // Update the offset
   arena->offset += padding + bytes;
@@ -218,10 +228,12 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  *         - Otherwise, performs the operation to logically "free" the address.
  */
 int arena_free(arena_struct_t *arena, void *address) {
+  uv_mutex_lock(&arena->mutex);
   if (arena->first_chunk == NULL) {
+    uv_mutex_unlock(&arena->mutex);
     return 0;
   }
-  uv_mutex_lock(&arena->mutex);
+
   arena_chunk_t *chunk = arena->first_chunk;
   while (chunk->next != NULL) {
     if (chunk->data_address == address) {

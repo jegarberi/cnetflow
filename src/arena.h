@@ -16,6 +16,8 @@ typedef enum { ok = 0, error = -1 } arena_status;
 typedef struct chunk {
   uint8_t occupied;
   uint8_t free;
+  uint8_t writing;
+  uint8_t padding;
   size_t size;
   struct chunk *next;
   void *data_address;

@@ -20,11 +20,11 @@
 #define true 1
 #define false 0
 #define STDERR stderr
-// #define MALLOC(x,y) arena_alloc(x,y)
-// #define MALLOC(x,y) malloc(y)
+#define MALLOC(x, y) arena_alloc(x, y)
+#define MALLOC(x, y) malloc(y)
 #define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
-arena_struct_t *arena_collector;
+volatile arena_struct_t *arena_collector;
 static collector_t *collector_config;
 
 uv_loop_t *loop_udp;
@@ -154,7 +154,9 @@ int8_t collector_setup(collector_t *collector) {
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
-
+  // buf->base = malloc(suggested_size);
+  // buf->len = suggested_size;
+  // return;
   buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);
   buf->len = suggested_size;
 
@@ -236,8 +238,12 @@ void *after_work_cb(uv_work_t *req, int status) {
   parse_args_t *func_args = req->data;
   fprintf(stderr, "release func_args->data: %p\n", func_args->data);
   arena_free(arena_collector, func_args->data);
+  // free(func_args->data);
+  fprintf(stderr, "release func_args: %p\n", func_args);
+  arena_free(arena_collector, func_args);
   fprintf(stderr, "release req: %p\n", req);
   arena_free(arena_collector, req);
+  // free(req);
 }
 /**
  * Handles incoming UDP packets, parses the data, and processes it according
@@ -281,12 +287,14 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 
 
   func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));
+  // func_args = malloc(sizeof(parse_args_t));
   func_args->exporter = 0;
   func_args->len = 0;
   func_args->data = NULL;
   func_args->status = collector_data_status_init;
   uv_work_t *work_req;
   work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));
+  // work_req = malloc(sizeof(uv_work_t));
   uv_work_cb work_cb;
   static size_t data_counter = 0;
   uint32_t *exporter_ptr = NULL;
@@ -296,64 +304,20 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       func_args->exporter = *(uint32_t *) exporter_ptr;
       func_args->data = buf->base;
       func_args->len = nread;
-      // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
-      /*if (work_req == NULL) {
-        signal_handler(SIGABRT);
-      }*/
       work_cb = (void *) collector_config->parse_v5;
-      // work_req[data_counter]->data = (parse_args_t *) func_args;
       work_req->data = (parse_args_t *) func_args;
       uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
-
-
-      /*func_args->data = tmp;
-      func_args->size = nread;
-      */
-      ///
-
       data_counter++;
       break;
     case NETFLOW_V9:
-      /*if (uv_mutex_trylock((func_args->mutex))) {
-        fprintf(STDERR, "NETFLOW_V9 [%lu] uv_mutex_trylock failed\n", data_counter);
-        fprintf(STDERR, "NETFLOW_V9 [%lu] we are dropping packets\n", data_counter);
-        data_counter++;
-        return;
-      }*/
-      // memset(tmp[data_counter], 0, 65536);
-      if (nread > 65536) {
-        fprintf(STDERR, "nread > 65536\n");
-        return;
-      }
-      // memcpy(tmp[data_counter], buf->base, nread);
-      //  collector_config->parse_v5(tmp,nread);
       uint32_t *exporter_ptr = NULL;
       exporter_ptr = &(addr->sa_data[2]);
       func_args->exporter = *(uint32_t *) exporter_ptr;
-      // swap_endianness(&func_args->exporter, sizeof(uint32_t));
-      // func_args->exporter = (uint32_t)(*(&(addr->sa_data[2])) | *(&(addr->sa_data[3]) ) << 8 | *(&(addr->sa_data[4]))
-      // << 16 | *(&(addr->sa_data[5])) << 24); func_args->exporter = addr->sa_data[2] << 0 | addr->sa_data[3] << 8 |
-      // addr->sa_data[4] << 16 | addr->sa_data[5] << 24;
-      // func_args->data = tmp[data_counter];
       func_args->data = buf->base;
       func_args->len = nread;
-      // uv_thread_create(&threads[thread_counter], (void*)collector_config->parse_v5, func_args);
-      /*if (work_req == NULL) {
-        signal_handler(SIGABRT);
-      }*/
       work_cb = (void *) collector_config->parse_v9;
-      // work_req[data_counter]->data = (parse_args_t *) func_args;
       work_req->data = (parse_args_t *) func_args;
-      uv_queue_work(loop_pool, work_req, work_cb, NULL);
-
-      //      collector_config->parse_v5(func_args);
-
-      /*func_args->data = tmp;
-      func_args->size = nread;
-      */
-      ///
-
-      data_counter++;
+      uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
       break;
     case NETFLOW_IPFIX:
       break;
@@ -365,5 +329,4 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:
   arena_free(arena_collector, buf->base);
-  return;
 }
