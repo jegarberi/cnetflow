@@ -200,11 +200,8 @@ static void prepare_statement(PGconn *conn) {
  *                    function usage; typically NULL if no return object is needed).
  */
 void *parse_v5(const parse_args_t *args_data) {
-  parse_args_t args_copy;
   parse_args_t *args;
-  memcpy(&args_copy, args_data, sizeof(parse_args_t));
-  args = &args_copy;
-
+  args = (parse_args_t *) args_data->data;
   // uv_mutex_t *lock = args->mutex;
   args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
@@ -276,6 +273,6 @@ void *parse_v5(const parse_args_t *args_data) {
 unlock_mutex_parse_v5:
   // uv_mutex_unlock(lock);
   args->status = collector_data_status_done;
-  arena_free(arena_collector, args_data->data);
+
   return NULL;
 }

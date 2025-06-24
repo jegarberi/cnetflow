@@ -68,6 +68,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
 
   // Check if there's enough space in the arena
   if (arena->offset + padding + bytes > arena->size) {
+    uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
   if (arena->free_slots > 0) {
@@ -96,23 +97,27 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   arena->max_allocations++;
   if (arena->first_chunk == NULL) {
     arena->first_chunk = address;
-    arena->first_chunk->data_address = address + sizeof(arena_chunk_t);
-    arena->first_chunk->occupied = 1;
-    arena->first_chunk->next = NULL;
-    arena->first_chunk->size = bytes;
+    chunk = arena->first_chunk;
+    chunk->data_address = address + sizeof(arena_chunk_t);
+    chunk->occupied = 1;
+    chunk->free = 0;
+    chunk->next = NULL;
+    chunk->size = bytes;
   } else {
     chunk = arena->first_chunk;
     while (chunk->next != NULL) {
       chunk = chunk->next;
     }
     chunk->next = address;
-    chunk->next->data_address = address + sizeof(arena_chunk_t);
-    chunk->next->occupied = 1;
-    chunk->next->next = NULL;
-    chunk->next->size = bytes;
+    chunk = chunk->next;
+    chunk->data_address = address + sizeof(arena_chunk_t);
+    chunk->occupied = 1;
+    chunk->free = 0;
+    chunk->size = bytes;
+    chunk->next = NULL;
   }
   uv_mutex_unlock(&arena->mutex);
-  return address + sizeof(arena_chunk_t);
+  return chunk->data_address;
 }
 
 /**
@@ -228,6 +233,7 @@ int arena_free(arena_struct_t *arena, void *address) {
   chunk->free = 1;
 
   arena->free_slots++;
+  fprintf(stderr, "freeing chunk [%p]\n", chunk->data_address);
   uv_mutex_unlock(&arena->mutex);
   return 0;
 }

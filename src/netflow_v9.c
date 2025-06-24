@@ -14,11 +14,8 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 
 void *parse_v9(const parse_args_t *args_data) {
   fprintf(stderr, "Parsing v9...\n");
-  parse_args_t args_copy;
   parse_args_t *args;
-  args = &args_copy;
-  memcpy(args, args_data->data, sizeof(parse_args_t));
-  // uv_mutex_t *lock = args->mutex;
+  args = (parse_args_t *) args_data->data;
   args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v9_header_t *header = (netflow_v9_header_t *) (args->data);
@@ -171,6 +168,6 @@ void *parse_v9(const parse_args_t *args_data) {
 unlock_mutex_parse_v9:
   // uv_mutex_unlock(lock);
   args->status = collector_data_status_done;
-  arena_free(arena_collector, args_data->data);
+
   return NULL;
 }
