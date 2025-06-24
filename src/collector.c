@@ -157,6 +157,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
   // return;
+  suggested_size = 65536;
   buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);
   buf->len = suggested_size;
 

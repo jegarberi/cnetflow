@@ -61,13 +61,15 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
-
+  if (bytes < 65536) {
+    bytes = 65536;
+  }
   arena_chunk_t *chunk;
-  bytes = bytes + sizeof(arena_chunk_t);
+  bytes = sizeof(arena_chunk_t) + bytes;
 
   // Calculate padding to ensure 8-byte alignment
-  size_t current_addr = (size_t) ((char *) arena->base_address + arena->offset);
-  size_t padding = (8 - (current_addr % 8)) % 8;
+  const size_t current_addr = (size_t) ((char *) arena->base_address + arena->offset);
+  const size_t padding = (8 - (current_addr % 8)) % 8;
 
   // Check if there's enough space in the arena
   if (arena->offset + padding + bytes > arena->size) {
@@ -82,21 +84,23 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   return address;
   */
   if (arena->free_slots > 0) {
+    fprintf(stderr, "trying to use freed chunk...\n");
     chunk = arena->first_chunk;
-    while (chunk->next != NULL) {
+    do {
       if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
+        // Use this chunk
         // we can use this chunk
         fprintf(stderr, "using freed chunk [%p]\n", chunk->data_address);
         chunk->occupied = 1;
         chunk->free = 0;
         arena->free_slots--;
         uv_mutex_unlock(&arena->mutex);
-        return (void *) chunk->data_address;
+        return chunk->data_address;
       }
       chunk = chunk->next;
-    }
+    } while (chunk != NULL);
   }
-
+  fprintf(stderr, "cant use any freed chunk...\n");
   // The aligned address for allocation
   address = (void *) ((char *) arena->base_address + arena->offset + padding);
 
