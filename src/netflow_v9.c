@@ -13,10 +13,7 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 }
 
 void *parse_v9(uv_work_t *req) {
-  return;
   parse_args_t *args = (parse_args_t *) req->data;
-  fprintf(stderr, "Parsing v9...\n");
-
   args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v9_header_t *header = (netflow_v9_header_t *) (args->data);

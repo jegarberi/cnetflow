@@ -283,14 +283,15 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
 
   if (addr == NULL) {
-    fprintf(STDERR, "got udp packet! handle: %p ip: NULL flags: %d\n", (void *) handle, flags);
+    fprintf(STDERR, "%s %d %s got udp packet! handle: %p ip: NULL flags: %d\n", __FILE__, __LINE__, __func__,
+            (void *) handle, flags);
     goto udp_handle_free_and_return;
   }
   char address_str[INET6_ADDRSTRLEN + 8]; // Enough space for IPv6 + port
   get_ip_str(addr, address_str, sizeof(address_str));
   // printf("Address: %s\n", address_str);
-  fprintf(STDERR, "got udp packet! handle: %p ip: %s flags: %d bytes: %d\n", (void *) handle, address_str, flags,
-          nread);
+  fprintf(STDERR, "%s %d %s got udp packet! handle: %p ip: %s flags: %d bytes: %d\n", __FILE__, __LINE__, __func__,
+          (void *) handle, address_str, flags, nread);
 
   NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);
   switch (nf_version) {
