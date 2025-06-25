@@ -22,6 +22,7 @@
  *         - `error` if memory allocation failed.
  */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
+  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
   arena->base_address = malloc(capacity);
   if (arena->base_address == NULL) {
     return error;
@@ -55,24 +56,28 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
  *         due to insufficient space or invalid input.
  */
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
+  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
   void *address;
   uv_mutex_lock(&arena->mutex);
   if (bytes == 0) {
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
+  int overhead = sizeof(arena_chunk_t);
+  /*
   if (bytes < 65536) {
-    bytes = 65536;
+  bytes = 65536;
   }
+  */
   arena_chunk_t *chunk;
-  bytes = sizeof(arena_chunk_t) + bytes;
+  // bytes = sizeof(arena_chunk_t) + bytes;
 
   // Calculate padding to ensure 8-byte alignment
-  const size_t current_addr = (size_t) ((char *) arena->base_address + arena->offset);
-  const size_t padding = (8 - (current_addr % 8)) % 8;
+  char *current_addr = ((char *) arena->base_address + arena->offset);
+  const size_t padding = (8 - ((size_t) current_addr % 8)) % 8;
 
   // Check if there's enough space in the arena
-  if (arena->offset + padding + bytes > arena->size) {
+  if (arena->offset + padding + bytes + sizeof(overhead) > arena->size) {
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
@@ -84,50 +89,66 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   return address;
   */
   if (arena->free_slots > 0) {
-    fprintf(stderr, "trying to use freed chunk...\n");
+    fprintf(stderr, "%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
     chunk = arena->first_chunk;
     do {
-      if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
+      if ((size_t) chunk >= 0x2000000000000000) {
+        fprintf(stderr, "debugger!");
+      }
+      if (chunk->occupied == 0 && chunk->free == 1 && chunk->size + overhead >= bytes) {
         // Use this chunk
         // we can use this chunk
-        fprintf(stderr, "using freed chunk [%p]\n", chunk->data_address);
+        fprintf(stderr, "%s %d %s using freed chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
         chunk->occupied = 1;
         chunk->free = 0;
         arena->free_slots--;
+        memset(chunk->data_address, 0, bytes);
         uv_mutex_unlock(&arena->mutex);
         return chunk->data_address;
       }
+      if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
+        fprintf(stderr, "debugger!");
+      }
       chunk = chunk->next;
+
     } while (chunk != NULL);
   }
-  fprintf(stderr, "cant use any freed chunk...\n");
+  fprintf(stderr, "%s %d %s cant use any freed chunk...\n", __FILE__, __LINE__, __func__);
   // The aligned address for allocation
-  address = (void *) ((char *) arena->base_address + arena->offset + padding);
+  address = (void *) ((char *) arena->base_address + arena->offset + overhead + padding);
 
   // Update the offset
-  arena->offset += padding + bytes;
+  arena->offset += padding + bytes + overhead;
   memset(address, 0, padding + bytes);
   arena->allocations++;
   arena->max_allocations++;
   if (arena->first_chunk == NULL) {
     arena->first_chunk = address;
     chunk = arena->first_chunk;
-    chunk->data_address = address + sizeof(arena_chunk_t);
+    if ((size_t) chunk >= 0x2bdf5b6800000000) {
+      fprintf(stderr, "debugger!");
+    }
+    chunk->data_address = address + overhead;
     chunk->occupied = 1;
     chunk->free = 0;
     chunk->next = NULL;
     chunk->size = bytes;
+    chunk->end = (size_t *) chunk + chunk->size;
   } else {
     chunk = arena->first_chunk;
+    if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
+      fprintf(stderr, "debugger!");
+    }
     while (chunk->next != NULL) {
       chunk = chunk->next;
     }
     chunk->next = address;
     chunk = chunk->next;
-    chunk->data_address = address + sizeof(arena_chunk_t);
+    chunk->data_address = address + overhead;
     chunk->occupied = 1;
     chunk->free = 0;
     chunk->size = bytes;
+    chunk->end = (size_t *) chunk + chunk->size;
     chunk->next = NULL;
   }
   uv_mutex_unlock(&arena->mutex);
@@ -146,6 +167,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
  *         - Returns 0 upon successful completion.
  */
 int arena_clean(arena_struct_t *arena) {
+  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
   arena->offset = 0;
   memset(arena->base_address, 0, arena->size);
   return 0;
@@ -162,6 +184,7 @@ int arena_clean(arena_struct_t *arena) {
  *         - 0 if the arena was successfully destroyed.
  */
 int arena_destroy(arena_struct_t *arena) {
+  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
   fprintf(stderr, "arena_destroy...\n");
   arena_clean(arena);
   free(arena->base_address);
@@ -191,6 +214,7 @@ int arena_destroy(arena_struct_t *arena) {
  *         - `-1` if the memory reallocation failed.
  */
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
+  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
   if (arena == NULL) {
     return -1;
   }
@@ -233,6 +257,7 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  */
 int arena_free(arena_struct_t *arena, void *address) {
   uv_mutex_lock(&arena->mutex);
+  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
   if (arena->first_chunk == NULL) {
     uv_mutex_unlock(&arena->mutex);
     return 0;
@@ -249,7 +274,7 @@ int arena_free(arena_struct_t *arena, void *address) {
   chunk->free = 1;
 
   arena->free_slots++;
-  fprintf(stderr, "freeing chunk [%p]\n", chunk->data_address);
+  fprintf(stderr, "%s %d %s freeing chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
   uv_mutex_unlock(&arena->mutex);
   return 0;
 }

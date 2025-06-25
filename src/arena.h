@@ -17,10 +17,11 @@ typedef struct chunk {
   uint8_t occupied;
   uint8_t free;
   uint8_t writing;
-  uint8_t padding;
+  size_t padding;
   size_t size;
+  size_t *end;
   struct chunk *next;
-  void *data_address;
+  size_t *data_address;
 } arena_chunk_t;
 
 typedef struct arena {

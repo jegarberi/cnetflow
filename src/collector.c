@@ -3,6 +3,7 @@
 //
 
 #include "collector.h"
+#include <assert.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -39,7 +40,7 @@ void print_rss_max_usage() {
   struct rusage usage;
   getrusage(RUSAGE_SELF, &usage);
   if ((float) usage.ru_maxrss / (1024 * 1024) > 8.0) {
-    printf("ru_maxrss reached... quitting...");
+    printf("%s %d %s ru_maxrss reached... quitting...", __FILE__, __LINE__, __func__);
     signal_handler(SIGINT);
   }
   fprintf(STDERR, "ru_maxrss: %f GB\n", (float) (usage.ru_maxrss) / (1024 * 1024));
@@ -157,13 +158,18 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
   // return;
+  static int data_counter = 1;
   suggested_size = 65536;
+  fprintf(stderr, "%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,
+          __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);
   buf->len = suggested_size;
 
 
-  fprintf(STDERR, "alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n", 0,
-          (size_t *) handle, suggested_size, buf->base, buf->len, arena_collector->offset);
+  fprintf(STDERR,
+          "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
+          __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
+          arena_collector->offset);
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
 /**
@@ -189,10 +195,12 @@ int8_t collector_start(collector_t *collector) {
     fprintf(STDERR, "arena_create failed: %d\n", err);
     goto error_no_arena;
   }
+  fprintf(stderr, "%s %d %s init_v9(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_v9(arena_collector, 1000000);
   dyn_array_t *dyn_arr;
+  fprintf(stderr, "%s %d %s dyn_array_create(arena_collector, 1024, sizeof(int8_t));\n", __FILE__, __LINE__, __func__);
   dyn_array_create(arena_collector, 1024, sizeof(int8_t));
-  fprintf(stderr, "collector_init...\n");
+  fprintf(stderr, "%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
   loop_timer_snmp = uv_default_loop();
   loop_udp = uv_default_loop();
@@ -203,10 +211,15 @@ int8_t collector_start(collector_t *collector) {
   uv_timer_init(loop_timer_rss, &timer_req_rss);
   uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_start(&timer_req_rss, print_rss_max_usage, 1000, 1000);
+  fprintf(stderr, "%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n",
+          __FILE__, __LINE__, __func__);
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
   uv_udp_init(loop_udp, udp_server);
 
-
+  fprintf(stderr,
+          "%s %d %s struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct "
+          "sockaddr));\n",
+          __FILE__, __LINE__, __func__);
   struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct sockaddr));
   const struct sockaddr *addr_const = addr;
   uv_ip4_addr("0.0.0.0", 2055, (struct sockaddr_in *) addr);
@@ -258,15 +271,17 @@ void *after_work_cb(uv_work_t *req, int status) {
  * @param flags Flags associated with the received packet (e.g., status or additional information).
  */
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
-  parse_args_t *func_args = NULL;
-  if (buf->base == NULL) {
-    fprintf(STDERR, "got buf->base == NULL\n");
-    exit(-1);
-  }
+  fprintf(STDERR, "%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
+          (void *) handle, flags, nread);
   if (nread > 65536 || nread == 0) {
     // fprintf(STDERR, "nread > 65536\n");
     goto udp_handle_free_and_return;
   }
+  if (buf->base == NULL) {
+    fprintf(STDERR, "got buf->base == NULL\n");
+    exit(-1);
+  }
+
   if (addr == NULL) {
     fprintf(STDERR, "got udp packet! handle: %p ip: NULL flags: %d\n", (void *) handle, flags);
     goto udp_handle_free_and_return;
@@ -286,6 +301,9 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       goto udp_handle_free_and_return;
   }
 
+  parse_args_t *func_args = NULL;
+  fprintf(stderr, "%s %d %s func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));\n", __FILE__,
+          __LINE__, __func__);
 
   func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));
   // func_args = malloc(sizeof(parse_args_t));
@@ -293,39 +311,38 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->len = 0;
   func_args->data = NULL;
   func_args->status = collector_data_status_init;
-  uv_work_t *work_req;
-  work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));
+
+  fprintf(stderr, "%s %d %s work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));\n", __FILE__,
+          __LINE__, __func__);
+  uv_work_t *work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));
   // work_req = malloc(sizeof(uv_work_t));
   uv_work_cb work_cb;
-  static size_t data_counter = 0;
+  static size_t data_counter = 1;
   uint32_t *exporter_ptr = NULL;
+  exporter_ptr = &(addr->sa_data[2]);
+  func_args->exporter = *(uint32_t *) exporter_ptr;
+  func_args->data = buf->base;
+  func_args->len = nread;
+  func_args->status = collector_data_status_init;
+  func_args->index = data_counter;
+  work_req->data = (parse_args_t *) func_args;
+  fprintf(STDERR, "%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__,
+          data_counter, work_req, buf->base);
   switch (nf_version) {
     case NETFLOW_V5:
-      exporter_ptr = &(addr->sa_data[2]);
-      func_args->exporter = *(uint32_t *) exporter_ptr;
-      func_args->data = buf->base;
-      func_args->len = nread;
       work_cb = (void *) collector_config->parse_v5;
-      work_req->data = (parse_args_t *) func_args;
-      uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
-      data_counter++;
       break;
     case NETFLOW_V9:
-      uint32_t *exporter_ptr = NULL;
-      exporter_ptr = &(addr->sa_data[2]);
-      func_args->exporter = *(uint32_t *) exporter_ptr;
-      func_args->data = buf->base;
-      func_args->len = nread;
       work_cb = (void *) collector_config->parse_v9;
-      work_req->data = (parse_args_t *) func_args;
-      uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
-      break;
-    case NETFLOW_IPFIX:
       break;
     default:
       fprintf(STDERR, "unsupported nf version %d\n", nf_version);
-      break;
+      fprintf(stderr, "this should not happen at all...\n");
+      assert(false);
   }
+  uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
+  data_counter++;
+  return;
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:

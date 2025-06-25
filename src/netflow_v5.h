@@ -20,7 +20,6 @@ typedef struct {
   uint8_t engine_type;
   uint8_t engine_id;
   uint16_t sampling_interval;
-
 } netflow_v5_header_t;
 typedef struct {
   uint32_t srcaddr;
@@ -44,10 +43,13 @@ typedef struct {
   uint8_t dst_mask;
   uint16_t pad2;
 } netflow_v5_record_t;
-
+typedef struct {
+  netflow_v5_header_t header;
+  netflow_v5_record_t records[30];
+} netflow_v5_flowset_t;
 static void prepare_statement(PGconn *conn);
-static void insert_v5(uint32_t exporter, const netflow_v5_record_t *flows, int count);
+static void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows);
 static void exit_nicely(PGconn *conn);
-static void printf_v5(FILE *, const netflow_v5_record_t *);
-void *parse_v5(const parse_args_t *);
+static void printf_v5(FILE *, netflow_v5_flowset_t *, int);
+void *parse_v5(uv_work_t *req);
 #endif // NETFLOW_V5_H

@@ -14,19 +14,19 @@ typedef enum {
 } collector_data_status;
 
 typedef struct {
-  void *data;
   size_t len;
   // uv_mutex_t *mutex;
   uint32_t exporter;
   collector_data_status status;
   size_t index;
+  void *data;
 } parse_args_t;
 
 typedef struct {
   int (*detect_version)(void *);
-  void *(*parse_v5)(parse_args_t *);
-  void(*(*parse_v9)(parse_args_t *) );
-  void(*(*parse_ipfix)(parse_args_t *) );
+  void *(*parse_v5)(uv_work_t *req);
+  void(*(*parse_v9)(uv_work_t *req));
+  void(*(*parse_ipfix)(uv_work_t *req));
   void(*(*alloc)(arena_struct_t *arena, size_t bytes));
   void(*(*realloc)(void *) );
   void(*(*free)(void *) );
