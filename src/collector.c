@@ -343,6 +343,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
   data_counter++;
+  // after_work_cb will release all mmemory chunks
   return;
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));

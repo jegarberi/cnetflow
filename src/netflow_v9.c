@@ -148,7 +148,7 @@ void *parse_v9(uv_work_t *req) {
       char key[255];
       snprintf(key, 255, "%s-%u\0", ip_int_to_str(args->exporter), template_id);
       fprintf(stderr, "key: %s\n", key);
-      uint16_t *temp;
+
       template = (uint16_t *) hashmap_get(templates_hashmap, key, strlen(key));
       if (template == NULL) {
         fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));

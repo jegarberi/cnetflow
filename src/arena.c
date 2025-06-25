@@ -92,9 +92,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     fprintf(stderr, "%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
     chunk = arena->first_chunk;
     do {
-      if ((size_t) chunk >= 0x2000000000000000) {
+      /*if ((size_t) chunk >= 0x2000000000000000) {
         fprintf(stderr, "debugger!");
-      }
+      }*/
       if (chunk->occupied == 0 && chunk->free == 1 && chunk->size + overhead >= bytes) {
         // Use this chunk
         // we can use this chunk
@@ -106,9 +106,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
         uv_mutex_unlock(&arena->mutex);
         return chunk->data_address;
       }
-      if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
+      /*if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
         fprintf(stderr, "debugger!");
-      }
+      }*/
       chunk = chunk->next;
 
     } while (chunk != NULL);
@@ -125,9 +125,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   if (arena->first_chunk == NULL) {
     arena->first_chunk = address;
     chunk = arena->first_chunk;
-    if ((size_t) chunk >= 0x2bdf5b6800000000) {
+    /*if ((size_t) chunk >= 0x2bdf5b6800000000) {
       fprintf(stderr, "debugger!");
-    }
+    }*/
     chunk->data_address = address + overhead;
     chunk->occupied = 1;
     chunk->free = 0;
@@ -136,9 +136,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     chunk->end = (size_t *) chunk + chunk->size;
   } else {
     chunk = arena->first_chunk;
-    if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
+    /*if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
       fprintf(stderr, "debugger!");
-    }
+    }*/
     while (chunk->next != NULL) {
       chunk = chunk->next;
     }
