@@ -1,1 +1,0 @@
-/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libcollector.so -o libcollector.so CMakeFiles/collector.dir/src/collector.c.o  -Wl,-rpath,/home/jon/cnetflow/build -luv libhashmap.so libnetflow.so libnetflow_ipfix.so libnetflow_v5.so libnetflow_v9.so libdb_psql.so -lpq libcnetflow_snmp.so -lnetsnmp libdyn_array.so libarena.so 

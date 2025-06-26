@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(cnetflow C)
+SET(CMAKE_PROJECT_NAME "cnetflow")
 #SET (CMAKE_BUILD_TYPE Debug)
 SET(CMAKE_C_COMPILER "/usr/bin/gcc")
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
@@ -11,13 +12,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_INCLUDE_PATH "/usr/include/postgresql/15/server/libpq/")
 option(BUILD__LIBS "Build shared libraries" ON)
 set(CMAKE_C_STANDARD 99)
-install(FILES cnetflow.service DESTINATION /lib/systemd/system/)
-install(FILES local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
-#install(TARGETS RUNTIME DESTINATION /usr/local/cnetflow/ PERMISSIONS OWNER_WRITE OWNER_READ OWNER_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
-install(TARGETS RUNTIME DESTINATION /usr/local/cnetflow/)
-install(TARGETS LIBRARY DESTINATION /usr/local/cnetflow/)
 
-#install(FILES *.so DESTINATION /usr/local/cnetflow/)
 add_executable(cnetflow src/main.c)
 add_library(collector SHARED src/collector.c)
 add_library(arena SHARED src/arena.c)
@@ -31,58 +26,138 @@ add_library(netflow_ipfix SHARED src/netflow_ipfix.c)
 add_library(hashmap SHARED src/hashmap.c)
 
 target_link_libraries(netflow_v9 arena)
-
 target_link_libraries(cnetflow_snmp netsnmp)
 target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq cnetflow_snmp netsnmp dyn_array)
 target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq cnetflow_snmp netsnmp dyn_array)
 
+install(FILES cnetflow.service DESTINATION /lib/systemd/system/)
+install(FILES local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
+install(TARGETS cnetflow RUNTIME DESTINATION /usr/local/cnetflow/)
+install(TARGETS collector arena cnetflow_snmp dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
 
+# Create directories for logs and data
+install(DIRECTORY DESTINATION /var/log/cnetflow DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+install(DIRECTORY DESTINATION /var/lib/cnetflow DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
 
-# Enable CPack packaging at the end of your CMakeLists.txt file
-include(InstallRequiredSystemLibraries)
-include(CPack)
+# Create package installation scripts
+file(WRITE "${CMAKE_BINARY_DIR}/preinst" "#!/bin/bash
+# Pre-installation script for cnetflow
+set -e
+
+# Create cnetflow group if it doesn't exist
+if ! getent group cnetflow >/dev/null 2>&1; then
+    groupadd --system cnetflow
+fi
+
+# Create cnetflow user if it doesn't exist
+if ! getent passwd cnetflow >/dev/null 2>&1; then
+    useradd --system --gid cnetflow --home-dir /var/lib/cnetflow --shell /bin/false --comment \"Cnetflow service user\" cnetflow
+fi
+
+exit 0
+")
+
+file(WRITE "${CMAKE_BINARY_DIR}/postinst" "#!/bin/bash
+# Post-installation script for cnetflow
+set -e
+
+# Set ownership and permissions
+chown -R cnetflow:cnetflow /usr/local/cnetflow
+chown -R cnetflow:cnetflow /var/log/cnetflow
+chown -R cnetflow:cnetflow /var/lib/cnetflow
+
+# Set executable permissions
+chmod 755 /usr/local/cnetflow/cnetflow
+chmod 644 /usr/local/cnetflow/*.so
+
+# Reload systemd and enable service
+systemctl daemon-reload
+systemctl enable cnetflow.service
+
+exit 0
+")
+
+file(WRITE "${CMAKE_BINARY_DIR}/prerm" "#!/bin/bash
+# Pre-removal script for cnetflow
+set -e
+
+# Stop and disable service if it's running
+if systemctl is-active --quiet cnetflow.service; then
+    systemctl stop cnetflow.service
+fi
+
+if systemctl is-enabled --quiet cnetflow.service; then
+    systemctl disable cnetflow.service
+fi
+
+exit 0
+")
+
+file(WRITE "${CMAKE_BINARY_DIR}/postrm" "#!/bin/bash
+# Post-removal script for cnetflow
+set -e
+
+case \"\$1\" in
+    purge)
+        # Remove user and group on purge
+        if getent passwd cnetflow >/dev/null 2>&1; then
+            userdel cnetflow
+        fi
+        if getent group cnetflow >/dev/null 2>&1; then
+            groupdel cnetflow
+        fi
+        
+        # Remove data directories
+        rm -rf /var/log/cnetflow
+        rm -rf /var/lib/cnetflow
+        ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Don't remove user/group on normal removal or upgrade
+        ;;
+esac
+
+systemctl daemon-reload
+
+exit 0
+")
 
 # CPack Configuration
-
-# Set package version and name
-set(CPACK_OUTPUT_FILE_PREFIX "/usr/local/cnetflow/")
 set(CPACK_PACKAGE_NAME "cnetflow")
 set(CPACK_PACKAGE_VERSION "1.0.0")
-set(CPACK_PACKAGE_CONTACT "your_email@example.com")
-
-# Set package description
+set(CPACK_PACKAGE_CONTACT "jgarberi@arca.gob.ar")
 set(CPACK_PACKAGE_DESCRIPTION "Cnetflow is a netflow collector and analyzer tool")
-
-# Set package license
-set(CPACK_PACKAGE_LICENSE "GPL-3.0-or-later")
-
-# Set package vendor
-set(CPACK_PACKAGE_VENDOR "Your Organization")
-
-# Set the installation directory for the package (defaults to /usr/local)
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "/usr/local/cnetflow")
+set(CPACK_PACKAGE_VENDOR "No.ORG.SA")
 
 # Set CPack generator options
 set(CPACK_GENERATOR "DEB;RPM;TGZ")
 
-# Set DEB-specific settings (for DEB packaging)
-set(CPACK_DEB_PACKAGE_MAINTAINER "Juan Garberi <jgarberi@arca.gob.ar>")
-set(CPACK_DEB_PACKAGE_DEPENDS "libpq-dev, libuv1-dev, libsnmp-dev")
+# DEB-specific settings
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Juan Garberi <jgarberi@arca.gob.ar>")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libpq-dev, libuv1-dev, libsnmp-dev")
-# Set RPM-specific settings (for RPM packaging)
+set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+set(CPACK_DEBIAN_PACKAGE_SECTION "net")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+
+# DEB package scripts
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/preinst;${CMAKE_BINARY_DIR}/postinst;${CMAKE_BINARY_DIR}/prerm;${CMAKE_BINARY_DIR}/postrm")
+
+# RPM-specific settings
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
-set(CPACK_RPM_PACKAGE_GROUP "Tools")
-set(CPACK_RPM_PACKAGE_REQUIRES "libpq-devel, libuv-devel, net-snmp-devel")
+set(CPACK_RPM_PACKAGE_GROUP "Applications/Internet")
+set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel, libuv-devel, net-snmp-devel")
+set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
 
-# Set TGZ-specific settings (for TGZ packaging)
-set(CPACK_TGZ_PACKAGE_HOMEPAGE "https://github.com/jegarberi/cnetflow")
-set(CPACK_TGZ_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+# RPM package scripts
+set(CPACK_RPM_PRE_INSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/preinst")
+set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/postinst")
+set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/prerm")
+set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/postrm")
 
-# Set the package architecture (optional, defaults to "x86_64")
-set(CPACK_DEB_PACKAGE_ARCHITECTURE "amd64")
-
-# If you want to include additional files in the package
-# set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
-# set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-
+# Enable CPack packaging
+include(CPack)
+set_target_properties(cnetflow PROPERTIES
+        INSTALL_RPATH "/usr/local/cnetflow"
+        INSTALL_RPATH_USE_LINK_PATH TRUE
+)
+file(WRITE "${CMAKE_BINARY_DIR}/cnetflow.conf" "/usr/local/cnetflow\n")
+install(FILES "${CMAKE_BINARY_DIR}/cnetflow.conf" DESTINATION /etc/ld.so.conf.d/)

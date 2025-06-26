@@ -1,1 +1,0 @@
-/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libnetflow_v9.so -o libnetflow_v9.so CMakeFiles/netflow_v9.dir/src/netflow_v9.c.o  -Wl,-rpath,/home/jon/cnetflow/build libarena.so 

@@ -1,8 +1,28 @@
 [Unit]
-Description=Cnetflow service.
+Description=Cnetflow netflow collector and analyzer service
+After=network.target postgresql.service
+Wants=network.target
+Requires=postgresql.service
 
 [Service]
+Type=simple
+User=cnetflow
+Group=cnetflow
 ExecStart=/usr/local/cnetflow/cnetflow
+WorkingDirectory=/usr/local/cnetflow
+Environment=LD_LIBRARY_PATH=/usr/local/cnetflow
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cnetflow
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/cnetflow
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

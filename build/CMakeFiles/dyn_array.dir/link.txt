@@ -1,1 +1,0 @@
-/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libdyn_array.so -o libdyn_array.so CMakeFiles/dyn_array.dir/src/dyn_array.c.o 

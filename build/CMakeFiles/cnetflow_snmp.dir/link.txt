@@ -1,1 +1,0 @@
-/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libcnetflow_snmp.so -o libcnetflow_snmp.so CMakeFiles/cnetflow_snmp.dir/src/cnetflow_snmp.c.o  -lnetsnmp 

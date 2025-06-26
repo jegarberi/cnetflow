@@ -1,1 +1,0 @@
-/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libhashmap.so -o libhashmap.so CMakeFiles/hashmap.dir/src/hashmap.c.o 
