@@ -17,7 +17,7 @@
 #include "fields.h"
 #include "hashmap.h"
 #include "netflow.h"
-
+#include "netflow_v5.h"
 typedef struct {
   uint16_t field_type; // This field gives the number of fields in this template record. Because a template FlowSet may
                        // contain multiple template records, this field allows the parser to determine the end of the

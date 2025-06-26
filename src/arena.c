@@ -95,7 +95,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
       /*if ((size_t) chunk >= 0x2000000000000000) {
         fprintf(stderr, "debugger!");
       }*/
-      if (chunk->occupied == 0 && chunk->free == 1 && chunk->size + overhead >= bytes) {
+      if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
         // Use this chunk
         // we can use this chunk
         fprintf(stderr, "%s %d %s using freed chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
