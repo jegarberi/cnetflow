@@ -119,15 +119,17 @@ void *parse_v9(uv_work_t *req) {
         uint16_t *temp;
         size_t template_init = &template->templates[0].fields[0].field_type;
         if (template_hashmap == NULL) {
-          fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
+          fprintf(stderr, "%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
+                  ip_int_to_str(args->exporter));
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
-          fprintf(stderr, "template_init: %lu template_end: %lu\n", template_init, template_end);
+          fprintf(stderr, "%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
+                  template_init, template_end);
           temp = arena_alloc(arena_collector, sizeof(uint16_t) * field_count * 2 * 2);
           memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * field_count * 2);
           if (hashmap_set(templates_hashmap, arena_collector, key, strlen(key), temp)) {
-            fprintf(stderr, "Error saving template in hashmap [%s]...\n", key);
+            fprintf(stderr, "%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
-            fprintf(stderr, "Template saved in hashmap [%s]...\n", key);
+            fprintf(stderr, "%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
         } else {
@@ -147,17 +149,18 @@ void *parse_v9(uv_work_t *req) {
       uint16_t template_id = flowset_id;
       char key[255];
       snprintf(key, 255, "%s-%u\0", ip_int_to_str(args->exporter), template_id);
-      fprintf(stderr, "key: %s\n", key);
+      fprintf(stderr, "%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
 
       template = (uint16_t *) hashmap_get(templates_hashmap, key, strlen(key));
       if (template == NULL) {
-        fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
+        fprintf(stderr, "%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
+                ip_int_to_str(args->exporter));
       }
     } else if ((flowset_id < 256)) {
       // this is an option flowset
-      fprintf(stderr, "this is an option flowset\n");
+      fprintf(stderr, "%s %d %s this is an option flowset\n", __FILE__, __LINE__, __func__);
     } else {
-      fprintf(stderr, "this should not happen\n");
+      fprintf(stderr, "%s %d %s this should not happen\n", __FILE__, __LINE__, __func__);
       goto unlock_mutex_parse_v9;
     }
   }

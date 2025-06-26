@@ -1,0 +1,10 @@
+services:
+  cnetflow:
+    build:
+      context: .
+    image: cnetflow
+    ports:
+      - "2055:2055/udp"
+    environment:
+      - UV_THREADPOOL_SIZE
+      - PG_CONN_STRING

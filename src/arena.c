@@ -184,8 +184,7 @@ int arena_clean(arena_struct_t *arena) {
  *         - 0 if the arena was successfully destroyed.
  */
 int arena_destroy(arena_struct_t *arena) {
-  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
-  fprintf(stderr, "arena_destroy...\n");
+  fprintf(stderr, "%s %d %s arena_destroy...\n", __FILE__, __LINE__, __func__);
   arena_clean(arena);
   free(arena->base_address);
   arena->base_address = NULL;
@@ -214,7 +213,7 @@ int arena_destroy(arena_struct_t *arena) {
  *         - `-1` if the memory reallocation failed.
  */
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
-  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
+  fprintf(stderr, "%s %d %s arena_realloc...\n", __FILE__, __LINE__, __func__);
   if (arena == NULL) {
     return -1;
   }
@@ -257,7 +256,7 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  */
 int arena_free(arena_struct_t *arena, void *address) {
   uv_mutex_lock(&arena->mutex);
-  fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
+  fprintf(stderr, "%s %d %s arena_free...\n", __FILE__, __LINE__, __func__);
   if (arena->first_chunk == NULL) {
     uv_mutex_unlock(&arena->mutex);
     return 0;

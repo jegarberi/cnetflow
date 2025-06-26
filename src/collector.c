@@ -43,7 +43,8 @@ void print_rss_max_usage() {
     printf("%s %d %s ru_maxrss reached... quitting...", __FILE__, __LINE__, __func__);
     signal_handler(SIGINT);
   }
-  fprintf(STDERR, "ru_maxrss: %f GB\n", (float) (usage.ru_maxrss) / (1024 * 1024));
+  fprintf(STDERR, "%s %d %s ru_maxrss: %f GB\n", __FILE__, __LINE__, __func__,
+          (float) (usage.ru_maxrss) / (1024 * 1024));
 }
 
 /**
@@ -136,7 +137,7 @@ int8_t collector_default(collector_t *col_conf) {
 }
 
 int8_t collector_setup(collector_t *collector) {
-  fprintf(STDERR, "%p\n", collector->alloc);
+  fprintf(STDERR, "%s %d %s %p\n", __FILE__, __LINE__, __func__, collector->alloc);
   return 0;
 }
 
