@@ -1,0 +1,1 @@
+/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libdb_psql.so -o libdb_psql.so CMakeFiles/db_psql.dir/src/db_psql.c.o 

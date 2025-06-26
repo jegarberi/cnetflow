@@ -1,0 +1,1 @@
+/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libnetflow.so -o libnetflow.so CMakeFiles/netflow.dir/src/netflow.c.o 

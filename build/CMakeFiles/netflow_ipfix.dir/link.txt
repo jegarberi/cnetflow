@@ -1,0 +1,1 @@
+/usr/bin/gcc -fPIC -flto=auto -fno-fat-lto-objects -shared -Wl,-soname,libnetflow_ipfix.so -o libnetflow_ipfix.so CMakeFiles/netflow_ipfix.dir/src/netflow_ipfix.c.o 
