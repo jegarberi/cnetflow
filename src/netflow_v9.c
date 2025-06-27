@@ -5,6 +5,7 @@
 
 #include "netflow_v9.h"
 #include <assert.h>
+#include <stdio.h>
 static hashmap_t *templates_hashmap;
 extern arena_struct_t *arena_collector;
 
@@ -181,11 +182,11 @@ void *parse_v9(uv_work_t *req) {
         swap_endianness(&field_count, sizeof(field_count));
         pos = 0;
         // pos += 4;
-        FILE *ftemplate = fopen("templates.txt", "a");
+        // FILE *ftemplate = fopen("templates.txt", "a");
         while (has_more_records) {
           // netflow_v9_record_value_t *record_value;
 
-          fprintf(ftemplate, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
+          fprintf(stdout, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
                   ip_int_to_str(args->exporter), template_id, flowsets + 1, record_counter + 1, field_count);
           size_t reading_field = 0;
           for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
@@ -199,8 +200,8 @@ void *parse_v9(uv_work_t *req) {
             }
             uint16_t field_length = template_hashmap[count + 1];
             swap_endianness(&field_length, sizeof(field_length));
-            fprintf(ftemplate, " field_no: %u %s[%d] %d ", reading_field, ipfix_field_types[field_type].name,
-                    field_type, field_length);
+            fprintf(stdout, " field_no: %u %s[%d] %d ", reading_field, ipfix_field_types[field_type].name, field_type,
+                    field_length);
             /*if (field_type == 8) {
               printf("STAP!\n");
             }*/
@@ -246,51 +247,51 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_CODING_INT:
                 switch (record_length) {
                   case 1:
-                    fprintf(ftemplate, "%d ", *tmp8);
+                    fprintf(stdout, "%d ", *tmp8);
                     break;
                   case 2:
-                    fprintf(ftemplate, "%d ", *tmp16);
+                    fprintf(stdout, "%d ", *tmp16);
                     break;
                   case 4:
-                    fprintf(ftemplate, "%d ", *tmp32);
+                    fprintf(stdout, "%d ", *tmp32);
                     break;
                   case 8:
-                    fprintf(ftemplate, "%ld ", *tmp64);
+                    fprintf(stdout, "%ld ", *tmp64);
                     break;
                 }
                 break;
               case IPFIX_CODING_UINT:
                 switch (record_length) {
                   case 1:
-                    fprintf(ftemplate, "%u ", *tmp8);
+                    fprintf(stdout, "%u ", *tmp8);
                     break;
                   case 2:
-                    fprintf(ftemplate, "%u ", *tmp16);
+                    fprintf(stdout, "%u ", *tmp16);
                     break;
                   case 4:
-                    fprintf(ftemplate, "%u ", *tmp32);
+                    fprintf(stdout, "%u ", *tmp32);
                     break;
                   case 8:
-                    fprintf(ftemplate, "%lu ", *tmp64);
+                    fprintf(stdout, "%lu ", *tmp64);
                     break;
                 }
                 break;
               case IPFIX_CODING_BYTES:
                 switch (record_length) {
                   case 1:
-                    fprintf(ftemplate, "%u ", *tmp8);
+                    fprintf(stdout, "%u ", *tmp8);
                     break;
                   case 2:
-                    fprintf(ftemplate, "%u ", *tmp16);
+                    fprintf(stdout, "%u ", *tmp16);
                     break;
                   case 4:
-                    fprintf(ftemplate, "%u ", *tmp32);
+                    fprintf(stdout, "%u ", *tmp32);
                     break;
                   case 6:
-                    fprintf(ftemplate, "%lx ", tmp6);
+                    fprintf(stdout, "%lx ", tmp6);
                     break;
                   case 8:
-                    fprintf(ftemplate, "%lu ", *tmp64);
+                    fprintf(stdout, "%lu ", *tmp64);
                     break;
                 }
                 break;
@@ -304,11 +305,11 @@ void *parse_v9(uv_work_t *req) {
                 switch (record_length) {
                   case 4:
                     tmp8 = (uint8_t *) pointer;
-                    fprintf(ftemplate, "%u.%u.%u.%u ", *(tmp8 + 3), *(tmp8 + 2), *(tmp8 + 1), *(tmp8));
+                    fprintf(stdout, "%u.%u.%u.%u ", *(tmp8 + 3), *(tmp8 + 2), *(tmp8 + 1), *(tmp8));
                     break;
                   case 16:
                     tmp8 = (uint8_t *) pointer;
-                    fprintf(ftemplate, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ",
+                    fprintf(stdout, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ",
                             *(tmp8 + 15), *(tmp8 + 14), *(tmp8 + 13), *(tmp8 + 12), *(tmp8 + 11), *(tmp8 + 10),
                             *(tmp8 + 9), *(tmp8 + 8), *(tmp8 + 7), *(tmp8 + 6), *(tmp8 + 5), *(tmp8 + 4), *(tmp8 + 3),
                             *(tmp8 + 2), *(tmp8 + 1), *(tmp8 + 0));
@@ -324,7 +325,7 @@ void *parse_v9(uv_work_t *req) {
             pointer += record_length;
             pos += record_length;
           }
-          fprintf(ftemplate, "\n");
+          fprintf(stdout, "\n");
           record_counter++;
           if (pos >= flowset_length - 6) { // flowset_id + length + padding
             has_more_records = 0;
@@ -335,7 +336,7 @@ void *parse_v9(uv_work_t *req) {
             // exit(-1);
           }
         }
-        fclose(ftemplate);
+        // fclose(ftemplate);
       }
     } else if ((flowset_id < 256)) {
       // this is an option flowset
