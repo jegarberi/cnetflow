@@ -139,7 +139,7 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stderr, "%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
                   template_init, template_end);
           temp = arena_alloc(arena_collector, sizeof(uint16_t) * (field_count + 1) * 4);
-          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count + 1) * 3);
+          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count + 1) * 4);
           if (hashmap_set(templates_hashmap, arena_collector, key, strlen(key), temp)) {
             fprintf(stderr, "%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
@@ -210,7 +210,8 @@ void *parse_v9(uv_work_t *req) {
             uint16_t *tmp16;
             uint32_t *tmp32;
             uint64_t *tmp64;
-
+            uint128_t *tmp128;
+            uint64_t tmp6 = 0;
             switch (record_length) {
               case 1:
                 tmp8 = (uint8_t *) pointer;
@@ -224,9 +225,20 @@ void *parse_v9(uv_work_t *req) {
                 tmp32 = (uint32_t *) pointer;
                 swap_endianness(tmp32, sizeof(uint32_t));
                 break;
+              case 6:
+                tmp64 = (uint64_t *) pointer;
+                tmp6 = *tmp64;
+                tmp6 &= 0x0000ffffffffffff;
+                swap_endianness(&tmp6, sizeof(uint64_t));
+                tmp6 = tmp6 >> 16;
+                break;
               case 8:
                 tmp64 = (uint64_t *) pointer;
                 swap_endianness(tmp64, sizeof(uint64_t));
+                break;
+              case 16:
+                tmp128 = (uint128_t *) pointer;
+                swap_endianness(tmp128, sizeof(uint128_t));
                 break;
             }
 
@@ -274,6 +286,9 @@ void *parse_v9(uv_work_t *req) {
                   case 4:
                     fprintf(ftemplate, "%u ", *tmp32);
                     break;
+                  case 6:
+                    fprintf(ftemplate, "%lx ", tmp6);
+                    break;
                   case 8:
                     fprintf(ftemplate, "%lu ", *tmp64);
                     break;
@@ -288,8 +303,15 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_CODING_IPADDR:
                 switch (record_length) {
                   case 4:
-                    uint8_t *tmp8 = (uint8_t *) pointer;
+                    tmp8 = (uint8_t *) pointer;
                     fprintf(ftemplate, "%u.%u.%u.%u ", *(tmp8 + 3), *(tmp8 + 2), *(tmp8 + 1), *(tmp8));
+                    break;
+                  case 16:
+                    tmp8 = (uint8_t *) pointer;
+                    fprintf(ftemplate, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ",
+                            *(tmp8 + 15), *(tmp8 + 14), *(tmp8 + 13), *(tmp8 + 12), *(tmp8 + 11), *(tmp8 + 10),
+                            *(tmp8 + 9), *(tmp8 + 8), *(tmp8 + 7), *(tmp8 + 6), *(tmp8 + 5), *(tmp8 + 4), *(tmp8 + 3),
+                            *(tmp8 + 2), *(tmp8 + 1), *(tmp8 + 0));
                     break;
                   default:
                     exit(-1);

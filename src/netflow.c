@@ -19,6 +19,7 @@
  * @return The detected NetFlow version as a value of type NETFLOW_VERSION.
  *         Returns NETFLOW_UNKNOWN if the version cannot be determined.
  */
+
 NETFLOW_VERSION detect_version(void *data) {
   if (endianness == NETFLOW_NO_ENDIAN) {
     endianness = detect_endianness();
@@ -97,6 +98,11 @@ void swap_endianness(void *value, size_t len) {
       tmp64 = swap_endian_64(tmp64);
       memcpy(value, &tmp64, sizeof(uint64_t));
       break;
+    case 16:
+      uint128_t tmp128 = *(uint128_t *) value;
+      tmp128 = swap_endian_128(tmp128);
+      memcpy(value, &tmp128, sizeof(uint128_t));
+      break;
   }
 }
 
@@ -115,6 +121,25 @@ uint64_t swap_endian_64(uint64_t value) {
          ((value & 0x00000000FF000000ULL) << 8) | ((value & 0x0000000000FF0000ULL) << 24) |
          ((value & 0x000000000000FF00ULL) << 40) | ((value & 0x00000000000000FFULL) << 56);
 }
+
+uint128_t swap_endian_128(const uint128_t value) {
+  // Extract the high and low 64-bit parts
+  uint64_t high = (uint64_t) (value >> 64);
+  uint64_t low = (uint64_t) (value & 0xFFFFFFFFFFFFFFFFULL);
+  // Swap endianness of each 64 - bit part
+  uint64_t swapped_high = ((high & 0xFF00000000000000ULL) >> 56) | ((high & 0x00FF000000000000ULL) >> 40) |
+                          ((high & 0x0000FF0000000000ULL) >> 24) | ((high & 0x000000FF00000000ULL) >> 8) |
+                          ((high & 0x00000000FF000000ULL) << 8) | ((high & 0x0000000000FF0000ULL) << 24) |
+                          ((high & 0x000000000000FF00ULL) << 40) | ((high & 0x00000000000000FFULL) << 56);
+  int64_t swapped_low = ((low & 0xFF00000000000000ULL) >> 56) | ((low & 0x00FF000000000000ULL) >> 40) |
+                        ((low & 0x0000FF0000000000ULL) >> 24) | ((low & 0x000000FF00000000ULL) >> 8) |
+                        ((low & 0x00000000FF000000ULL) << 8) | ((low & 0x0000000000FF0000ULL) << 24) |
+                        ((low & 0x000000000000FF00ULL) << 40) | ((low & 0x00000000000000FFULL) << 56);
+
+  // Combine the swapped parts (low becomes high, high becomes low)
+  return ((uint128_t) swapped_low << 64) | swapped_high;
+}
+
 
 /**
  * Reverses the byte order of a 32-bit integer to swap endianness.
