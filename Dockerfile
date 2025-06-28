@@ -43,4 +43,5 @@ COPY --from=compile --chown=cnetflow:cnetflow /tmp/cnetflow/build/cnetflow ./
 USER cnetflow
 
 # Use EXEC form for better signal handling
-ENTRYPOINT ["./cnetflow"]
+CMD ["./cnetflow"]
+
