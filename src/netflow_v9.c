@@ -221,7 +221,9 @@ void *parse_v9(uv_work_t *req) {
             uint64_t *tmp64; // 8 bytes
             uint64_t tmp6 = 0; // 6 bytes -> 8bytes
             uint128_t *tmp128; // 8bytes
-
+            if (field_type > 337) {
+              goto unlock_mutex_parse_v9;
+            }
             switch (record_length) {
               case 1:
                 tmp8 = (uint8_t *) pointer;
@@ -254,7 +256,9 @@ void *parse_v9(uv_work_t *req) {
             if (field_type == 21 || field_type == 22) {
               *tmp32 = *tmp32 / 1000 + diff;
             }
-
+            if (field_type > 337) {
+              goto unlock_mutex_parse_v9;
+            }
             switch (field_type) {
               case IPFIX_FT_IPVERSION:
                 switch (*tmp8) {
@@ -319,6 +323,9 @@ void *parse_v9(uv_work_t *req) {
                 break;
               default:
                 break;
+            }
+            if (field_type > 337) {
+              goto unlock_mutex_parse_v9;
             }
             switch (ipfix_field_types[field_type].coding) {
               case IPFIX_CODING_INT:

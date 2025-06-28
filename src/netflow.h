@@ -65,12 +65,12 @@ typedef struct {
 } netflow_v5_record_ipv6_t;
 typedef struct {
   netflow_v5_header_t header;
-  netflow_v5_record_t records[30];
+  netflow_v5_record_t records[60];
 } netflow_v5_flowset_t;
 
 typedef struct {
   netflow_v5_header_t header;
-  netflow_v5_record_ipv6_t records[30];
+  netflow_v5_record_ipv6_t records[60];
 } netflow_v5_ipv6_flowset_t;
 
 typedef __uint128_t uint128_t;
