@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
+#include "netflow_v5.h"
 
 /**
  * Detects the NetFlow version from the provided data.
@@ -207,4 +208,32 @@ void *fix_endianness(void *buf, void *data, size_t len) {
         break;
     }
   }
+}
+
+void swap_src_dst_v5(netflow_v5_record_t *record) {
+  if (record->dstport > record->srcport) {
+    uint16_t tmp_port = record->dstport;
+    record->dstport = record->srcport;
+    record->srcport = tmp_port;
+    uint32_t tmp_addr = record->dstaddr;
+    record->dstaddr = record->srcaddr;
+    record->srcaddr = tmp_addr;
+    uint16_t tmp_interface = 0;
+    tmp_interface = record->input;
+    record->input = record->output;
+    record->output = tmp_interface;
+  }
+}
+
+void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
+  char ip_src_str[50] = {0};
+  char ip_dst_str[50] = {0};
+
+  char *tmp;
+  tmp = ip_int_to_str(netflow_packet->records[i].srcaddr);
+  strncpy(ip_src_str, tmp, strlen(tmp));
+  tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
+  strncpy(ip_dst_str, tmp, strlen(tmp));
+  fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, netflow_packet->records[i].srcport, ip_dst_str,
+          netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
 }

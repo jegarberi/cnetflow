@@ -25,7 +25,7 @@ add_library(netflow_v9 SHARED src/netflow_v9.c)
 add_library(netflow_ipfix SHARED src/netflow_ipfix.c)
 add_library(hashmap SHARED src/hashmap.c)
 
-target_link_libraries(netflow_v9 arena)
+target_link_libraries(netflow_v9 arena netflow netflow_v5)
 target_link_libraries(cnetflow_snmp netsnmp)
 target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq cnetflow_snmp netsnmp dyn_array)
 target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq cnetflow_snmp netsnmp dyn_array)

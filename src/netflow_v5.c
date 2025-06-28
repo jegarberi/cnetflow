@@ -7,7 +7,6 @@
 
 #include "arena.h"
 #include "collector.h"
-#include "db_psql.h"
 
 arena_struct_t *arena_collector;
 static void exit_nicely(PGconn *conn) {
@@ -18,119 +17,6 @@ static void exit_nicely(PGconn *conn) {
   }
 }
 
-/**
- * Inserts a batch of NetFlow v5 records into a PostgreSQL database.
- *
- * @param conn       A pointer to the PostgreSQL connection object. Must be an open and valid connection.
- * @param exporter   A unique identifier for the exporter sending the flow data. Must be non-zero.
- * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
- * @param count      The number of records in the `flows` array. Must be greater than zero.
- */
-static void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
-  PGconn *conn = NULL;
-  db_connect(&conn);
-  if (conn == NULL || exporter == 0) {
-    exit(-1);
-  }
-  PGresult *res;
-  prepare_statement(conn);
-  /*
-  res = PQexec(conn, "BEGIN");
-  if (PQresultStatus(res) != PGRES_COMMAND_OK)
-  {
-    fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
-    PQclear(res);
-    exit_nicely(conn);
-  }
-  PQclear(res);
-  */
-
-  for (int i = 0; i < flows->header.count; i++) {
-    int nParams = 18;
-    const char *const paramValues[18] = {
-        // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output,prot
-        &exporter,
-        &(flows->records[i].srcaddr),
-        &(flows->records[i].srcport),
-        &(flows->records[i].dstaddr),
-        &(flows->records[i].dstport),
-        &(flows->records[i].First),
-        &(flows->records[i].Last),
-        &(flows->records[i].dPkts),
-        &(flows->records[i].dOctets),
-        &(flows->records[i].input),
-        &(flows->records[i].output),
-        &(flows->records[i].prot),
-        &(flows->records[i].tos),
-        &(flows->records[i].src_as),
-        &(flows->records[i].dst_as),
-        &(flows->records[i].src_mask),
-        &(flows->records[i].dst_mask),
-        &(flows->records[i].tcp_flags)};
-    const int paramLengths[18] = {
-        // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output
-        sizeof(exporter), // 1
-        sizeof(flows->records[i].srcaddr), // 2
-        sizeof(flows->records[i].srcport), // 3
-        sizeof(flows->records[i].dstaddr), // 4
-        sizeof(flows->records[i].dstport), // 5
-        sizeof(flows->records[i].First), // 6
-        sizeof(flows->records[i].Last), // 7
-        sizeof(flows->records[i].dPkts), // 8
-        sizeof(flows->records[i].dOctets), // 9
-        sizeof(flows->records[i].input), // 10
-        sizeof(flows->records[i].output), // 11
-        sizeof(flows->records[i].prot), // 12
-        sizeof(flows->records[i].tos), // 13
-        sizeof(flows->records[i].src_as), // 14
-        sizeof(flows->records[i].dst_as), // 15
-        sizeof(flows->records[i].src_mask), // 16
-        sizeof(flows->records[i].dst_mask), // 17
-        sizeof(flows->records[i].tcp_flags), // 17
-    };
-    const int paramFormats[18] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    const int resultFormat = 0;
-
-    res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
-    /*if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-      fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
-      PQclear(res);
-      prepare_statement(conn);
-      res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
-      if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        PQclear(res);
-        exit_nicely(conn);
-      }
-      PQclear(res);
-    }*/
-    PQclear(res);
-  }
-  PQfinish(conn);
-  /* end the transaction */
-  /*
-  res = PQexec(conn, "END");
-  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
-    PQclear(res);
-    exit_nicely();
-  }
-  PQclear(res);
-  */
-}
-
-
-static void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
-  char ip_src_str[50] = {0};
-  char ip_dst_str[50] = {0};
-
-  char *tmp;
-  tmp = ip_int_to_str(netflow_packet->records[i].srcaddr);
-  strncpy(ip_src_str, tmp, strlen(tmp));
-  tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
-  strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, netflow_packet->records[i].srcport, ip_dst_str,
-          netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
-}
 
 /**
  * Prepares a PostgreSQL prepared statement named "insert_flows" for inserting NetFlow data
@@ -139,7 +25,7 @@ static void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
  *
  * @param conn   A pointer to the PostgreSQL connection object. Must be an open and valid connection.
  */
-static void prepare_statement(PGconn *conn) {
+void prepare_statement(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
     fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
     exit_nicely(conn);
@@ -205,32 +91,33 @@ static void prepare_statement(PGconn *conn) {
 void *parse_v5(uv_work_t *req) {
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
-  netflow_v5_flowset_t *netflow_packet;
-  netflow_packet = (netflow_v5_flowset_t *) args->data;
-  swap_endianness((void *) &(netflow_packet->header.version), sizeof(netflow_packet->header.version));
-  if (netflow_packet->header.version != 5) {
+  netflow_v5_flowset_t *netflow_packet_ptr;
+  netflow_packet_ptr = (netflow_v5_flowset_t *) args->data;
+  swap_endianness((void *) &(netflow_packet_ptr->header.version), sizeof(netflow_packet_ptr->header.version));
+  if (netflow_packet_ptr->header.version != 5) {
     fprintf(stderr, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
     exit(-1);
     goto unlock_mutex_parse_v5;
   }
-  swap_endianness((void *) &(netflow_packet->header.count), sizeof(netflow_packet->header.count));
-  if (netflow_packet->header.count > 30) {
+  swap_endianness((void *) &(netflow_packet_ptr->header.count), sizeof(netflow_packet_ptr->header.count));
+  if (netflow_packet_ptr->header.count > 30) {
     fprintf(stderr, "Too many flows...\n");
     goto unlock_mutex_parse_v5;
   }
-  swap_endianness((void *) &(netflow_packet->header.SysUptime), sizeof(netflow_packet->header.SysUptime));
-  swap_endianness((void *) &(netflow_packet->header.unix_secs), sizeof(netflow_packet->header.unix_secs));
-  swap_endianness((void *) &(netflow_packet->header.unix_nsecs), sizeof(netflow_packet->header.unix_nsecs));
-  swap_endianness((void *) &(netflow_packet->header.flow_sequence), sizeof(netflow_packet->header.flow_sequence));
-  swap_endianness((void *) &(netflow_packet->header.sampling_interval),
-                  sizeof(netflow_packet->header.sampling_interval));
+  swap_endianness((void *) &(netflow_packet_ptr->header.SysUptime), sizeof(netflow_packet_ptr->header.SysUptime));
+  swap_endianness((void *) &(netflow_packet_ptr->header.unix_secs), sizeof(netflow_packet_ptr->header.unix_secs));
+  swap_endianness((void *) &(netflow_packet_ptr->header.unix_nsecs), sizeof(netflow_packet_ptr->header.unix_nsecs));
+  swap_endianness((void *) &(netflow_packet_ptr->header.flow_sequence),
+                  sizeof(netflow_packet_ptr->header.flow_sequence));
+  swap_endianness((void *) &(netflow_packet_ptr->header.sampling_interval),
+                  sizeof(netflow_packet_ptr->header.sampling_interval));
 
   uint32_t now = (uint32_t) time(NULL);
-  uint32_t diff = now - (uint32_t) (netflow_packet->header.SysUptime / 1000);
+  uint32_t diff = now - (uint32_t) (netflow_packet_ptr->header.SysUptime / 1000);
 
   // memcpy(records, args->data + sizeof(netflow_v5_header_t), args->len - (sizeof(netflow_v5_header_t)));
-  // memcpy(&netflow_packet, args->data, args->len);
-  for (int i = 0; i < netflow_packet->header.count; i++) {
+  // memcpy(&netflow_packet_ptr, args->data, args->len);
+  for (int i = 0; i < netflow_packet_ptr->header.count; i++) {
     /*
     swap_endianness((void*)&(records[i].srcaddr), sizeof((records[i].srcaddr)));
     swap_endianness((void*)&(records[i].dstaddr), sizeof((records[i].dstaddr)));
@@ -240,12 +127,12 @@ void *parse_v5(uv_work_t *req) {
     swap_endianness((void *) &(records[i].dPkts), sizeof((records[i].dPkts)));
     swap_endianness((void *) &(records[i].dOctets), sizeof((records[i].dOctets)));
     */
-    swap_endianness((void *) &(netflow_packet->records[i].First), sizeof((netflow_packet->records[i].First)));
-    swap_endianness((void *) &(netflow_packet->records[i].Last), sizeof((netflow_packet->records[i].Last)));
-    netflow_packet->records[i].First = netflow_packet->records[i].First / 1000 + diff;
-    netflow_packet->records[i].Last = netflow_packet->records[i].Last / 1000 + diff;
-    swap_endianness((void *) &(netflow_packet->records[i].First), sizeof((netflow_packet->records[i].First)));
-    swap_endianness((void *) &(netflow_packet->records[i].Last), sizeof((netflow_packet->records[i].Last)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].First), sizeof((netflow_packet_ptr->records[i].First)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].Last), sizeof((netflow_packet_ptr->records[i].Last)));
+    netflow_packet_ptr->records[i].First = netflow_packet_ptr->records[i].First / 1000 + diff;
+    netflow_packet_ptr->records[i].Last = netflow_packet_ptr->records[i].Last / 1000 + diff;
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].First), sizeof((netflow_packet_ptr->records[i].First)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].Last), sizeof((netflow_packet_ptr->records[i].Last)));
     /*
     swap_endianness((void *) &(records[i].srcport), sizeof((records[i].srcport)));
     swap_endianness((void *) &(records[i].dstport), sizeof((records[i].dstport)));
@@ -258,22 +145,22 @@ void *parse_v5(uv_work_t *req) {
     swap_endianness((void *) &(records[i].src_mask), sizeof((records[i].src_mask)));
     swap_endianness((void *) &(records[i].dst_mask), sizeof((records[i].dst_mask)));
     */
-    swap_endianness((void *) &(netflow_packet->records[i].srcport), sizeof((netflow_packet->records[i].srcport)));
-    swap_endianness((void *) &(netflow_packet->records[i].dstport), sizeof((netflow_packet->records[i].dstport)));
-    if (netflow_packet->records[i].dstport > netflow_packet->records[i].srcport) {
-      uint16_t tmp_port = netflow_packet->records[i].dstport;
-      netflow_packet->records[i].dstport = netflow_packet->records[i].srcport;
-      netflow_packet->records[i].srcport = tmp_port;
-      uint32_t tmp_addr = netflow_packet->records[i].dstaddr;
-      netflow_packet->records[i].dstaddr = netflow_packet->records[i].srcaddr;
-      netflow_packet->records[i].srcaddr = tmp_addr;
-    }
-    swap_endianness((void *) &(netflow_packet->records[i].srcport), sizeof((netflow_packet->records[i].srcport)));
-    swap_endianness((void *) &(netflow_packet->records[i].dstport), sizeof((netflow_packet->records[i].dstport)));
-    printf_v5(stdout, netflow_packet, i);
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].srcport),
+                    sizeof((netflow_packet_ptr->records[i].srcport)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].dstport),
+                    sizeof((netflow_packet_ptr->records[i].dstport)));
+
+    swap_src_dst_v5(&netflow_packet_ptr->records[i]);
+
+
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].srcport),
+                    sizeof((netflow_packet_ptr->records[i].srcport)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[i].dstport),
+                    sizeof((netflow_packet_ptr->records[i].dstport)));
+    printf_v5(stdout, netflow_packet_ptr, i);
   }
   // swap_endianness((void *) &args->exporter, sizeof(args->exporter));
-  insert_v5(args->exporter, netflow_packet);
+  insert_v5(args->exporter, netflow_packet_ptr);
 unlock_mutex_parse_v5:
   // uv_mutex_unlock(lock);
   args->status = collector_data_status_done;

@@ -6,6 +6,7 @@
 #include "netflow_v9.h"
 #include <assert.h>
 #include <stdio.h>
+#include "netflow_v5.h"
 static hashmap_t *templates_hashmap;
 extern arena_struct_t *arena_collector;
 
@@ -15,6 +16,7 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 }
 
 void *parse_v9(uv_work_t *req) {
+
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
@@ -36,11 +38,12 @@ void *parse_v9(uv_work_t *req) {
   swap_endianness((void *) &(header->package_sequence), sizeof(header->package_sequence));
   swap_endianness((void *) &(header->source_id), sizeof(header->source_id));
 
+  uint32_t now = (uint32_t) time(NULL);
+  uint32_t diff = now - (uint32_t) (header->SysUptime / 1000);
 
   size_t end = 0;
   flowset_union_t *flowset;
-  uint32_t now = (uint32_t) time(NULL);
-  uint32_t diff = now - (uint32_t) (header->SysUptime / 1000);
+
   uint8_t process_flow = 1;
   size_t flowset_counter = 0;
   size_t record_counter = 0;
@@ -183,9 +186,13 @@ void *parse_v9(uv_work_t *req) {
         pos = 0;
         // pos += 4;
         // FILE *ftemplate = fopen("templates.txt", "a");
+        netflow_v5_flowset_t *netflow_packet_ptr;
+        netflow_v5_flowset_t netflow_packet = {0};
+        netflow_packet_ptr = &netflow_packet;
+        int is_ipv6 = 0;
         while (has_more_records) {
           // netflow_v9_record_value_t *record_value;
-
+          size_t print_flow = 0;
           fprintf(stdout, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
                   ip_int_to_str(args->exporter), template_id, flowsets + 1, record_counter + 1, field_count);
           size_t reading_field = 0;
@@ -200,49 +207,119 @@ void *parse_v9(uv_work_t *req) {
             }
             uint16_t field_length = template_hashmap[count + 1];
             swap_endianness(&field_length, sizeof(field_length));
-            fprintf(stdout, " field_no: %u %s[%d] %d ", reading_field, ipfix_field_types[field_type].name, field_type,
+            fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field, ipfix_field_types[field_type].name, field_type,
                     field_length);
             /*if (field_type == 8) {
               printf("STAP!\n");
             }*/
             // record_length = ipfix_field_types[field].length;
+
             record_length = field_length;
-            uint8_t *tmp8;
-            uint16_t *tmp16;
-            uint32_t *tmp32;
-            uint64_t *tmp64;
-            uint128_t *tmp128;
-            uint64_t tmp6 = 0;
+            uint8_t *tmp8; // 1 byte
+            uint16_t *tmp16; // 2 bytes
+            uint32_t *tmp32; // 4 bytes
+            uint64_t *tmp64; // 8 bytes
+            uint64_t tmp6 = 0; // 6 bytes -> 8bytes
+            uint128_t *tmp128; // 8bytes
+
             switch (record_length) {
               case 1:
                 tmp8 = (uint8_t *) pointer;
-                swap_endianness(tmp8, sizeof(uint8_t));
+                swap_endianness(tmp8, sizeof(*tmp8));
                 break;
               case 2:
                 tmp16 = (uint16_t *) pointer;
-                swap_endianness(tmp16, sizeof(uint16_t));
+                swap_endianness(tmp16, sizeof(*tmp16));
                 break;
               case 4:
                 tmp32 = (uint32_t *) pointer;
-                swap_endianness(tmp32, sizeof(uint32_t));
+                swap_endianness(tmp32, sizeof(*tmp32));
                 break;
               case 6:
                 tmp64 = (uint64_t *) pointer;
                 tmp6 = *tmp64;
                 tmp6 &= 0x0000ffffffffffff;
-                swap_endianness(&tmp6, sizeof(uint64_t));
+                swap_endianness(&tmp6, sizeof(*tmp64));
                 tmp6 = tmp6 >> 16;
                 break;
               case 8:
                 tmp64 = (uint64_t *) pointer;
-                swap_endianness(tmp64, sizeof(uint64_t));
+                swap_endianness(tmp64, sizeof(*tmp64));
                 break;
               case 16:
                 tmp128 = (uint128_t *) pointer;
-                swap_endianness(tmp128, sizeof(uint128_t));
+                swap_endianness(tmp128, sizeof(*tmp128));
                 break;
             }
+            if (field_type == 21 || field_type == 22) {
+              *tmp32 = *tmp32 / 1000 + diff;
+            }
 
+            switch (field_type) {
+              case IPFIX_FT_IPVERSION:
+                switch (*tmp8) {
+                  case 4:
+                    is_ipv6 = 0;
+                    break;
+                  case 6:
+                    is_ipv6 = 1;
+                    break;
+                  default:
+                    is_ipv6 = 0;
+                    break;
+                }
+                break;
+              case IPFIX_FT_SOURCEIPV4ADDRESS:
+                netflow_packet_ptr->records[record_counter].srcaddr = *tmp32;
+                swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+                                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+                print_flow++;
+                break;
+              case IPFIX_FT_DESTINATIONIPV4ADDRESS:
+                netflow_packet_ptr->records[record_counter].dstaddr = *tmp32;
+                swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+                                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+                print_flow++;
+                break;
+              case IPFIX_FT_FLOWSTARTSYSUPTIME:
+                netflow_packet_ptr->records[record_counter].First = *tmp32;
+                print_flow++;
+                break;
+              case IPFIX_FT_FLOWENDSYSUPTIME:
+                netflow_packet_ptr->records[record_counter].Last = *tmp32;
+                print_flow++;
+                break;
+              case IPFIX_FT_OCTETDELTACOUNT:
+                netflow_packet_ptr->records[record_counter].dOctets = *tmp32;
+                print_flow++;
+                break;
+              case IPFIX_FT_PACKETDELTACOUNT:
+                netflow_packet_ptr->records[record_counter].dPkts = *tmp32;
+                print_flow++;
+                break;
+              case IPFIX_FT_DESTINATIONTRANSPORTPORT:
+                netflow_packet_ptr->records[record_counter].dstport = *tmp16;
+                print_flow++;
+                break;
+              case IPFIX_FT_SOURCETRANSPORTPORT:
+                netflow_packet_ptr->records[record_counter].srcport = *tmp16;
+                print_flow++;
+                break;
+              case IPFIX_FT_PROTOCOLIDENTIFIER:
+                netflow_packet_ptr->records[record_counter].prot = *tmp8;
+                print_flow++;
+                break;
+              case IPFIX_FT_INGRESSINTERFACE:
+                netflow_packet_ptr->records[record_counter].input = *tmp16;
+                print_flow++;
+                break;
+              case IPFIX_FT_EGRESSINTERFACE:
+                netflow_packet_ptr->records[record_counter].input = *tmp16;
+                print_flow++;
+                break;
+              default:
+                break;
+            }
             switch (ipfix_field_types[field_type].coding) {
               case IPFIX_CODING_INT:
                 switch (record_length) {
@@ -322,10 +399,21 @@ void *parse_v9(uv_work_t *req) {
               default:
                 break;
             }
+
             pointer += record_length;
             pos += record_length;
           }
           fprintf(stdout, "\n");
+          if (print_flow >= 11) {
+            swap_src_dst_v5(&netflow_packet_ptr->records[record_counter]);
+            printf_v5(stderr, netflow_packet_ptr, record_counter);
+          } else {
+            if (is_ipv6) {
+              fprintf(stderr, "ipv6 not supported at the moment...\n");
+            } else {
+              exit(-1);
+            }
+          }
           record_counter++;
           if (pos >= flowset_length - 6) { // flowset_id + length + padding
             has_more_records = 0;
@@ -336,6 +424,7 @@ void *parse_v9(uv_work_t *req) {
             // exit(-1);
           }
         }
+        insert_v5(args->exporter, netflow_packet_ptr);
         // fclose(ftemplate);
       }
     } else if ((flowset_id < 256)) {
