@@ -86,7 +86,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
     const int resultFormat = 0;
 
     res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
-    /*if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
       fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
       PQclear(res);
       prepare_statement(conn);
@@ -94,10 +94,12 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
         exit_nicely(conn);
+      } else {
+        PQclear(res);
       }
+    } else {
       PQclear(res);
-    }*/
-    PQclear(res);
+    }
   }
   PQfinish(conn);
   /* end the transaction */
@@ -132,6 +134,11 @@ void db_connect(PGconn **conn) {
   /*static char *static_conn_string =
       "postgresql://postgres.your-tenant-id:your-super-secret-and-long-postgres-password@192.168.100.78:5432/postgres";*/
   const char *static_conn_string = getenv("PG_CONN_STRING");
+  if (static_conn_string == NULL) {
+    fprintf(stderr, "Environment variable PG_CONN_STRING is not set.\n");
+    exit(EXIT_FAILURE);
+  }
+
   /* Make a connection to the database */
   PGconn *conn_ptr;
   conn_ptr = PQconnectdb(static_conn_string);
@@ -213,8 +220,6 @@ void db_connect(PGconn **conn) {
   PQclear(res);
   */
   /* close the connection to the database and cleanup */
-  /*
-  PQfinish(conn);
-  */
-  // return 0;
+
+  //  PQfinish(conn);
 }

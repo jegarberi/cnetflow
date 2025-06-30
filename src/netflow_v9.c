@@ -7,12 +7,13 @@
 #include <assert.h>
 #include <stdio.h>
 #include "netflow_v5.h"
-static hashmap_t *templates_hashmap;
+static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
+extern arena_struct_t *arena_hashmap_nf9;
 
 void init_v9(arena_struct_t *arena, const size_t cap) {
-  fprintf(stderr, "Initializing v9 [templates_hashmap]...\n");
-  templates_hashmap = hashmap_create(arena, cap);
+  fprintf(stderr, "Initializing v9 [templates_nfv9_hashmap]...\n");
+  templates_nfv9_hashmap = hashmap_create(arena, cap);
 }
 
 void *parse_v9(uv_work_t *req) {
@@ -124,7 +125,9 @@ void *parse_v9(uv_work_t *req) {
             goto unlock_mutex_parse_v9;
           }
           if (t < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
+#ifdef CNETFLOW_DEBUG_BUILD
             fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l, ipfix_field_types[t].name);
+#endif
           } else {
             assert(-1);
           }
@@ -133,7 +136,7 @@ void *parse_v9(uv_work_t *req) {
         char key[255];
         snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
         fprintf(stderr, "key: %s\n", key);
-        uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_hashmap, key, strlen(key));
+        uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
         uint16_t *temp;
         size_t template_init = &template->templates[0].fields[0].field_type;
         if (template_hashmap == NULL) {
@@ -142,9 +145,9 @@ void *parse_v9(uv_work_t *req) {
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
           fprintf(stderr, "%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
                   template_init, template_end);
-          temp = arena_alloc(arena_collector, sizeof(uint16_t) * (field_count + 1) * 4);
+          temp = arena_alloc(arena_hashmap_nf9, sizeof(uint16_t) * (field_count + 1) * 4);
           memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count + 1) * 4);
-          if (hashmap_set(templates_hashmap, arena_collector, key, strlen(key), temp)) {
+          if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             fprintf(stderr, "%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
             fprintf(stderr, "%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
@@ -170,7 +173,7 @@ void *parse_v9(uv_work_t *req) {
       char key[255];
       snprintf(key, 255, "%s-%u\0", ip_int_to_str(args->exporter), template_id);
       fprintf(stderr, "%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
-      uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_hashmap, key, strlen(key));
+      uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
       if (template_hashmap == NULL) {
         fprintf(stderr, "%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                 ip_int_to_str(args->exporter));
@@ -193,8 +196,10 @@ void *parse_v9(uv_work_t *req) {
         while (has_more_records) {
           // netflow_v9_record_value_t *record_value;
           size_t print_flow = 0;
+#ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
                   ip_int_to_str(args->exporter), template_id, flowsets + 1, record_counter + 1, field_count);
+#endif
           size_t reading_field = 0;
           for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
             reading_field++;
@@ -207,8 +212,10 @@ void *parse_v9(uv_work_t *req) {
             }
             uint16_t field_length = template_hashmap[count + 1];
             swap_endianness(&field_length, sizeof(field_length));
+#ifdef CNETFLOW_DEBUG_BUILD
             fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field, ipfix_field_types[field_type].name, field_type,
                     field_length);
+#endif
             /*if (field_type == 8) {
               printf("STAP!\n");
             }*/
@@ -314,106 +321,137 @@ void *parse_v9(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_INGRESSINTERFACE:
-                netflow_packet_ptr->records[record_counter].input = *tmp16;
+                switch (record_length) {
+                  case 2:
+                    netflow_packet_ptr->records[record_counter].input = *tmp16;
+                    break;
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].input = *tmp32;
+                    break;
+                  default:
+                    netflow_packet_ptr->records[record_counter].input = 0;
+                    break;
+                }
+
+
                 print_flow++;
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
-                netflow_packet_ptr->records[record_counter].input = *tmp16;
-                print_flow++;
-                break;
-              default:
-                break;
-            }
-            if (field_type > 337) {
-              goto unlock_mutex_parse_v9;
-            }
-            switch (ipfix_field_types[field_type].coding) {
-              case IPFIX_CODING_INT:
                 switch (record_length) {
-                  case 1:
-                    fprintf(stdout, "%d ", *tmp8);
-                    break;
                   case 2:
-                    fprintf(stdout, "%d ", *tmp16);
+                    netflow_packet_ptr->records[record_counter].output = *tmp16;
                     break;
                   case 4:
-                    fprintf(stdout, "%d ", *tmp32);
-                    break;
-                  case 8:
-                    fprintf(stdout, "%ld ", *tmp64);
-                    break;
-                }
-                break;
-              case IPFIX_CODING_UINT:
-                switch (record_length) {
-                  case 1:
-                    fprintf(stdout, "%u ", *tmp8);
-                    break;
-                  case 2:
-                    fprintf(stdout, "%u ", *tmp16);
-                    break;
-                  case 4:
-                    fprintf(stdout, "%u ", *tmp32);
-                    break;
-                  case 8:
-                    fprintf(stdout, "%lu ", *tmp64);
-                    break;
-                }
-                break;
-              case IPFIX_CODING_BYTES:
-                switch (record_length) {
-                  case 1:
-                    fprintf(stdout, "%u ", *tmp8);
-                    break;
-                  case 2:
-                    fprintf(stdout, "%u ", *tmp16);
-                    break;
-                  case 4:
-                    fprintf(stdout, "%u ", *tmp32);
-                    break;
-                  case 6:
-                    fprintf(stdout, "%lx ", tmp6);
-                    break;
-                  case 8:
-                    fprintf(stdout, "%lu ", *tmp64);
-                    break;
-                }
-                break;
-              case IPFIX_CODING_STRING:
-                break;
-              case IPFIX_CODING_FLOAT:
-                break;
-              case IPFIX_CODING_NTP:
-                break;
-              case IPFIX_CODING_IPADDR:
-                switch (record_length) {
-                  case 4:
-                    tmp8 = (uint8_t *) pointer;
-                    fprintf(stdout, "%u.%u.%u.%u ", *(tmp8 + 3), *(tmp8 + 2), *(tmp8 + 1), *(tmp8));
-                    break;
-                  case 16:
-                    tmp8 = (uint8_t *) pointer;
-                    fprintf(stdout, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ",
-                            *(tmp8 + 15), *(tmp8 + 14), *(tmp8 + 13), *(tmp8 + 12), *(tmp8 + 11), *(tmp8 + 10),
-                            *(tmp8 + 9), *(tmp8 + 8), *(tmp8 + 7), *(tmp8 + 6), *(tmp8 + 5), *(tmp8 + 4), *(tmp8 + 3),
-                            *(tmp8 + 2), *(tmp8 + 1), *(tmp8 + 0));
+                    netflow_packet_ptr->records[record_counter].output = *tmp32;
                     break;
                   default:
-                    exit(-1);
+                    netflow_packet_ptr->records[record_counter].output = 0;
                     break;
                 }
+                print_flow++;
                 break;
               default:
                 break;
             }
 
+            if (field_type > 337) {
+              goto unlock_mutex_parse_v9;
+            }
+#ifdef CNETFLOW_DEBUG_BUILD
+            {
+              switch (ipfix_field_types[field_type].coding) {
+                case IPFIX_CODING_INT:
+                  switch (record_length) {
+                    case 1:
+                      fprintf(stdout, "%d ", *tmp8);
+                      break;
+                    case 2:
+                      fprintf(stdout, "%d ", *tmp16);
+                      break;
+                    case 4:
+                      fprintf(stdout, "%d ", *tmp32);
+                      break;
+                    case 8:
+                      fprintf(stdout, "%ld ", *tmp64);
+                      break;
+                  }
+                  break;
+                case IPFIX_CODING_UINT:
+                  switch (record_length) {
+                    case 1:
+                      fprintf(stdout, "%u ", *tmp8);
+                      break;
+                    case 2:
+                      fprintf(stdout, "%u ", *tmp16);
+                      break;
+                    case 4:
+                      fprintf(stdout, "%u ", *tmp32);
+                      break;
+                    case 8:
+                      fprintf(stdout, "%lu ", *tmp64);
+                      break;
+                  }
+                  break;
+                case IPFIX_CODING_BYTES:
+                  switch (record_length) {
+                    case 1:
+                      fprintf(stdout, "%u ", *tmp8);
+                      break;
+                    case 2:
+                      fprintf(stdout, "%u ", *tmp16);
+                      break;
+                    case 4:
+                      fprintf(stdout, "%u ", *tmp32);
+                      break;
+                    case 6:
+                      fprintf(stdout, "%lx ", tmp6);
+                      break;
+                    case 8:
+                      fprintf(stdout, "%lu ", *tmp64);
+                      break;
+                  }
+                  break;
+                case IPFIX_CODING_STRING:
+                  break;
+                case IPFIX_CODING_FLOAT:
+                  break;
+                case IPFIX_CODING_NTP:
+                  break;
+                case IPFIX_CODING_IPADDR:
+                  switch (record_length) {
+                    case 4:
+                      tmp8 = (uint8_t *) pointer;
+                      fprintf(stdout, "%u.%u.%u.%u ", *(tmp8 + 3), *(tmp8 + 2), *(tmp8 + 1), *(tmp8));
+                      break;
+                    case 16:
+                      tmp8 = (uint8_t *) pointer;
+                      fprintf(stdout, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ",
+                              *(tmp8 + 15), *(tmp8 + 14), *(tmp8 + 13), *(tmp8 + 12), *(tmp8 + 11), *(tmp8 + 10),
+                              *(tmp8 + 9), *(tmp8 + 8), *(tmp8 + 7), *(tmp8 + 6), *(tmp8 + 5), *(tmp8 + 4), *(tmp8 + 3),
+                              *(tmp8 + 2), *(tmp8 + 1), *(tmp8 + 0));
+                      break;
+                    default:
+                      exit(-1);
+                      break;
+                  }
+                  break;
+                default:
+                  break;
+              }
+            }
+#endif
             pointer += record_length;
             pos += record_length;
           }
+
+#ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
+#endif
           if (print_flow >= 11) {
             swap_src_dst_v5(&netflow_packet_ptr->records[record_counter]);
+#ifdef CNETFLOW_DEBUG_BUILD
             printf_v5(stderr, netflow_packet_ptr, record_counter);
+#endif
           } else {
             if (is_ipv6) {
               fprintf(stderr, "ipv6 not supported at the moment...\n");
@@ -431,7 +469,10 @@ void *parse_v9(uv_work_t *req) {
             // exit(-1);
           }
         }
-        insert_v5(args->exporter, netflow_packet_ptr);
+        if (!is_ipv6) {
+          netflow_packet_ptr->header.count = record_counter;
+          insert_v5(args->exporter, netflow_packet_ptr);
+        }
         // fclose(ftemplate);
       }
     } else if ((flowset_id < 256)) {

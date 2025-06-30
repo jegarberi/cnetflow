@@ -3,6 +3,7 @@
 //
 #include "netflow.h"
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
@@ -117,12 +118,22 @@ void swap_endianness(void *value, size_t len) {
  * @return The 64-bit unsigned integer with the byte order reversed.
  */
 uint64_t swap_endian_64(uint64_t value) {
+#if defined(__APPLE__)
+  return OSSwapInt64(value);
+#elif defined(__GNUC__)
+  return __builtin_bswap64(value);
+#else
+  return ((uint64_t) swap_endian_32(value & 0xFFFFFFFFULL) << 32) | swap_endian_32((value >> 32) & 0xFFFFFFFFULL);
+#endif
+}
+/*
+uint64_t swap_endian_64(uint64_t value) {
   return ((value & 0xFF00000000000000ULL) >> 56) | ((value & 0x00FF000000000000ULL) >> 40) |
          ((value & 0x0000FF0000000000ULL) >> 24) | ((value & 0x000000FF00000000ULL) >> 8) |
          ((value & 0x00000000FF000000ULL) << 8) | ((value & 0x0000000000FF0000ULL) << 24) |
          ((value & 0x000000000000FF00ULL) << 40) | ((value & 0x00000000000000FFULL) << 56);
 }
-
+*/
 uint128_t swap_endian_128(const uint128_t value) {
   // Extract the high and low 64-bit parts
   uint64_t high = (uint64_t) (value >> 64);
@@ -151,9 +162,14 @@ uint128_t swap_endian_128(const uint128_t value) {
  * @param value The 32-bit unsigned integer whose byte order is to be swapped.
  * @return The 32-bit unsigned integer with its byte order reversed.
  */
+/*
 uint32_t swap_endian_32(uint32_t value) {
   return ((value & 0xFF000000) >> 24) | ((value & 0x00FF0000) >> 8) | ((value & 0x0000FF00) << 8) |
          ((value & 0x000000FF) << 24);
+}
+*/
+uint32_t swap_endian_32(uint32_t value) {
+  return htonl(value); // or ntohl(value)
 }
 
 /**
@@ -165,7 +181,11 @@ uint32_t swap_endian_32(uint32_t value) {
  * @param value The 16-bit unsigned integer to have its byte order swapped.
  * @return The 16-bit unsigned integer with the byte order reversed.
  */
-uint16_t swap_endian_16(uint16_t value) { return (value >> 8) | (value << 8); }
+/*uint16_t swap_endian_16(uint16_t value) { return (value >> 8) | (value << 8); }*/
+uint16_t swap_endian_16(uint16_t value) {
+  return htons(value); // or ntohs(value), equivalent for simple swap
+}
+
 
 /**
  * Converts data into a consistent endianness format based on the system's detected endianness and the specified

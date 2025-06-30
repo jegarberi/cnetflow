@@ -157,7 +157,9 @@ void *parse_v5(uv_work_t *req) {
                     sizeof((netflow_packet_ptr->records[i].srcport)));
     swap_endianness((void *) &(netflow_packet_ptr->records[i].dstport),
                     sizeof((netflow_packet_ptr->records[i].dstport)));
+#ifdef CNETFLOW_DEBUG_BUILD
     printf_v5(stdout, netflow_packet_ptr, i);
+#endif
   }
   // swap_endianness((void *) &args->exporter, sizeof(args->exporter));
   insert_v5(args->exporter, netflow_packet_ptr);

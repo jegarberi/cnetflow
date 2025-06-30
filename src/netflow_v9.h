@@ -38,11 +38,11 @@ typedef struct {
 
 
 typedef enum {
-  System = 1,
-  Interface = 2,
-  Line_Card = 3,
-  NetFlow_Cache = 4,
-  Template = 5,
+  NF9_System = 1,
+  NF9_Interface = 2,
+  NF9_Line_Card = 3,
+  NF9_NetFlow_Cache = 4,
+  NF9_Template = 5,
 } netflow_v9_scope_field_type_enum;
 
 
