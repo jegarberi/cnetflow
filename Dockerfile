@@ -2,8 +2,10 @@ FROM debian:bookworm-slim AS dependencies
 LABEL authors="jon"
 
 # Combine RUN commands to reduce layers and use --no-install-recommends to minimize image size
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libuv1-dev \
+RUN apt update && apt install -y --no-install-recommends \
+    postgresql-common
+RUN yes | /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+RUN apt install -y --no-install-recommends libuv1-dev \
     libpq-dev \
     libsnmp-dev \
     cmake \
@@ -22,7 +24,10 @@ RUN ctest -C Release --test-dir build
 FROM debian:bookworm-slim AS runtime
 
 # Install only runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt update && apt install -y --no-install-recommends \
+    postgresql-common
+RUN yes | /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+RUN apt update && apt install -y --no-install-recommends \
     libuv1 \
     libpq5 \
     libsnmp40 \

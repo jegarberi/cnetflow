@@ -166,6 +166,7 @@ void *parse_v9(uv_work_t *req) {
     } else if (flowset_id >= 256) {
       // this a record flowset
       fprintf(stderr, "this is a record flowset\n");
+
       size_t has_more_records = 1;
       size_t pos = 0;
       netflow_v9_record_t *record = (netflow_v9_record_t *) (args->data + flowset_base + pos);
@@ -181,6 +182,9 @@ void *parse_v9(uv_work_t *req) {
         has_more_records = 0;
       } else {
         void *pointer = &record->record_value;
+        if (strcmp(ip_int_to_str(args->exporter), "10.11.253.1") == 0) {
+          fprintf(stderr, "STAP exporter: %s\n", ip_int_to_str(args->exporter));
+        }
         uint16_t record_length = 0;
         uint16_t template_id = template_hashmap[0];
         swap_endianness(&template_id, sizeof(template_id));
@@ -332,8 +336,9 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].input = 0;
                     break;
                 }
-
-
+                if (netflow_packet_ptr->records[record_counter].input > 3000) {
+                  fprintf(stderr, "input: %d\n", netflow_packet_ptr->records[record_counter].input);
+                }
                 print_flow++;
                 break;
               case IPFIX_FT_EGRESSINTERFACE:

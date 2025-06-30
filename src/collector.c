@@ -173,6 +173,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
             "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
             arena_udp_handle->offset);
+
     exit(-1);
   }
 
@@ -211,7 +212,7 @@ int8_t collector_start(collector_t *collector) {
     goto error_no_arena;
   }
 
-  err = arena_create(arena_udp_handle, (size_t) 1 * 1024 * 1024 * 1024);
+  err = arena_create(arena_udp_handle, (size_t) 3 * 1024 * 1024 * 1024);
   if (err != ok) {
     fprintf(STDERR, "arena_create failed: %d\n", err);
     goto error_no_arena;

@@ -4,6 +4,18 @@
 
 #include "db_psql.h"
 #include <stdlib.h>
+#if defined(__STDC_NO_THREADS__)
+// If <threads.h> is missing, some compilers support __thread, or _Thread_local, or nothing.
+#if defined(__GNUC__) || defined(__clang__)
+#define THREAD_LOCAL __thread
+#else
+#define THREAD_LOCAL
+#endif
+#else
+#define THREAD_LOCAL thread_local
+#endif
+#include <threads.h>
+THREAD_LOCAL PGconn *conn = NULL;
 
 
 static void exit_nicely(PGconn *conn) {
@@ -21,7 +33,7 @@ static void exit_nicely(PGconn *conn) {
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
 void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
-  PGconn *conn = NULL;
+
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
     exit(-1);
@@ -93,6 +105,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
       res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
+        fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
         exit_nicely(conn);
       } else {
         PQclear(res);
@@ -101,7 +114,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
       PQclear(res);
     }
   }
-  PQfinish(conn);
+  // PQfinish(conn);
   /* end the transaction */
   /*
   res = PQexec(conn, "END");
