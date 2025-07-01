@@ -44,3 +44,4 @@ services:
       - POSTGRES_PORT
     volumes:
     - ./grafana/provisioning:/etc/grafana/provisioning
+    - ./grafana/etc_dashboards/:/etc/grafana/json_dashboards/
