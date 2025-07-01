@@ -129,6 +129,7 @@ void *parse_v9(uv_work_t *req) {
             fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l, ipfix_field_types[t].name);
 #endif
           } else {
+            fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
             assert(-1);
           }
         }
@@ -265,14 +266,23 @@ void *parse_v9(uv_work_t *req) {
                 break;
             }
             if (field_type == 21 || field_type == 22) {
-              swap_endianness(tmp32, sizeof(*tmp32));
-              *tmp32 = *tmp32 / 1000 + diff;
-              swap_endianness(tmp32, sizeof(*tmp32));
             }
             if (field_type > 337) {
               goto unlock_mutex_parse_v9;
             }
             switch (field_type) {
+              case IPFIX_FT_FLOWENDSYSUPTIME:
+                swap_endianness(tmp32, sizeof(*tmp32));
+                *tmp32 = *tmp32 / 1000 + diff;
+                swap_endianness(tmp32, sizeof(*tmp32));
+                netflow_packet_ptr->records[record_counter].Last = *tmp32;
+                break;
+              case IPFIX_FT_FLOWSTARTSYSUPTIME:
+                swap_endianness(tmp32, sizeof(*tmp32));
+                *tmp32 = *tmp32 / 1000 + diff;
+                swap_endianness(tmp32, sizeof(*tmp32));
+                netflow_packet_ptr->records[record_counter].First = *tmp32;
+                break;
               case IPFIX_FT_IPVERSION:
                 switch (*tmp8) {
                   case 4:
@@ -296,14 +306,6 @@ void *parse_v9(uv_work_t *req) {
                 netflow_packet_ptr->records[record_counter].dstaddr = *tmp32;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-                print_flow++;
-                break;
-              case IPFIX_FT_FLOWSTARTSYSUPTIME:
-                netflow_packet_ptr->records[record_counter].First = *tmp32;
-                print_flow++;
-                break;
-              case IPFIX_FT_FLOWENDSYSUPTIME:
-                netflow_packet_ptr->records[record_counter].Last = *tmp32;
                 print_flow++;
                 break;
               case IPFIX_FT_OCTETDELTACOUNT:
@@ -454,18 +456,13 @@ void *parse_v9(uv_work_t *req) {
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-          if (print_flow >= 11) {
-
+          if (!is_ipv6) {
             swap_src_dst_v5(&netflow_packet_ptr->records[record_counter]);
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v5(stderr, netflow_packet_ptr, record_counter);
 #endif
           } else {
-            if (is_ipv6) {
-              fprintf(stderr, "ipv6 not supported at the moment...\n");
-            } else {
-              exit(-1);
-            }
+            fprintf(stderr, "ipv6 not supported at the moment...\n");
           }
           record_counter++;
           if (pos >= flowset_length - 6) { // flowset_id + length + padding

@@ -79,7 +79,7 @@ prepare_statement_exit_nicely:
     fprintf(stderr, PQerrorMessage(conn));
     PQfinish(conn);
   }
-
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 
@@ -95,6 +95,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
   static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
+    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
   PGresult *res;
@@ -190,6 +191,7 @@ insert_v5_exit_nicely:
     fprintf(stderr, PQerrorMessage(conn));
     PQfinish(conn);
   }
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 
@@ -213,6 +215,7 @@ void db_connect(PGconn **conn) {
   const char *static_conn_string = getenv("PG_CONN_STRING");
   if (static_conn_string == NULL) {
     fprintf(stderr, "Environment variable PG_CONN_STRING is not set.\n");
+    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
     exit(EXIT_FAILURE);
   }
 
@@ -299,12 +302,13 @@ void db_connect(PGconn **conn) {
   /* close the connection to the database and cleanup */
 
   //  PQfinish(conn);
+  prepare_statement(*conn);
   return;
 db_connect_exit_nicely:
   if (*conn != NULL) {
     fprintf(stderr, PQerrorMessage(*conn));
     PQfinish(*conn);
   }
-
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }

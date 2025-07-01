@@ -173,7 +173,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
             "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
             arena_udp_handle->offset);
-
+    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
 
@@ -281,6 +281,7 @@ ok:
   arena_destroy(arena_hashmap_nf9);
   arena_destroy(arena_udp_handle);
   arena_destroy(arena_collector);
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   fprintf(STDERR, "exit collector_thread\n");
   return 0;
 
@@ -290,6 +291,7 @@ error_destroy_arena:
   arena_destroy(arena_udp_handle);
   arena_destroy(arena_collector);
 error_no_arena:
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   fprintf(STDERR, "exit collector_thread\n");
   return -1;
 }
@@ -326,6 +328,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   if (buf->base == NULL) {
     fprintf(STDERR, "got buf->base == NULL\n");
+    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
 
@@ -392,6 +395,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     default:
       fprintf(STDERR, "unsupported nf version %d\n", nf_version);
       fprintf(stderr, "this should not happen at all...\n");
+      fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
       assert(false);
   }
   uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
