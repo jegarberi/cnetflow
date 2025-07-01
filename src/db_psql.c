@@ -4,6 +4,7 @@
 
 #include "db_psql.h"
 #include <stdlib.h>
+#include <string.h>
 #if defined(__STDC_NO_THREADS__)
 // If <threads.h> is missing, some compilers support __thread, or _Thread_local, or nothing.
 #if defined(__GNUC__) || defined(__clang__)
@@ -15,14 +16,72 @@
 #define THREAD_LOCAL thread_local
 #endif
 #include <threads.h>
-THREAD_LOCAL PGconn *conn = NULL;
 
 
-static void exit_nicely(PGconn *conn) {
-  PQfinish(conn);
-  exit(1);
+/**
+ * Prepares a PostgreSQL prepared statement named "insert_flows" for inserting NetFlow data
+ * into the "public.flows" table. The statement includes 12 parameters to support the necessary
+ * columns in the table and checks for any errors during the preparation process.
+ *
+ * @param conn   A pointer to the PostgreSQL connection object. Must be an open and valid connection.
+ */
+void prepare_statement(PGconn *conn) {
+  if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
+    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    goto prepare_statement_exit_nicely;
+  }
+
+  PGresult *res;
+  char stmtName[] = "insert_flows";
+  const int nParams = 18;
+  char query[] = "insert into public.flows "
+                 "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,output,prot,tos,src_as,dst_"
+                 "as,src_mask,dst_mask,tcp_flags) values($1, $2, "
+                 "$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)";
+
+  const Oid paramTypes[18] = {
+      INT4OID, // 1 INT4OID for exporter (integer)
+      INT4OID, // 2 INT4OID for srcaddr (integer)
+      INT2OID, // 3 INT2OID for srcport (smallint)
+      INT4OID, // 4 INT4OID for dstaddr (integer)
+      INT2OID, // 5 INT2OID for dstport (smallint)
+      INT4OID, // 6 INT4OID for First (integer)
+      INT4OID, // 7 INT4OID for Last (integer)
+      INT4OID, // 8 INT4OID for dPkts (integer)
+      INT4OID, // 9 INT4OID for dOctets (integer)
+      INT2OID, // 10 INT2OID for input (smallint)
+      INT2OID, // 11 INT2OID for output (smallint)
+      CHAROID, // 12 CHAROID for prot (byte)
+      CHAROID, // 13 CHAROID for tos (byte)
+      INT2OID, // 14 INT2OID for srcas (smallint)
+      INT2OID, // 15 INT2OID for dstas (smallint)
+      CHAROID, // 16 CHAROID for src_mask (byte)
+      CHAROID, // 17 CHAROID for dst_mask (byte)
+      CHAROID, // 18 CHAROID for tcp_flags (byte)
+  };
+
+
+  res = PQprepare(conn, stmtName, query, nParams, paramTypes);
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+    fprintf(stderr, "PQprepare failed: %s", PQerrorMessage(conn));
+    char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows\" already exists\n";
+    char *err_msg = PQerrorMessage(conn);
+    if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
+      PQclear(res);
+      goto prepare_statement_exit_nicely;
+    }
+  }
+  PQclear(res);
+  return;
+prepare_statement_exit_nicely:
+  if (conn != NULL) {
+    fprintf(stderr, PQerrorMessage(conn));
+    PQfinish(conn);
+  }
+
+  exit(-1);
 }
-
 
 /**
  * Inserts a batch of NetFlow v5 records into a PostgreSQL database.
@@ -33,23 +92,22 @@ static void exit_nicely(PGconn *conn) {
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
 void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
-
+  static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
     exit(-1);
   }
   PGresult *res;
   prepare_statement(conn);
-  /*
+
   res = PQexec(conn, "BEGIN");
-  if (PQresultStatus(res) != PGRES_COMMAND_OK)
-  {
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
     fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
     PQclear(res);
-    exit_nicely(conn);
+    goto insert_v5_exit_nicely;
   }
   PQclear(res);
-  */
+
 
   for (int i = 0; i < flows->header.count; i++) {
     int nParams = 18;
@@ -106,7 +164,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
         fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
-        exit_nicely(conn);
+        goto insert_v5_exit_nicely;
       } else {
         PQclear(res);
       }
@@ -116,15 +174,23 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
   }
   // PQfinish(conn);
   /* end the transaction */
-  /*
+
   res = PQexec(conn, "END");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
     fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
     PQclear(res);
-    exit_nicely();
+    goto insert_v5_exit_nicely;
   }
   PQclear(res);
-  */
+
+insert_v5_return:
+  return;
+insert_v5_exit_nicely:
+  if (conn != NULL) {
+    fprintf(stderr, PQerrorMessage(conn));
+    PQfinish(conn);
+  }
+  exit(-1);
 }
 
 
@@ -139,8 +205,6 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
  *             object. If the connection fails, the application will terminate.
  */
 void db_connect(PGconn **conn) {
-
-
   if (*conn != NULL) {
     return;
   }
@@ -159,7 +223,7 @@ void db_connect(PGconn **conn) {
   /* Check to see that the backend connection was successfully made */
   if (PQstatus(*conn) != CONNECTION_OK) {
     fprintf(stderr, "%s", PQerrorMessage(*conn));
-    exit_nicely(*conn);
+    goto db_connect_exit_nicely;
   }
   /* Set always-secure search path, so malicious users can't take control. */
 
@@ -169,7 +233,7 @@ void db_connect(PGconn **conn) {
   if (PQresultStatus(res) != PGRES_TUPLES_OK) {
     fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) failed: %s\n", PQerrorMessage(*conn));
     PQclear(res);
-    exit_nicely(*conn);
+    goto db_connect_exit_nicely;
   }
   PQclear(res);
   fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) succesfull: %s\n", PQerrorMessage(*conn));
@@ -235,4 +299,12 @@ void db_connect(PGconn **conn) {
   /* close the connection to the database and cleanup */
 
   //  PQfinish(conn);
+  return;
+db_connect_exit_nicely:
+  if (*conn != NULL) {
+    fprintf(stderr, PQerrorMessage(*conn));
+    PQfinish(*conn);
+  }
+
+  exit(-1);
 }

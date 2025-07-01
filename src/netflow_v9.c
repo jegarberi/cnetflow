@@ -238,34 +238,36 @@ void *parse_v9(uv_work_t *req) {
             switch (record_length) {
               case 1:
                 tmp8 = (uint8_t *) pointer;
-                swap_endianness(tmp8, sizeof(*tmp8));
+                // swap_endianness(tmp8, sizeof(*tmp8));
                 break;
               case 2:
                 tmp16 = (uint16_t *) pointer;
-                swap_endianness(tmp16, sizeof(*tmp16));
+                // swap_endianness(tmp16, sizeof(*tmp16));
                 break;
               case 4:
                 tmp32 = (uint32_t *) pointer;
-                swap_endianness(tmp32, sizeof(*tmp32));
+                // swap_endianness(tmp32, sizeof(*tmp32));
                 break;
               case 6:
                 tmp64 = (uint64_t *) pointer;
                 tmp6 = *tmp64;
                 tmp6 &= 0x0000ffffffffffff;
-                swap_endianness(&tmp6, sizeof(*tmp64));
+                // swap_endianness(&tmp6, sizeof(*tmp64));
                 tmp6 = tmp6 >> 16;
                 break;
               case 8:
                 tmp64 = (uint64_t *) pointer;
-                swap_endianness(tmp64, sizeof(*tmp64));
+                // swap_endianness(tmp64, sizeof(*tmp64));
                 break;
               case 16:
                 tmp128 = (uint128_t *) pointer;
-                swap_endianness(tmp128, sizeof(*tmp128));
+                // swap_endianness(tmp128, sizeof(*tmp128));
                 break;
             }
             if (field_type == 21 || field_type == 22) {
+              swap_endianness(tmp32, sizeof(*tmp32));
               *tmp32 = *tmp32 / 1000 + diff;
+              swap_endianness(tmp32, sizeof(*tmp32));
             }
             if (field_type > 337) {
               goto unlock_mutex_parse_v9;
@@ -286,14 +288,14 @@ void *parse_v9(uv_work_t *req) {
                 break;
               case IPFIX_FT_SOURCEIPV4ADDRESS:
                 netflow_packet_ptr->records[record_counter].srcaddr = *tmp32;
-                swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-                                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+                // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+                //                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
                 print_flow++;
                 break;
               case IPFIX_FT_DESTINATIONIPV4ADDRESS:
                 netflow_packet_ptr->records[record_counter].dstaddr = *tmp32;
-                swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-                                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+                // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+                //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
                 print_flow++;
                 break;
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
@@ -453,6 +455,7 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stdout, "\n");
 #endif
           if (print_flow >= 11) {
+
             swap_src_dst_v5(&netflow_packet_ptr->records[record_counter]);
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v5(stderr, netflow_packet_ptr, record_counter);
