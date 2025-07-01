@@ -73,6 +73,7 @@ grant execute on function int2port
 grant execute on function int2port
 (smallint) to service_role;
 
+
 create function int4touint4(int_in integer) returns bigint
     language plpgsql
 as
@@ -155,7 +156,7 @@ select int2inet(srcaddr) as srcaddr,
        int2port(srcport) as srcport,
        int2inet(dstaddr) as dstaddr,
        int2port(dstport) as dstport,
-       prot, input, output, sum (doctets) as octets, sum (dpkts) as dpkts, (CASE when first < 0 then (cast (first as bigint)+(4294967296::bigint))/100 else first end) as first, (CASE when last < 0 then (cast (last as bigint)+(4294967296::bigint))/100 else last end) as last
+       ascii(prot) as prot, input, output, sum (doctets) as octets, sum (dpkts) as dpkts, (CASE when first < 0 then (cast (first as bigint)+(4294967296::bigint))/100 else first end) as first, (CASE when last < 0 then (cast (last as bigint)+(4294967296::bigint))/100 else last end) as last
 from flows
 group by srcaddr, srcport, dstaddr, dstport, prot, first, last, input, output
 order by first desc, dstaddr, dstport, prot limit 1

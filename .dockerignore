@@ -5,3 +5,7 @@ cmake-build*
 *.service
 *.conf
 build
+data
+scripts
+web
+

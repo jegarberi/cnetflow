@@ -8,29 +8,39 @@ services:
     environment:
       - UV_THREADPOOL_SIZE
       - PG_CONN_STRING
+    depends_on:
+      - db
   db:
     container_name: postgres
     image: postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGDATA: /data/postgres
-      POSTGRES_DB: bank
+    - POSTGRES_USER
+    - POSTGRES_PASSWORD
+    - POSTGRES_DB
     volumes:
-      - db:/data/postgres
+      - ./data/db:/var/lib/postgresql/data
+      - ./scripts/sql/psql/:/docker-entrypoint-initdb.d/:r
     ports:
-      - "5332:5432"
-    networks:
-      - db
+      - "5432:5432"
     restart: unless-stopped
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d postgres" ]
       interval: 30s
       timeout: 10s
       retries: 5
-volumes:
-  db:
+  softflowd:
+    image: kagurazakanyaa/softflowd
+    command: [ "softflowd", "-v", "9", "-i", "any" ,"-D" ,"-P" ,"udp" ,"-n", "cnetflow:2055"]
 
-networks:
-  db:
-    driver: bridge
+  grafana:
+    image: grafana/grafana
+    ports:
+    - 3000:3000/tcp
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_HOST
+      - POSTGRES_PORT
+    volumes:
+    - ./grafana/provisioning:/etc/grafana/provisioning
