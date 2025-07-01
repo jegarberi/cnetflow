@@ -1,0 +1,30 @@
+apiVersion: 1
+deleteDatasources:
+  - name: 'db'
+    org_id: 1
+
+datasources:
+  - name: db
+    type: grafana-postgresql-datasource
+    typeName: PostgreSQL
+    typeLogoUrl: >-
+      public/app/plugins/datasource/grafana-postgresql-datasource/img/postgresql_logo.svg
+    access: proxy
+    url: '${POSTGRES_HOST}:${POSTGRES_PORT}'
+    user: '${POSTGRES_USER}'
+    database: '${POSTGRES_DB}'
+    basicAuth: false
+    isDefault: true
+    org_id: 1
+    secureJsonData:
+      password: '${POSTGRES_PASSWORD}'
+    is_default: true
+    jsonData:
+      connMaxLifetime: 14400
+      database: cnetflow
+      maxIdleConns: 100
+      maxIdleConnsAuto: true
+      maxOpenConns: 100
+      postgresVersion: 1500
+      sslmode: disable
+    readOnly: false
