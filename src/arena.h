@@ -6,7 +6,7 @@
 #define ARENA_H
 #include <stddef.h>
 #include <stdint.h>
-#include <uv/unix.h>
+#include <uv.h>
 
 #define MAX_ALLOCATIONS 102400
 
