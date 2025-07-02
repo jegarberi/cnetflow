@@ -12,7 +12,8 @@ services:
       - db
   db:
     container_name: postgres
-    image: postgres
+    #image: postgres
+    image: codercms/postgres-uint128:15-1.0.0
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD

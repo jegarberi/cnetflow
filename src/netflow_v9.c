@@ -42,10 +42,8 @@ void *parse_v9(uv_work_t *req) {
   uint32_t now = (uint32_t) time(NULL);
   uint32_t diff = now - (uint32_t) (header->SysUptime / 1000);
 
-  size_t end = 0;
   flowset_union_t *flowset;
 
-  uint8_t process_flow = 1;
   size_t flowset_counter = 0;
   size_t record_counter = 0;
   size_t template_counter = 0;
@@ -155,7 +153,7 @@ void *parse_v9(uv_work_t *req) {
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
         } else {
-          memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * field_count * 2);
+          memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count+1) * 2);
         }
         fprintf(stderr, "template_counter: %lu\n", template_counter);
         template_counter++;
@@ -183,9 +181,6 @@ void *parse_v9(uv_work_t *req) {
         has_more_records = 0;
       } else {
         void *pointer = &record->record_value;
-        if (strcmp(ip_int_to_str(args->exporter), "10.11.253.1") == 0) {
-          fprintf(stderr, "STAP exporter: %s\n", ip_int_to_str(args->exporter));
-        }
         uint16_t record_length = 0;
         uint16_t template_id = template_hashmap[0];
         swap_endianness(&template_id, sizeof(template_id));
@@ -359,7 +354,8 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_INGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].input = *tmp16;
+                    netflow_packet_ptr->records[record_counter].input = (uint32_t)*tmp16;
+                    netflow_packet_ptr->records[record_counter].input <<= 16 ;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].input = *tmp32;
@@ -376,7 +372,8 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].output = *tmp16;
+                    netflow_packet_ptr->records[record_counter].output = (uint32_t)*tmp16;
+                    netflow_packet_ptr->records[record_counter].input <<= 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].output = *tmp32;
@@ -485,9 +482,9 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stdout, "\n");
 #endif
           if (!is_ipv6) {
-            swap_src_dst_v5(&netflow_packet_ptr->records[record_counter]);
+            swap_src_dst_v9(&netflow_packet_ptr->records[record_counter]);
 #ifdef CNETFLOW_DEBUG_BUILD
-            printf_v5(stderr, netflow_packet_ptr, record_counter);
+            printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif
           } else {
             fprintf(stderr, "ipv6 not supported at the moment...\n");

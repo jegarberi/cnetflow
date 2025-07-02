@@ -135,5 +135,7 @@ uint128_t swap_endian_128(uint128_t value);
 void *fix_endianness(void *buf, void *data, size_t len);
 void printf_v5(FILE *, netflow_v5_flowset_t *, int);
 void swap_src_dst_v5(netflow_v5_record_t *record);
+void swap_src_dst_v9(netflow_v9_record_insert_t *record);
+void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, int i);
 static endianness_e endianness = 0;
 #endif // NETFLOW_H

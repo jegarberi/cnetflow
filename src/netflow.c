@@ -230,6 +230,21 @@ void *fix_endianness(void *buf, void *data, size_t len) {
   }
 }
 
+void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
+  if (record->dstport > record->srcport) {
+    uint16_t tmp_port = record->dstport;
+    record->dstport = record->srcport;
+    record->srcport = tmp_port;
+    uint32_t tmp_addr = record->dstaddr;
+    record->dstaddr = record->srcaddr;
+    record->srcaddr = tmp_addr;
+    uint16_t tmp_interface = 0;
+    tmp_interface = record->input;
+    record->input = record->output;
+    record->output = tmp_interface;
+  }
+}
+
 void swap_src_dst_v5(netflow_v5_record_t *record) {
   if (record->dstport > record->srcport) {
     uint16_t tmp_port = record->dstport;
@@ -257,6 +272,26 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
+  strncpy(ip_dst_str, tmp, strlen(tmp));
+  fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
+          netflow_packet->records[i].prot);
+}
+void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, int i) {
+  char ip_src_str[50] = {0};
+  char ip_dst_str[50] = {0};
+
+  char *tmp;
+  uint32_t tmp_address = netflow_packet->records[i].srcaddr;
+  swap_endianness(&tmp_address, sizeof(tmp_address));
+  tmp = ip_int_to_str(tmp_address);
+  strncpy(ip_src_str, tmp, strlen(tmp));
+  uint16_t tmp_src_port = netflow_packet->records[i].srcport;
+  uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
+  swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
+  swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
+  tmp_address = netflow_packet->records[i].srcaddr;
+  swap_endianness(&tmp_address, sizeof(tmp_address));
+  tmp = ip_int_to_str(tmp_address);
   strncpy(ip_dst_str, tmp, strlen(tmp));
   fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
           netflow_packet->records[i].prot);
