@@ -315,6 +315,8 @@ void *parse_v9(uv_work_t *req) {
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) *tmp64;
+                    // swap_endianness(&netflow_packet_ptr->records[record_counter].dOctets,
+                    //                sizeof(netflow_packet_ptr->records[record_counter].dOctets));
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].dOctets = 0;
@@ -331,6 +333,8 @@ void *parse_v9(uv_work_t *req) {
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) *tmp64;
+                    // swap_endianness(&netflow_packet_ptr->records[record_counter].dPkts,
+                    //                sizeof(netflow_packet_ptr->records[record_counter].dPkts));
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].dPkts = 0;

@@ -81,7 +81,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT SUM(doctets) as octets,int2inet(exporter) as exporter FROM flows_v5 group by exporter ;",
+          "rawSql": "SELECT SUM(doctets) as octets,int2inet(exporter) as exporter FROM flows_v5 where $__unixEpochFilter(last) group by exporter ;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -285,7 +285,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select int2inet(exporter) as exporter,int2inet(srcaddr) as srcaddr,int2inet(dstaddr) as dstaddr,input,output,doctets,dpkts from flows_v5 order by doctets desc, dpkts desc ;",
+          "rawSql": "select int2inet(exporter) as exporter,int2inet(srcaddr) as srcaddr,int2inet(dstaddr) as dstaddr,input,output,doctets,dpkts from flows_v5 where $__unixEpochFilter(last) order by doctets desc, dpkts desc ;",
           "refId": "A",
           "sql": {
             "columns": [
