@@ -30,7 +30,7 @@ services:
       retries: 5
   softflowd:
     image: kagurazakanyaa/softflowd
-    command: [ "softflowd", "-v", "5", "-v","9","-i", "any" ,"-d", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
+    command: [ "softflowd",  "-v","9","-i", "any" ,"-D", "-t","maxlife=10s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
     network_mode: host
 
   grafana:

@@ -312,6 +312,7 @@ void *parse_v9(uv_work_t *req) {
                 switch (record_length) {
                   case 4:
                     netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) *tmp32;
+                    netflow_packet_ptr->records[record_counter].dOctets <<= 32;
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) *tmp64;
@@ -330,6 +331,7 @@ void *parse_v9(uv_work_t *req) {
                 switch (record_length) {
                   case 4:
                     netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) *tmp32;
+                    netflow_packet_ptr->records[record_counter].dPkts <<= 32;
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) *tmp64;
