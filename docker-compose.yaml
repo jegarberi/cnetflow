@@ -14,14 +14,14 @@ services:
     container_name: postgres
     image: postgres
     environment:
-    - POSTGRES_USER
-    - POSTGRES_PASSWORD
-    - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
     volumes:
       - ./data/db:/var/lib/postgresql/data
       - ./scripts/sql/psql/:/docker-entrypoint-initdb.d/:r
     ports:
-      - "5432:5432"
+      - "$POSTGRES_PORT:5432"
     restart: unless-stopped
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d postgres" ]
@@ -30,12 +30,13 @@ services:
       retries: 5
   softflowd:
     image: kagurazakanyaa/softflowd
-    command: [ "softflowd", "-v", "9", "-i", "any" ,"-D" ,"-P" ,"udp" ,"-n", "cnetflow:2055"]
+    command: [ "softflowd", "-v", "5", "-v","9","-i", "any" ,"-d", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
+    network_mode: host
 
   grafana:
     image: grafana/grafana
     ports:
-    - 3000:3000/tcp
+      - 3001:3000/tcp
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -43,5 +44,5 @@ services:
       - POSTGRES_HOST
       - POSTGRES_PORT
     volumes:
-    - ./grafana/provisioning:/etc/grafana/provisioning
-    - ./grafana/etc_dashboards/:/etc/grafana/json_dashboards/
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/etc_dashboards/:/etc/grafana/json_dashboards/

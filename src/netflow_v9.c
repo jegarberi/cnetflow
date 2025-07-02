@@ -194,8 +194,8 @@ void *parse_v9(uv_work_t *req) {
         pos = 0;
         // pos += 4;
         // FILE *ftemplate = fopen("templates.txt", "a");
-        netflow_v5_flowset_t *netflow_packet_ptr;
-        netflow_v5_flowset_t netflow_packet = {0};
+        netflow_v9_flowset_t *netflow_packet_ptr;
+        netflow_v9_flowset_t netflow_packet = {0};
         netflow_packet_ptr = &netflow_packet;
         int is_ipv6 = 0;
         while (has_more_records) {
@@ -309,11 +309,33 @@ void *parse_v9(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_OCTETDELTACOUNT:
-                netflow_packet_ptr->records[record_counter].dOctets = *tmp32;
+                switch (record_length) {
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) *tmp32;
+                    break;
+                  case 8:
+                    netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) *tmp64;
+                    break;
+                  default:
+                    netflow_packet_ptr->records[record_counter].dOctets = 0;
+                    break;
+                }
                 print_flow++;
                 break;
               case IPFIX_FT_PACKETDELTACOUNT:
-                netflow_packet_ptr->records[record_counter].dPkts = *tmp32;
+                uint64_t dpkts_64 = 0;
+                uint32_t dpkts_32 = 0;
+                switch (record_length) {
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) *tmp32;
+                    break;
+                  case 8:
+                    netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) *tmp64;
+                    break;
+                  default:
+                    netflow_packet_ptr->records[record_counter].dPkts = 0;
+                    break;
+                }
                 print_flow++;
                 break;
               case IPFIX_FT_DESTINATIONTRANSPORTPORT:
@@ -476,7 +498,7 @@ void *parse_v9(uv_work_t *req) {
         }
         if (!is_ipv6) {
           netflow_packet_ptr->header.count = record_counter;
-          insert_v5(args->exporter, netflow_packet_ptr);
+          insert_v9(args->exporter, netflow_packet_ptr);
         }
         // fclose(ftemplate);
       }

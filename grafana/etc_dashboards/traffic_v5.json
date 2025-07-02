@@ -81,7 +81,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT SUM(doctets) as octets,int2inet(exporter) as exporter FROM flows group by exporter ;",
+          "rawSql": "SELECT SUM(doctets) as octets,int2inet(exporter) as exporter FROM flows_v5 group by exporter ;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -107,7 +107,7 @@
             ],
             "limit": 50
           },
-          "table": "flows"
+          "table": "flows_v5"
         }
       ],
       "title": "New panel",
@@ -203,7 +203,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select sum(doctets) as octets,int2inet(exporter),last as time from flows where $__unixEpochFilter(last) group by int2inet(exporter),time ;",
+          "rawSql": "select sum(doctets) as octets,int2inet(exporter),last as time from flows_v5 where $__unixEpochFilter(last) group by int2inet(exporter),time ;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -285,7 +285,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select int2inet(exporter) as exporter,int2inet(srcaddr) as srcaddr,int2inet(dstaddr) as dstaddr,input,output,doctets,dpkts from flows order by doctets desc, dpkts desc ;",
+          "rawSql": "select int2inet(exporter) as exporter,int2inet(srcaddr) as srcaddr,int2inet(dstaddr) as dstaddr,input,output,doctets,dpkts from flows_v5 order by doctets desc, dpkts desc ;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -304,7 +304,7 @@
             ],
             "limit": 50
           },
-          "table": "flows"
+          "table": "flows_v5"
         }
       ],
       "title": "New panel",
@@ -323,7 +323,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Traffic",
+  "title": "Traffic_v5",
   "uid": "asdsadsadsadsadsadsadwaed332d32",
   "version": 2
 }
