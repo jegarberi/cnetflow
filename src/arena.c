@@ -34,6 +34,7 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   arena->free_slots = 0;
   arena->capacity = capacity;
   arena->first_chunk = NULL;
+  arena->recycle = 0;
   arena->end = (size_t) arena->base_address + arena->size;
   memset(arena->base_address, 0, arena->size);
   uv_mutex_init(&arena->mutex);
@@ -88,7 +89,8 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   uv_mutex_unlock(&arena->mutex);
   return address;
   */
-  if (arena->free_slots > 0) {
+  if (arena->free_slots >  1024 * 10 || arena->recycle == 1) {
+    arena->recycle = 1;
     fprintf(stderr, "%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
     chunk = arena->first_chunk;
     do {
@@ -102,6 +104,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
         chunk->occupied = 1;
         chunk->free = 0;
         arena->free_slots--;
+        if (arena->free_slots == 0) {
+          arena->recycle = 0;
+        }
         memset(chunk->data_address, 0, bytes);
         uv_mutex_unlock(&arena->mutex);
         return chunk->data_address;

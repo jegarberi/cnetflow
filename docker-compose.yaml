@@ -3,6 +3,7 @@ services:
     build:
       context: .
     image: cnetflow
+    restart: unless-stopped
     ports:
       - "2055:2055/udp"
     environment:
@@ -13,17 +14,31 @@ services:
   db:
     container_name: postgres
     #image: postgres
-    image: codercms/postgres-uint128:15-1.0.0
+    #image: codercms/postgres-uint128:15-1.0.0
+    build:
+      context: ./timescale_pg_cron/
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
       - POSTGRES_DB
     volumes:
-      - ./data/db:/var/lib/postgresql/data
+      - ./data/psql:/var/lib/postgresql/data
       - ./scripts/sql/psql/:/docker-entrypoint-initdb.d/:r
     ports:
       - "$POSTGRES_PORT:5432"
     restart: unless-stopped
+    #    command:
+    #      [
+    #        "postgres",
+    #        "-c",
+    #        "log_statement=all",
+    #        "-c",
+    #        "log_destination=stderr",
+    #        "-c",
+    #        "shared_preload_libraries=pg_cron",
+    #        "-c",
+    #        "cron.database_name=${POSTGRES_DB-postgres}",
+    #      ]
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d postgres" ]
       interval: 30s

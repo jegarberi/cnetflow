@@ -31,6 +31,7 @@ typedef struct arena {
   size_t allocations;
   size_t max_allocations;
   size_t free_slots;
+  uint8_t recycle;
   size_t capacity;
   uv_mutex_t mutex;
   arena_chunk_t *first_chunk;

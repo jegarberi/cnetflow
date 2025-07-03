@@ -439,8 +439,8 @@ void *parse_ipfix(uv_work_t *req) {
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-          if (print_flow >= 11) {
-            swap_src_dst_v5(&netflow_packet_ptr->records[record_counter]);
+          if (print_flow >= 9) {
+            swap_src_dst_v9(&netflow_packet_ptr->records[record_counter]);
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v5(stderr, netflow_packet_ptr, record_counter);
 #endif
