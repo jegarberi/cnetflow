@@ -201,9 +201,61 @@ BEGIN
     -- Delete the aggregated data from the 5-minute table
     DELETE
     FROM flows_v9_agg_5min
-    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now() - INTERVAL '30 minutes');
+    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now() - INTERVAL '7 days');
 END;
 $$;
+
+
+
+DROP PROCEDURE IF EXISTS import_flows_v5_agg_30min();
+CREATE PROCEDURE import_flows_v5_agg_30min()
+    LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    INSERT INTO flows_v5_agg_30min (bucket_30min,
+                                    exporter,
+                                    srcaddr,
+                                    dstaddr,
+                                    srcport,
+                                    dstport,
+                                    protocol,
+                                    input,
+                                    output,
+                                    total_packets,
+                                    total_octets)
+    SELECT time_bucket('30 minutes', bucket_5min) AS bucket_30min,
+           exporter,
+           srcaddr,
+           dstaddr,
+           srcport,
+           dstport,
+           protocol,
+           input,
+           output,
+           SUM(total_packets)                     AS total_packets,
+           SUM(total_octets)                      AS total_octets
+    FROM flows_v5_agg_5min
+    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now())
+    GROUP BY bucket_30min,
+             exporter,
+             srcaddr,
+             dstaddr,
+             srcport,
+             dstport,
+             protocol,
+             input,
+             output
+    ORDER BY bucket_30min DESC;
+
+    -- Delete the aggregated data from the 5-minute table
+    DELETE
+    FROM flows_v9_agg_5min
+    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now() - INTERVAL '7 days');
+END;
+$$;
+
+
 
 DROP PROCEDURE IF EXISTS import_flows_v9_agg_5min();
 CREATE PROCEDURE import_flows_v9_agg_5min()
@@ -256,8 +308,61 @@ $$;
 
 
 
+DROP PROCEDURE IF EXISTS import_flows_v5_agg_5min();
+CREATE PROCEDURE import_flows_v5_agg_5min()
+    LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    INSERT INTO flows_v5_agg_5min (bucket_5min,
+                                   exporter,
+                                   srcaddr,
+                                   dstaddr,
+                                   srcport,
+                                   dstport,
+                                   protocol,
+                                   input,
+                                   output,
+                                   total_packets,
+                                   total_octets)
+    SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
+           int2inet(exporter)                            AS exporter,
+           int2inet(srcaddr)                             AS srcaddr,
+           int2inet(dstaddr)                             AS dstaddr,
+           int2port(srcport)                             AS srcport,
+           int2port(dstport)                             AS dstport,
+           ascii(prot)                                   AS protocol,
+           input,
+           output,
+           SUM(dpkts)                                    AS total_packets,
+           SUM(doctets)                                  AS total_octets
+    FROM flows_v5
+    WHERE time_bucket('5 minutes', to_timestamp(first)) = time_bucket('5 minutes', now())
+    GROUP BY bucket_5min,
+             exporter,
+             srcaddr,
+             dstaddr,
+             srcport,
+             dstport,
+             prot,
+             input,
+             output,
+             first
+    ORDER BY bucket_5min DESC;
+    -- Delete the just-aggregated rows from flows_v9
+    DELETE
+    FROM flows_v5
+    WHERE time_bucket('5 minutes', to_timestamp(first)) = time_bucket('5 minutes', now() - INTERVAL '5 minutes');
+
+END;
+$$;
+
+
+
 SELECT cron.schedule('*/5 * * * *', $$call import_exporters_v9()$$);
 SELECT cron.schedule('*/5 * * * *', $$call import_exporters_v5()$$);
+SELECT cron.schedule('*/1 * * * *', $$call import_flows_v5_agg_5min()$$);
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_v9_agg_5min()$$);
+SELECT cron.schedule('*/15 * * * *', $$call import_flows_v5_agg_30min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v9_agg_30min()$$);
 SELECT cron.schedule('0 * * * *', $$call import_flows_v9_agg_2hour()$$);
