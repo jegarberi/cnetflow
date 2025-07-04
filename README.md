@@ -3,6 +3,9 @@
 A high-performance NetFlow collector and analyzer tool written in C, designed to capture, process, and store network
 flow data for network monitoring and analysis.
 
+Inspired from
+https://github.com/tubav/libipfix
+
 ## Features
 
 - **Multi-version NetFlow support**: NetFlow v5, v9, and IPFIX

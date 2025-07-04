@@ -164,6 +164,7 @@ $$
 DECLARE
     aggregated_ids bigint[];
 BEGIN
+    LOCK TABLE flows_v5 IN EXCLUSIVE MODE;
     -- Aggregate and upsert
     WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
                                int2inet(exporter)                            AS exporter,
@@ -213,10 +214,9 @@ BEGIN
     IF aggregated_ids IS NOT NULL THEN
         DELETE FROM flows_v5 WHERE id = ANY (aggregated_ids);
     END IF;
+    COMMIT;
 END;
 $$;
-
-
 
 CREATE OR REPLACE PROCEDURE import_flows_v9_agg_5min()
     LANGUAGE plpgsql
@@ -225,6 +225,7 @@ $$
 DECLARE
     aggregated_ids bigint[];
 BEGIN
+    LOCK TABLE flows_v9 IN EXCLUSIVE MODE;
     -- Aggregate and upsert
     WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
                                int2inet(exporter)                            AS exporter,
@@ -274,6 +275,7 @@ BEGIN
     IF aggregated_ids IS NOT NULL THEN
         DELETE FROM flows_v9 WHERE id = ANY (aggregated_ids);
     END IF;
+    COMMIT;
 END;
 $$;
 

@@ -153,7 +153,8 @@ void *parse_v9(uv_work_t *req) {
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
         } else {
-          memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count+1) * 2);
+          memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2),
+                 sizeof(uint16_t) * (field_count + 1) * 2);
         }
         fprintf(stderr, "template_counter: %lu\n", template_counter);
         template_counter++;
@@ -354,8 +355,8 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_INGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].input = (uint32_t)*tmp16;
-                    netflow_packet_ptr->records[record_counter].input <<= 16 ;
+                    netflow_packet_ptr->records[record_counter].input = (uint32_t) *tmp16;
+                    netflow_packet_ptr->records[record_counter].input <<= 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].input = *tmp32;
@@ -372,7 +373,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].output = (uint32_t)*tmp16;
+                    netflow_packet_ptr->records[record_counter].output = (uint32_t) *tmp16;
                     netflow_packet_ptr->records[record_counter].input <<= 16;
                     break;
                   case 4:
@@ -482,7 +483,15 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stdout, "\n");
 #endif
           if (!is_ipv6) {
+            swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
+                            sizeof(netflow_packet_ptr->records[record_counter].srcport));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
+                            sizeof(netflow_packet_ptr->records[record_counter].dstport));
             swap_src_dst_v9(&netflow_packet_ptr->records[record_counter]);
+            swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
+                            sizeof(netflow_packet_ptr->records[record_counter].srcport));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
+                            sizeof(netflow_packet_ptr->records[record_counter].dstport));
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif
