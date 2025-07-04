@@ -136,7 +136,7 @@ BEGIN
 END;
 $$;
 
-call import_exporters_v5();
+
 drop function if exists import_exporters_v9();
 drop procedure if exists import_exporters_v9();
 create procedure import_exporters_v9()
@@ -157,24 +157,33 @@ END;
 $$;
 
 
-DROP PROCEDURE IF EXISTS import_flows_v9_agg_30min();
-CREATE PROCEDURE import_flows_v9_agg_30min()
+CREATE OR REPLACE PROCEDURE import_flows_v5_agg_5min()
     LANGUAGE plpgsql
 AS
 $$
+DECLARE
+    aggregated_ids bigint[];
 BEGIN
-    INSERT INTO flows_v9_agg_30min (bucket_30min,
-                                    exporter,
-                                    srcaddr,
-                                    dstaddr,
-                                    srcport,
-                                    dstport,
-                                    protocol,
-                                    input,
-                                    output,
-                                    total_packets,
-                                    total_octets)
-    SELECT time_bucket('30 minutes', bucket_5min) AS bucket_30min,
+    -- Aggregate and upsert
+    WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
+                               int2inet(exporter)                            AS exporter,
+                               int2inet(srcaddr)                             AS srcaddr,
+                               int2inet(dstaddr)                             AS dstaddr,
+                               int2port(srcport)                             AS srcport,
+                               int2port(dstport)                             AS dstport,
+                               ascii(prot)                                   AS protocol,
+                               input,
+                               output,
+                               SUM(dpkts)::bigint                            AS total_packets,
+                               SUM(doctets)::bigint                          AS total_octets,
+                               array_agg(id)                                 AS ids
+                        FROM flows_v5
+                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+    INSERT
+    INTO flows_v5_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
+                            srcport, dstport, protocol, input, output,
+                            total_packets, total_octets)
+    SELECT bucket_5min,
            exporter,
            srcaddr,
            dstaddr,
@@ -183,48 +192,59 @@ BEGIN
            protocol,
            input,
            output,
-           SUM(total_packets)                     AS total_packets,
-           SUM(total_octets)                      AS total_octets
-    FROM flows_v9_agg_5min
-    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now())
-    GROUP BY bucket_30min,
-             exporter,
-             srcaddr,
-             dstaddr,
-             srcport,
-             dstport,
-             protocol,
-             input,
-             output
-    ORDER BY bucket_30min DESC;
+           total_packets,
+           total_octets
+    FROM aggregated
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+        DO UPDATE SET total_packets = flows_v5_agg_5min.total_packets + EXCLUDED.total_packets,
+                      total_octets  = flows_v5_agg_5min.total_octets + EXCLUDED.total_octets;
 
-    -- Delete the aggregated data from the 5-minute table
-    DELETE
-    FROM flows_v9_agg_5min
-    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now() - INTERVAL '7 days');
+    -- Collect all ids from current aggregation to a local variable
+    SELECT array_agg(id)
+    INTO aggregated_ids
+    FROM flows_v5
+    WHERE id IN (SELECT unnest(ids)
+                 FROM (SELECT array_agg(id) as ids
+                       FROM flows_v5
+                       GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
+                                srcport, dstport, prot, input, output) t);
+
+    -- Delete aggregated rows from source
+    IF aggregated_ids IS NOT NULL THEN
+        DELETE FROM flows_v5 WHERE id = ANY (aggregated_ids);
+    END IF;
 END;
 $$;
 
 
 
-DROP PROCEDURE IF EXISTS import_flows_v5_agg_30min();
-CREATE PROCEDURE import_flows_v5_agg_30min()
+CREATE OR REPLACE PROCEDURE import_flows_v9_agg_5min()
     LANGUAGE plpgsql
 AS
 $$
+DECLARE
+    aggregated_ids bigint[];
 BEGIN
-    INSERT INTO flows_v5_agg_30min (bucket_30min,
-                                    exporter,
-                                    srcaddr,
-                                    dstaddr,
-                                    srcport,
-                                    dstport,
-                                    protocol,
-                                    input,
-                                    output,
-                                    total_packets,
-                                    total_octets)
-    SELECT time_bucket('30 minutes', bucket_5min) AS bucket_30min,
+    -- Aggregate and upsert
+    WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
+                               int2inet(exporter)                            AS exporter,
+                               int2inet(srcaddr)                             AS srcaddr,
+                               int2inet(dstaddr)                             AS dstaddr,
+                               int2port(srcport)                             AS srcport,
+                               int2port(dstport)                             AS dstport,
+                               ascii(prot)                                   AS protocol,
+                               input,
+                               output,
+                               SUM(dpkts)::bigint                            AS total_packets,
+                               SUM(doctets)::bigint                          AS total_octets,
+                               array_agg(id)                                 AS ids
+                        FROM flows_v9
+                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+    INSERT
+    INTO flows_v9_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
+                            srcport, dstport, protocol, input, output,
+                            total_packets, total_octets)
+    SELECT bucket_5min,
            exporter,
            srcaddr,
            dstaddr,
@@ -233,136 +253,37 @@ BEGIN
            protocol,
            input,
            output,
-           SUM(total_packets)                     AS total_packets,
-           SUM(total_octets)                      AS total_octets
-    FROM flows_v5_agg_5min
-    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now())
-    GROUP BY bucket_30min,
-             exporter,
-             srcaddr,
-             dstaddr,
-             srcport,
-             dstport,
-             protocol,
-             input,
-             output
-    ORDER BY bucket_30min DESC;
+           total_packets,
+           total_octets
+    FROM aggregated
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+        DO UPDATE SET total_packets = flows_v9_agg_5min.total_packets + EXCLUDED.total_packets,
+                      total_octets  = flows_v9_agg_5min.total_octets + EXCLUDED.total_octets;
 
-    -- Delete the aggregated data from the 5-minute table
-    DELETE
-    FROM flows_v9_agg_5min
-    WHERE time_bucket('30 minutes', bucket_5min) = time_bucket('30 minutes', now() - INTERVAL '7 days');
-END;
-$$;
-
-
-
-DROP PROCEDURE IF EXISTS import_flows_v9_agg_5min();
-CREATE PROCEDURE import_flows_v9_agg_5min()
-    LANGUAGE plpgsql
-AS
-$$
-BEGIN
-    INSERT INTO flows_v9_agg_5min (bucket_5min,
-                                   exporter,
-                                   srcaddr,
-                                   dstaddr,
-                                   srcport,
-                                   dstport,
-                                   protocol,
-                                   input,
-                                   output,
-                                   total_packets,
-                                   total_octets)
-    SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
-           int2inet(exporter)                            AS exporter,
-           int2inet(srcaddr)                             AS srcaddr,
-           int2inet(dstaddr)                             AS dstaddr,
-           int2port(srcport)                             AS srcport,
-           int2port(dstport)                             AS dstport,
-           ascii(prot)                                   AS protocol,
-           input,
-           output,
-           SUM(dpkts)                                    AS total_packets,
-           SUM(doctets)                                  AS total_octets
+    -- Collect all ids from current aggregation to a local variable
+    SELECT array_agg(id)
+    INTO aggregated_ids
     FROM flows_v9
-    WHERE time_bucket('5 minutes', to_timestamp(first)) = time_bucket('5 minutes', now())
-    GROUP BY bucket_5min,
-             exporter,
-             srcaddr,
-             dstaddr,
-             srcport,
-             dstport,
-             prot,
-             input,
-             output,
-             first
-    ORDER BY bucket_5min DESC;
-    -- Delete the just-aggregated rows from flows_v9
-    DELETE
-    FROM flows_v9
-    WHERE time_bucket('5 minutes', to_timestamp(first)) = time_bucket('5 minutes', now() - INTERVAL '5 minutes');
+    WHERE id IN (SELECT unnest(ids)
+                 FROM (SELECT array_agg(id) as ids
+                       FROM flows_v9
+                       GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
+                                srcport, dstport, prot, input, output) t);
 
+    -- Delete aggregated rows from source
+    IF aggregated_ids IS NOT NULL THEN
+        DELETE FROM flows_v9 WHERE id = ANY (aggregated_ids);
+    END IF;
 END;
 $$;
 
 
-
-DROP PROCEDURE IF EXISTS import_flows_v5_agg_5min();
-CREATE PROCEDURE import_flows_v5_agg_5min()
-    LANGUAGE plpgsql
-AS
-$$
-BEGIN
-    INSERT INTO flows_v5_agg_5min (bucket_5min,
-                                   exporter,
-                                   srcaddr,
-                                   dstaddr,
-                                   srcport,
-                                   dstport,
-                                   protocol,
-                                   input,
-                                   output,
-                                   total_packets,
-                                   total_octets)
-    SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
-           int2inet(exporter)                            AS exporter,
-           int2inet(srcaddr)                             AS srcaddr,
-           int2inet(dstaddr)                             AS dstaddr,
-           int2port(srcport)                             AS srcport,
-           int2port(dstport)                             AS dstport,
-           ascii(prot)                                   AS protocol,
-           input,
-           output,
-           SUM(dpkts)                                    AS total_packets,
-           SUM(doctets)                                  AS total_octets
-    FROM flows_v5
-    WHERE time_bucket('5 minutes', to_timestamp(first)) = time_bucket('5 minutes', now())
-    GROUP BY bucket_5min,
-             exporter,
-             srcaddr,
-             dstaddr,
-             srcport,
-             dstport,
-             prot,
-             input,
-             output,
-             first
-    ORDER BY bucket_5min DESC;
-    -- Delete the just-aggregated rows from flows_v9
-    DELETE
-    FROM flows_v5
-    WHERE time_bucket('5 minutes', to_timestamp(first)) = time_bucket('5 minutes', now() - INTERVAL '5 minutes');
-
-END;
-$$;
-
-
-
-SELECT cron.schedule('*/5 * * * *', $$call import_exporters_v9()$$);
-SELECT cron.schedule('*/5 * * * *', $$call import_exporters_v5()$$);
+SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v9()$$);
+SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v5()$$);
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_v5_agg_5min()$$);
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_v9_agg_5min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v5_agg_30min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v9_agg_30min()$$);
 SELECT cron.schedule('0 * * * *', $$call import_flows_v9_agg_2hour()$$);
+
+
