@@ -280,6 +280,100 @@ END;
 $$;
 
 
+
+CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_v9_5min()
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    iface_record RECORD;
+    exporter_id  BIGINT;
+BEGIN
+    -- For each unique exporter::input
+    FOR iface_record IN
+        SELECT DISTINCT e.id    AS exporter_id,
+                        f.input AS snmp_index
+        FROM flows_v9_agg_5min f
+                 JOIN exporters e ON e.ip_inet = f.exporter
+        WHERE f.input IS NOT NULL
+          AND f.input > 0
+        LOOP
+            -- Insert if it doesn't exist
+            INSERT INTO interfaces (created_at, exporter, snmp_index)
+            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
+            WHERE NOT EXISTS (SELECT 1
+                              FROM interfaces
+                              WHERE exporter = iface_record.exporter_id
+                                AND snmp_index = iface_record.snmp_index);
+        END LOOP;
+
+    -- For each unique exporter::output
+    FOR iface_record IN
+        SELECT DISTINCT e.id     AS exporter_id,
+                        f.output AS snmp_index
+        FROM flows_v9_agg_5min f
+                 JOIN exporters e ON e.ip_inet = f.exporter
+        WHERE f.output IS NOT NULL
+          AND f.output > 0
+        LOOP
+            -- Insert if it doesn't exist
+            INSERT INTO interfaces (created_at, exporter, snmp_index)
+            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
+            WHERE NOT EXISTS (SELECT 1
+                              FROM interfaces
+                              WHERE exporter = iface_record.exporter_id
+                                AND snmp_index = iface_record.snmp_index);
+        END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_v5_5min()
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    iface_record RECORD;
+    exporter_id  BIGINT;
+BEGIN
+    -- For each unique exporter::input
+    FOR iface_record IN
+        SELECT DISTINCT e.id    AS exporter_id,
+                        f.input AS snmp_index
+        FROM flows_v5_agg_5min f
+                 JOIN exporters e ON e.ip_inet = f.exporter
+        WHERE f.input IS NOT NULL
+          AND f.input > 0
+        LOOP
+            -- Insert if it doesn't exist
+            INSERT INTO interfaces (created_at, exporter, snmp_index)
+            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
+            WHERE NOT EXISTS (SELECT 1
+                              FROM interfaces
+                              WHERE exporter = iface_record.exporter_id
+                                AND snmp_index = iface_record.snmp_index);
+        END LOOP;
+
+    -- For each unique exporter::output
+    FOR iface_record IN
+        SELECT DISTINCT e.id     AS exporter_id,
+                        f.output AS snmp_index
+        FROM flows_v5_agg_5min f
+                 JOIN exporters e ON e.ip_inet = f.exporter
+        WHERE f.output IS NOT NULL
+          AND f.output > 0
+        LOOP
+            -- Insert if it doesn't exist
+            INSERT INTO interfaces (created_at, exporter, snmp_index)
+            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
+            WHERE NOT EXISTS (SELECT 1
+                              FROM interfaces
+                              WHERE exporter = iface_record.exporter_id
+                                AND snmp_index = iface_record.snmp_index);
+        END LOOP;
+END;
+$$;
+
+
 SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v9()$$);
 SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v5()$$);
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_v5_agg_5min()$$);
@@ -287,5 +381,6 @@ SELECT cron.schedule('*/1 * * * *', $$call import_flows_v9_agg_5min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v5_agg_30min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v9_agg_30min()$$);
 SELECT cron.schedule('0 * * * *', $$call import_flows_v9_agg_2hour()$$);
-
+select cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_v9_5min()$$);
+select cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_v5_5min()$$);
 
