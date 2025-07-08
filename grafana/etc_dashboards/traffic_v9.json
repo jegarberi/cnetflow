@@ -501,7 +501,7 @@
         "sortBy": [
           {
             "desc": false,
-            "displayName": "dstaddr"
+            "displayName": "dstport"
           }
         ]
       },
@@ -729,7 +729,7 @@
         "name": "exporter",
         "options": [],
         "query": "select distinct(exporter) from flows_v9_agg_5min;",
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "type": "query"
       },
@@ -758,7 +758,7 @@
         "name": "protocol",
         "options": [],
         "query": "select distinct(protocol) from flows_v9_agg_5min;",
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "type": "query"
       },
@@ -1285,7 +1285,7 @@
         "name": "srcaddr",
         "options": [],
         "query": "select distinct(srcaddr) from flows_v9_agg_5min;",
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "type": "query"
       },
@@ -9792,7 +9792,7 @@
         "name": "dstaddr",
         "options": [],
         "query": "select distinct(dstaddr) from flows_v9_agg_5min;",
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "type": "query"
       },
@@ -9813,45 +9813,7 @@
         "name": "srcport",
         "options": [],
         "query": "select distinct(dstport) from flows_v9_agg_5min;",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": [
-            "0"
-          ],
-          "value": [
-            "0"
-          ]
-        },
-        "definition": "select distinct(input) from flows_v9_agg_5min;",
-        "description": "Interface In",
-        "includeAll": true,
-        "label": "Interface In",
-        "multi": true,
-        "name": "ifacein",
-        "options": [],
-        "query": "select distinct(input) from flows_v9_agg_5min;",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        },
-        "definition": "select distinct(output) from flows_v9_agg_5min;",
-        "description": "Interface Out",
-        "includeAll": true,
-        "label": "Interface Out",
-        "multi": true,
-        "name": "ifaceout",
-        "options": [],
-        "query": "select distinct(output) from flows_v9_agg_5min;",
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "type": "query"
       },
@@ -9872,7 +9834,45 @@
         "name": "dstport",
         "options": [],
         "query": "select distinct(dstport) from flows_v9_agg_5min;",
-        "refresh": 1,
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": [
+            "0"
+          ],
+          "value": [
+            "0"
+          ]
+        },
+        "definition": "select distinct(input) from flows_v9_agg_5min;",
+        "description": "Interface In",
+        "includeAll": true,
+        "label": "Interface In",
+        "multi": true,
+        "name": "ifacein",
+        "options": [],
+        "query": "select distinct(input) from flows_v9_agg_5min;",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "definition": "select distinct(output) from flows_v9_agg_5min;",
+        "description": "Interface Out",
+        "includeAll": true,
+        "label": "Interface Out",
+        "multi": true,
+        "name": "ifaceout",
+        "options": [],
+        "query": "select distinct(output) from flows_v9_agg_5min;",
+        "refresh": 2,
         "regex": "",
         "type": "query"
       }
@@ -9886,5 +9886,5 @@
   "timezone": "browser",
   "title": "Traffic_v9",
   "uid": "asdsadsadsadsadsadsadwaed332d32v9",
-  "version": 1
+  "version": 2
 }
