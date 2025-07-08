@@ -18,9 +18,125 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 1,
   "links": [],
   "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P7BDC25D1694EF984"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "allValues"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) FROM flows_v9 ;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "name": "SUM",
+                "parameters": [
+                  {
+                    "name": "total_octets",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "name": "exporter",
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50,
+            "whereJsonTree": {
+              "children1": [
+                {
+                  "id": "bbaaaabb-cdef-4012-b456-7197e107eb14",
+                  "properties": {
+                    "field": "bucket_5min",
+                    "fieldSrc": "field",
+                    "operator": "macros",
+                    "value": [
+                      "timeFilter"
+                    ],
+                    "valueError": [
+                      null
+                    ],
+                    "valueSrc": [
+                      "value"
+                    ],
+                    "valueType": [
+                      "datetime"
+                    ]
+                  },
+                  "type": "rule"
+                }
+              ],
+              "id": "98bb8989-0123-4456-b89a-b197e103260d",
+              "type": "group"
+            },
+            "whereString": "$__timeFilter(bucket_5min)"
+          },
+          "table": "flows_v9_agg_5min"
+        }
+      ],
+      "title": "New panel",
+      "type": "stat"
+    },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -47,7 +163,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 2
       },
       "id": 2,
       "options": {
@@ -205,7 +321,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 2
       },
       "id": 1,
       "options": {
@@ -349,13 +465,26 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bucket_5min"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 172
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 10
       },
       "id": 3,
       "options": {
@@ -371,8 +500,8 @@
         "showHeader": true,
         "sortBy": [
           {
-            "desc": true,
-            "displayName": "total_octets"
+            "desc": false,
+            "displayName": "dstaddr"
           }
         ]
       },

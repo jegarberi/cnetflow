@@ -214,6 +214,7 @@ BEGIN
     IF aggregated_ids IS NOT NULL THEN
         DELETE FROM flows_v5 WHERE id = ANY (aggregated_ids);
     END IF;
+    truncate flows_v5;
     COMMIT;
 END;
 $$;
@@ -275,6 +276,7 @@ BEGIN
     IF aggregated_ids IS NOT NULL THEN
         DELETE FROM flows_v9 WHERE id = ANY (aggregated_ids);
     END IF;
+    truncate flows_v9;
     COMMIT;
 END;
 $$;

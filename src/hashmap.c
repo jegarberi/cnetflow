@@ -19,11 +19,11 @@
  */
 hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
   hashmap_t *hashmap = arena_alloc(arena, sizeof(hashmap_t));
-  hashmap->buckets = arena_alloc(arena, sizeof(bucket_t)*bucket_count);
+  hashmap->buckets = arena_alloc(arena, sizeof(bucket_t) * bucket_count);
   hashmap->bucket_count = bucket_count;
   hashmap->mutex = arena_alloc(arena, sizeof(uv_mutex_t));
   uv_mutex_init(hashmap->mutex);
-  bucket_t *buckets = (bucket_t *)hashmap->buckets;
+  bucket_t *buckets = (bucket_t *) hashmap->buckets;
   for (size_t i = 0; i < bucket_count; i++) {
     buckets[i].occupied = 0;
     buckets[i].deleted = 0;
@@ -48,21 +48,23 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
  * @return The computed hash value, constrained to the range of 0 to (bucket_count - 1).
  */
 size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
-  // FNV-1a hash constants
-  const uint32_t FNV_PRIME = 16777619;
+
+
   const uint32_t FNV_OFFSET_BASIS = 2166136261;
 
   uint32_t hash = FNV_OFFSET_BASIS;
-  unsigned char *bytes = (unsigned char *)key;
+  unsigned char *bytes = (unsigned char *) key;
 
   for (size_t i = 0; i < len; i++) {
+    // FNV-1a hash constants
+    const uint32_t FNV_PRIME = 16777619;
     hash ^= bytes[i];
     hash *= FNV_PRIME;
   }
 
   // Ensure hash is within bucket range
   size_t index = hash % hashmap->bucket_count;
-  fprintf(stderr,"hashmap_hash key: %s =>  index: %u\n",key,index);
+  fprintf(stderr, "hashmap_hash key: %s =>  index: %lu\n", (char *) key, index);
   return index;
 }
 
@@ -91,7 +93,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
 
   // Calculate hash to find bucket index
   size_t index = hashmap_hash(hashmap, key, key_len);
-  bucket_t *buckets = (bucket_t *)hashmap->buckets;
+  bucket_t *buckets = (bucket_t *) hashmap->buckets;
 
   // Linear probing to handle collisions
   size_t original_index = index;
@@ -109,8 +111,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       if (!buckets[index].occupied) {
         break;
       }
-    } else if (buckets[index].occupied &&
-               strlen(buckets[index].key) == key_len &&
+    } else if (buckets[index].occupied && strlen(buckets[index].key) == key_len &&
                memcmp(buckets[index].key, key, key_len) == 0) {
       // Found existing key, update value
       buckets[index].value = value;
@@ -145,12 +146,12 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
   hashmap->size++;
 
 
-  hashmap_set_success:
-    uv_mutex_unlock(hashmap->mutex);
-    return 0;
-  hashmap_set_error:
-    uv_mutex_unlock(hashmap->mutex);
-    return -1;
+hashmap_set_success:
+  uv_mutex_unlock(hashmap->mutex);
+  return 0;
+hashmap_set_error:
+  uv_mutex_unlock(hashmap->mutex);
+  return -1;
 }
 
 /**
@@ -173,7 +174,7 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
 
   // Calculate hash
   size_t index = hashmap_hash(hashmap, key, key_len);
-  bucket_t *buckets = (bucket_t *)hashmap->buckets;
+  bucket_t *buckets = (bucket_t *) hashmap->buckets;
 
   // Linear probing to find the key
   size_t original_index = index;
@@ -191,10 +192,9 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     }
 
     // Check if this is the key we're looking for
-    if (strlen(buckets[index].key) == key_len &&
-        memcmp(buckets[index].key, key, key_len) == 0) {
+    if (strlen(buckets[index].key) == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
       return buckets[index].value;
-        }
+    }
 
     // Move to next bucket
     index = (index + 1) % hashmap->bucket_count;
@@ -226,7 +226,7 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
 
   // Calculate hash
   size_t index = hashmap_hash(hashmap, key, key_len);
-  bucket_t *buckets = (bucket_t *)hashmap->buckets;
+  bucket_t *buckets = (bucket_t *) hashmap->buckets;
 
   // Linear probing to find the key
   size_t original_index = index;
@@ -244,25 +244,22 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
     }
 
     // Check if this is the key we're looking for
-    if (strlen(buckets[index].key) == key_len &&
-        memcmp(buckets[index].key, key, key_len) == 0) {
-        // Mark as deleted
-        buckets[index].deleted = 1;
-        hashmap->size--;
-        goto hashmap_delete_success;
-        }
+    if (strlen(buckets[index].key) == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
+      // Mark as deleted
+      buckets[index].deleted = 1;
+      hashmap->size--;
+      goto hashmap_delete_success;
+    }
 
     // Move to next bucket
     index = (index + 1) % hashmap->bucket_count;
   } while (index != original_index);
 
-  // Key not found
-  hashmap_delete_success:
-    uv_mutex_unlock(hashmap->mutex);
-    return 0;
-  hashmap_delete_error:
-    uv_mutex_unlock(hashmap->mutex);
-    return -1;
+// Key not found
+hashmap_delete_success:
+  uv_mutex_unlock(hashmap->mutex);
+  return 0;
+hashmap_delete_error:
+  uv_mutex_unlock(hashmap->mutex);
+  return -1;
 }
-
-
