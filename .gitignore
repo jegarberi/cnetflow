@@ -4,3 +4,9 @@ build
 *.txt
 bin
 .env
+CMakeFiles
+*.cmake
+postinst
+postrm
+preinst
+prerm
