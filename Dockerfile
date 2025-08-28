@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim AS dependencies
+FROM docker.io/library/debian:bookworm-slim AS dependencies
 LABEL authors="jon"
 
 # Combine RUN commands to reduce layers and use --no-install-recommends to minimize image size

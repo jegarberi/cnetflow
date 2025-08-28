@@ -1,4 +1,4 @@
-FROM timescale/timescaledb:latest-pg17
+FROM docker.io/timescale/timescaledb:latest-pg17
 
 RUN apk add build-base ca-certificates openssl tar git postgresql-dev clang libc-dev binutils llvm19
 
