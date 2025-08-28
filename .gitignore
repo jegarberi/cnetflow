@@ -5,3 +5,4 @@ build
 bin
 .env
 .idea
+/scripts/sql/psql/003-dontupload.sql

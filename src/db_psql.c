@@ -16,7 +16,26 @@
 #define THREAD_LOCAL thread_local
 #endif
 #include <threads.h>
-
+#include "arena.h"
+#define BUFFLEN 10000
+char *read_snmp_config(PGconn *conn, arena_struct_t *arena) {
+  char *config;
+  if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
+    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    goto read_snmp_config_exit_nicely;
+  }
+  config = (char *) arena_alloc(arena, BUFFLEN + 1);
+  memset(config, 0, BUFFLEN + 1);
+  char *query = "select * from config";
+  return config;
+read_snmp_config_exit_nicely:
+  if (conn != NULL) {
+    fprintf(stderr, PQerrorMessage(conn));
+    PQfinish(conn);
+  }
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  exit(-1);
+}
 
 /**
  * Prepares a PostgreSQL prepared statement named "insert_flows" for inserting NetFlow data
