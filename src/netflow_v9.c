@@ -355,11 +355,13 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_INGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].input = (uint32_t) *tmp16;
-                    netflow_packet_ptr->records[record_counter].input <<= 16;
+                    netflow_packet_ptr->records[record_counter].input = *tmp16;
+                    // netflow_packet_ptr->records[record_counter].input;
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].input = *tmp32;
+                    netflow_packet_ptr->records[record_counter].input = (uint16_t) ((*tmp32) >> 16);
+                    fprintf(stderr, "ingress tmp32: %d\n", *tmp32);
+                    fprintf(stderr, "ingress tmp32: %d\n", netflow_packet_ptr->records[record_counter].input);
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].input = 0;
@@ -377,10 +379,57 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].input <<= 16;
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].output = *tmp32;
+                    netflow_packet_ptr->records[record_counter].output = (uint16_t) ((*tmp32) >> 16);
+                    fprintf(stderr, "egress tmp32: %d\n", *tmp32);
+                    fprintf(stderr, "egress tmp32: %d\n", netflow_packet_ptr->records[record_counter].output);
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].output = 0;
+                    break;
+                }
+                print_flow++;
+                break;
+              case IPFIX_FT_BGPSOURCEASNUMBER:
+                switch (record_length) {
+                  case 2:
+                    netflow_packet_ptr->records[record_counter].src_as = (uint32_t) *tmp16;
+                    // netflow_packet_ptr->records[record_counter].src_as <<= 16;
+                    break;
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].src_as = *tmp32;
+                    break;
+                  default:
+                    netflow_packet_ptr->records[record_counter].src_as = 0;
+                    break;
+                }
+                print_flow++;
+                break;
+              case IPFIX_FT_BGPDESTINATIONASNUMBER:
+                switch (record_length) {
+                  case 2:
+                    netflow_packet_ptr->records[record_counter].dst_as = (uint32_t) *tmp16;
+                    // netflow_packet_ptr->records[record_counter].dst_as <<= 16;
+                    break;
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].dst_as = *tmp32;
+                    break;
+                  default:
+                    netflow_packet_ptr->records[record_counter].dst_as = 0;
+                    break;
+                }
+                print_flow++;
+                break;
+              case IPFIX_FT_BGPNEXTHOPIPV4ADDRESS:
+                switch (record_length) {
+                  case 2:
+                    netflow_packet_ptr->records[record_counter].nexthop = (uint32_t) *tmp16;
+                    netflow_packet_ptr->records[record_counter].nexthop <<= 16;
+                    break;
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].nexthop = *tmp32;
+                    break;
+                  default:
+                    netflow_packet_ptr->records[record_counter].nexthop = 0;
                     break;
                 }
                 print_flow++;

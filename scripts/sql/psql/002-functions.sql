@@ -173,16 +173,19 @@ BEGIN
                                int2port(srcport)                             AS srcport,
                                int2port(dstport)                             AS dstport,
                                ascii(prot)                                   AS protocol,
-                               input,
-                               output,
+                               src_as                                        AS src_as,
+                               dst_as                                        AS dst_as,
+                               input                                         AS input,
+                               output                                        AS output,
                                SUM(dpkts)::bigint                            AS total_packets,
                                SUM(doctets)::bigint                          AS total_octets,
                                array_agg(id)                                 AS ids
                         FROM flows_v5
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output,
+                                 src_as, dst_as)
     INSERT
     INTO flows_v5_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                            srcport, dstport, protocol, input, output,
+                            srcport, dstport, protocol, src_as, dst_as, input, output,
                             total_packets, total_octets)
     SELECT bucket_5min,
            exporter,
@@ -191,12 +194,14 @@ BEGIN
            srcport,
            dstport,
            protocol,
+           src_as,
+           dst_as,
            input,
            output,
            total_packets,
            total_octets
     FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as,dst_as,input, output)
         DO UPDATE SET total_packets = flows_v5_agg_5min.total_packets + EXCLUDED.total_packets,
                       total_octets  = flows_v5_agg_5min.total_octets + EXCLUDED.total_octets;
 
@@ -208,7 +213,7 @@ BEGIN
                  FROM (SELECT array_agg(id) as ids
                        FROM flows_v5
                        GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
-                                srcport, dstport, prot, input, output) t);
+                                srcport, dstport, prot, src_as, dst_as, input, output) t);
 
     -- Delete aggregated rows from source
     IF aggregated_ids IS NOT NULL THEN
@@ -235,16 +240,19 @@ BEGIN
                                int2port(srcport)                             AS srcport,
                                int2port(dstport)                             AS dstport,
                                ascii(prot)                                   AS protocol,
-                               input,
-                               output,
+                               src_as                                        AS src_as,
+                               dst_as                                        AS dst_as,
+                               input                                         AS input,
+                               output                                        AS output,
                                SUM(dpkts)::bigint                            AS total_packets,
                                SUM(doctets)::bigint                          AS total_octets,
                                array_agg(id)                                 AS ids
                         FROM flows_v9
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as, dst_as,
+                                 input, output)
     INSERT
     INTO flows_v9_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                            srcport, dstport, protocol, input, output,
+                            srcport, dstport, protocol, src_as, dst_as, input, output,
                             total_packets, total_octets)
     SELECT bucket_5min,
            exporter,
@@ -253,12 +261,14 @@ BEGIN
            srcport,
            dstport,
            protocol,
+           src_as,
+           dst_as,
            input,
            output,
            total_packets,
            total_octets
     FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output)
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as,dst_as,input, output)
         DO UPDATE SET total_packets = flows_v9_agg_5min.total_packets + EXCLUDED.total_packets,
                       total_octets  = flows_v9_agg_5min.total_octets + EXCLUDED.total_octets;
 
@@ -270,7 +280,7 @@ BEGIN
                  FROM (SELECT array_agg(id) as ids
                        FROM flows_v9
                        GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
-                                srcport, dstport, prot, input, output) t);
+                                srcport, dstport, prot, src_as, dst_as, input, output) t);
 
     -- Delete aggregated rows from source
     IF aggregated_ids IS NOT NULL THEN

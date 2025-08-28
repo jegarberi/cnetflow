@@ -4,3 +4,4 @@ build
 *.txt
 bin
 .env
+.idea
