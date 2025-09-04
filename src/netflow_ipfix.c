@@ -339,7 +339,7 @@ void *parse_ipfix(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
-                netflow_packet_ptr->records[record_counter].input = *tmp16;
+                netflow_packet_ptr->records[record_counter].output = *tmp16;
                 print_flow++;
                 break;
               default:

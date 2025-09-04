@@ -11,6 +11,14 @@ services:
       - PG_CONN_STRING
     depends_on:
       - db
+  dbrest:
+    image: postgrest/postgrest
+    environment:
+      - PGRST_DB_URI=${PG_CONN_STRING}
+    ports:
+      - "3003:3000"
+    depends_on:
+      - db
   db:
     container_name: postgres
     #image: postgres

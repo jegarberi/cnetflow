@@ -376,7 +376,7 @@ void *parse_v9(uv_work_t *req) {
                 switch (record_length) {
                   case 2:
                     netflow_packet_ptr->records[record_counter].output = (uint32_t) *tmp16;
-                    netflow_packet_ptr->records[record_counter].input <<= 16;
+                    netflow_packet_ptr->records[record_counter].output <<= 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].output = (uint16_t) ((*tmp32) >> 16);
