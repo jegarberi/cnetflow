@@ -15,6 +15,7 @@ services:
     image: postgrest/postgrest
     environment:
       - PGRST_DB_URI=${PG_CONN_STRING}
+      - PGRST_DB_ANON_ROLE
     ports:
       - "3003:3000"
     depends_on:

@@ -237,3 +237,5 @@ grant select on public.config to web_anon;
 grant select on public.interface_metrics to web_anon;
 grant select on public.services to web_anon;
 grant select on public.interfaces to web_anon;
+grant select on public.flows_v9_agg_5min to web_anon;
+grant select on public.flows_v5_agg_5min to web_anon;
