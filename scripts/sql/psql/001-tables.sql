@@ -239,3 +239,4 @@ grant select on public.services to web_anon;
 grant select on public.interfaces to web_anon;
 grant select on public.flows_v9_agg_5min to web_anon;
 grant select on public.flows_v5_agg_5min to web_anon;
+ALTER DATABASE postgres SET timezone TO 'America/Argentina/Buenos_Aires';
