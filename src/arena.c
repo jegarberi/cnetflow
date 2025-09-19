@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
-#define RECYCLE_TRESHOLD 0
+#define __RECYCLE_TRESHOLD 0
 //
 // Created by jon on 6/2/25.
 //
@@ -89,7 +89,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   uv_mutex_unlock(&arena->mutex);
   return address;
   */
-  if (arena->free_slots > _RECYCLE_TRESHOLD || arena->recycle == 1) {
+  if (arena->free_slots > __RECYCLE_TRESHOLD || arena->recycle == 1) {
     arena->recycle = 1;
     fprintf(stderr, "%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
     chunk = arena->first_chunk;

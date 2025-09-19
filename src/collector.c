@@ -243,9 +243,9 @@ int8_t collector_start(collector_t *collector) {
   loop_pool = uv_default_loop();
   uv_timer_t timer_req_snmp;
   uv_timer_t timer_req_rss;
-  uv_timer_init(loop_timer_snmp, &timer_req_snmp);
+  // uv_timer_init(loop_timer_snmp, &timer_req_snmp);
+  // uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_init(loop_timer_rss, &timer_req_rss);
-  uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_start(&timer_req_rss, print_rss_max_usage, 1000, 1000);
   fprintf(stderr, "%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n",
           __FILE__, __LINE__, __func__);
