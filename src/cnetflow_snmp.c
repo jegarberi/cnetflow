@@ -81,7 +81,8 @@ int snmp_test(void) {
   // session.community = comm;
   session.community_len = strlen(session.community);
 
-#endif /* SNMPv1 */
+#endif
+/* SNMPv1 */
   /* windows32 specific initialization (is a noop on unix) */
   SOCK_STARTUP;
 
