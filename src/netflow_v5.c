@@ -28,6 +28,8 @@ void *parse_v5(uv_work_t *req) {
   args->status = collector_data_status_processing;
   netflow_v5_flowset_t *netflow_packet_ptr;
   netflow_packet_ptr = (netflow_v5_flowset_t *) args->data;
+
+
   swap_endianness((void *) &(netflow_packet_ptr->header.version), sizeof(netflow_packet_ptr->header.version));
   if (netflow_packet_ptr->header.version != 5) {
     fprintf(stderr, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);

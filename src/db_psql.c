@@ -438,7 +438,7 @@ void fill_param_values(char *value[_N_PARAMS][_MAX_LEN], netflow_v9_record_inser
  * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
-void insert_flows(uint32_t exporter, netflow_v9_record_insert_v4_v6_t *flows) {
+void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
