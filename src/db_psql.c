@@ -331,7 +331,105 @@ insert_v5_exit_nicely:
   exit(-1);
 }
 
+char *uint128_to_ip_string(uint128_t value, uint8_t ip_version) {
+  // NOTE: Make the output buffer STATIC so it's not invalid after returning!
+  // This makes this function NOT thread-safe. (Can be improved.)
+#define _MAX_LEN 250
+  static THREAD_LOCAL char ret_string[_MAX_LEN] = {0};
 
+  if (ip_version == 4) {
+    // IPv4 is in 32 bits of value, print as dotted quad
+    uint32_t ip = (uint32_t) value;
+    snprintf(ret_string, _MAX_LEN, "%u.%u.%u.%u", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
+  } else if (ip_version == 6) {
+    // IPv6: print as canonical x:x:x:x:x:x:x:x (eight 16-bit hex groups)
+    uint16_t parts[8];
+    uint128_t v = value;
+    for (int i = 0; i < 8; i++) {
+      // Big-endian: first group is highest-order bits
+      parts[7 - i] = (uint16_t) (v & 0xFFFF);
+      v >>= 16;
+    }
+    // Print groups as hex, compact representation with leading zeros, not handling ::
+    snprintf(ret_string, _MAX_LEN, "%x:%x:%x:%x:%x:%x:%x:%x", parts[0], parts[1], parts[2], parts[3], parts[4],
+             parts[5], parts[6], parts[7]);
+  } else {
+    snprintf(ret_string, _MAX_LEN, "INVALID_IP_VERSION");
+  }
+  return ret_string;
+#undef _MAX_LEN
+}
+
+#define _N_PARAMS 19
+#define _MAX_LEN 250
+void fill_param_values(char *value[_N_PARAMS][_MAX_LEN], netflow_v9_record_insert_t *flow) {
+#define _EXPORTER 0
+#define _SRCADDR 1
+#define _SRCPORT 2
+#define _DSTADDR 3
+#define _DSTPORT 4
+#define _FIRST 5
+#define _LAST 6
+#define _DPKTS 7
+#define _DOCTETS 8
+#define _INPUT 9
+#define _OUTPUT 10
+#define _PROT 11
+#define _TOS 12
+#define _SRC_AS 13
+#define _DST_AS 14
+#define _SRC_MASK 15
+#define _DST_MASK 16
+#define _TCP_FLAGS 17
+#define _IP_VERSION 18
+  snprintf((char *) &value[_IP_VERSION], _MAX_LEN, "%d", flow->ip_version);
+  snprintf((char *) &value[_SRCADDR], _MAX_LEN, "%s", uint128_to_ip_string(flow->srcaddr, flow->ip_version));
+  snprintf((char *) &value[_SRCPORT], _MAX_LEN, "%u", flow->srcport);
+  snprintf((char *) &value[_DSTADDR], _MAX_LEN, "%s", uint128_to_ip_string(flow->dstaddr, flow->ip_version));
+  snprintf((char *) &value[_DSTPORT], _MAX_LEN, "%u", flow->dstport);
+  snprintf((char *) &value[_FIRST], _MAX_LEN, "%u", flow->First);
+  snprintf((char *) &value[_LAST], _MAX_LEN, "%u", flow->Last);
+
+  snprintf((char *) &value[_DPKTS], _MAX_LEN, "%lu", flow->dPkts);
+  snprintf((char *) &value[_DOCTETS], _MAX_LEN, "%lu", flow->dOctets);
+
+  snprintf((char *) &value[_INPUT], _MAX_LEN, "%u", flow->input);
+  snprintf((char *) &value[_OUTPUT], _MAX_LEN, "%u", flow->output);
+
+  snprintf((char *) &value[_PROT], _MAX_LEN, "%u", flow->prot);
+  snprintf((char *) &value[_TOS], _MAX_LEN, "%u", flow->tos);
+  snprintf((char *) &value[_SRC_AS], _MAX_LEN, "%u", flow->src_as);
+  snprintf((char *) &value[_DST_AS], _MAX_LEN, "%u", flow->dst_as);
+  snprintf((char *) &value[_SRC_MASK], _MAX_LEN, "%u", flow->src_mask);
+  snprintf((char *) &value[_DST_MASK], _MAX_LEN, "%u", flow->dst_mask);
+  snprintf((char *) &value[_TCP_FLAGS], _MAX_LEN, "%u", flow->tcp_flags);
+
+
+  /*
+  *&exporter,
+        &(flows->records[i].srcaddr),
+        &(flows->records[i].srcport),
+        &(flows->records[i].dstaddr),
+        &(flows->records[i].dstport),
+        &(flows->records[i].First),
+        &(flows->records[i].Last),
+        &(flows->records[i].dPkts),
+        &(flows->records[i].dOctets),
+        &(flows->records[i].input),
+        &(flows->records[i].output),
+        &(flows->records[i].prot),
+        &(flows->records[i].tos),
+        &(flows->records[i].src_as),
+        &(flows->records[i].dst_as),
+        &(flows->records[i].src_mask),
+        &(flows->records[i].dst_mask),
+        &(flows->records[i].tcp_flags),
+        &(flows->records[i].ip_version)}
+   *
+   */
+}
+#undef _MAX_LEN
+#undef _N_PARAMS
 /**
  * Inserts a batch of NetFlow v9 records into a PostgreSQL database.
  *
@@ -340,7 +438,7 @@ insert_v5_exit_nicely:
  * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
-void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
+void insert_flows(uint32_t exporter, netflow_v9_record_insert_v4_v6_t *flows) {
   static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
@@ -358,9 +456,11 @@ void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
   }
   PQclear(res);
 #define _N_PARAMS 19
-  char paramValuesAsString[_N_PARAMS][250];
+#define _MAX_LEN 250
+  char paramValuesAsString[_N_PARAMS][_MAX_LEN];
   for (int i = 0; i < flows->header.count; i++) {
     int nParams = 18;
+    fill_param_values(paramValuesAsString, &(flows->records[i]));
     const char *const paramValues[_N_PARAMS] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output,prot
         &exporter,
@@ -427,6 +527,7 @@ insert_flows_exit_nicely:
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 #undef _N_PARAMS
+#undef _MAX_LEN
 }
 
 
@@ -459,7 +560,7 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
 
   for (int i = 0; i < flows->header.count; i++) {
     int nParams = 18;
-    const char *const paramValues[18] = {
+    const char *const paramValues[19] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output,prot
         &exporter,
         &(flows->records[i].srcaddr),
@@ -478,8 +579,9 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
         &(flows->records[i].dst_as),
         &(flows->records[i].src_mask),
         &(flows->records[i].dst_mask),
-        &(flows->records[i].tcp_flags)};
-    const int paramLengths[18] = {
+        &(flows->records[i].tcp_flags),
+        &(flows->records[i].ip_version)};
+    const int paramLengths[19] = {
         // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output
         sizeof(exporter), // 1
         sizeof(flows->records[i].srcaddr), // 2
@@ -499,8 +601,9 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
         sizeof(flows->records[i].src_mask), // 16
         sizeof(flows->records[i].dst_mask), // 17
         sizeof(flows->records[i].tcp_flags), // 17
+        sizeof(flows->records[i].ip_version), // 18
     };
-    const int paramFormats[18] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    const int paramFormats[19] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     const int resultFormat = 0;
 
     res = PQexecPrepared(conn, "insert_flows_v9", nParams, paramValues, paramLengths, paramFormats, resultFormat);

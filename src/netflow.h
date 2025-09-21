@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+typedef __uint128_t uint128_t;
+
 typedef struct {
   uint16_t version;
   uint16_t count;
@@ -96,6 +98,31 @@ typedef struct {
   uint8_t dst_mask;
   uint16_t pad2;
 } netflow_v5_record_ipv6_t;
+
+typedef struct {
+  uint128_t srcaddr;
+  uint128_t dstaddr;
+  uint128_t nexthop;
+  uint16_t input;
+  uint16_t output;
+  uint64_t dPkts;
+  uint64_t dOctets;
+  uint32_t First;
+  uint32_t Last;
+  uint16_t srcport;
+  uint16_t dstport;
+  uint8_t pad1;
+  uint8_t tcp_flags;
+  uint8_t prot;
+  uint8_t tos;
+  uint16_t src_as;
+  uint16_t dst_as;
+  uint8_t src_mask;
+  uint8_t dst_mask;
+  uint8_t ip_version;
+} netflow_v9_record_insert_v4_v6_t;
+
+
 typedef struct {
   netflow_v5_header_t header;
   netflow_v5_record_t records[60];
