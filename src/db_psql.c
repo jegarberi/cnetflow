@@ -358,7 +358,7 @@ void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
   }
   PQclear(res);
 #define _N_PARAMS 19
-
+  char paramValuesAsString[_N_PARAMS][250];
   for (int i = 0; i < flows->header.count; i++) {
     int nParams = 18;
     const char *const paramValues[_N_PARAMS] = {
