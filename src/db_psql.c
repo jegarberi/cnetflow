@@ -352,9 +352,9 @@ void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
 
   res = PQexec(conn, "BEGIN");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
+    fprintf(stderr, "%s[%d] %s: BEGIN failed: %s\n", __FILE__, __LINE__, __func__, PQresultErrorMessage(res));
     PQclear(res);
-    goto __function___exit_nicely;
+    goto insert_flows_exit_nicely;
   }
   PQclear(res);
 #define _N_PARAMS 19
@@ -389,14 +389,16 @@ void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
 
     res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-      fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+      fprintf(stderr, "%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
+              PQresultErrorMessage(res));
       PQclear(res);
       prepare_statement_v9(conn);
       res = PQexecPrepared(conn, "insert_flows_v9", nParams, paramValues, paramLengths, paramFormats, resultFormat);
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
-        fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
-        goto __function___exit_nicely;
+        fprintf(stderr, "%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
+                PQresultErrorMessage(res));
+        goto insert_flows_exit_nicely;
       } else {
         PQclear(res);
       }
@@ -409,15 +411,15 @@ void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
 
   res = PQexec(conn, "END");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+    fprintf(stderr, "%s[%d]: END failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
     PQclear(res);
-    goto __function___exit_nicely;
+    goto insert_flows_exit_nicely;
   }
   PQclear(res);
 
-__function___return:
+insert_flows_return:
   return;
-__function___exit_nicely:
+insert_flows_exit_nicely:
   if (conn != NULL) {
     fprintf(stderr, PQerrorMessage(conn));
     PQfinish(conn);
