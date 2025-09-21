@@ -101,6 +101,67 @@ prepare_statement_v5_exit_nicely:
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }
+
+void prepare_statement_insert_flows(PGconn *conn) {
+  if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
+    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    goto prepare_statement_insert_flows_exit_nicely;
+  }
+
+  PGresult *res;
+  char stmtName[] = "insert_flows";
+#define _N_PARAMS 19
+  char query[] = "insert into public.flows "
+                 "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,output,prot,tos,src_as,dst_"
+                 "as,src_mask,dst_mask,tcp_flags,ip_version) values($1, $2, "
+                 "$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)";
+
+  const Oid paramTypes[_N_PARAMS] = {
+      INT4OID, // 1 INT4OID for exporter (integer)
+      INT4OID, // 2 INT4OID for srcaddr (integer)
+      INT2OID, // 3 INT2OID for srcport (smallint)
+      INT4OID, // 4 INT4OID for dstaddr (integer)
+      INT2OID, // 5 INT2OID for dstport (smallint)
+      INT4OID, // 6 INT4OID for First (integer)
+      INT4OID, // 7 INT4OID for Last (integer)
+      INT8OID, // 8 INT4OID for dPkts (bigint)
+      INT8OID, // 9 INT4OID for dOctets (bigint)
+      INT2OID, // 10 INT2OID for input (smallint)
+      INT2OID, // 11 INT2OID for output (smallint)
+      CHAROID, // 12 CHAROID for prot (byte)
+      CHAROID, // 13 CHAROID for tos (byte)
+      INT2OID, // 14 INT2OID for srcas (smallint)
+      INT2OID, // 15 INT2OID for dstas (smallint)
+      CHAROID, // 16 CHAROID for src_mask (byte)
+      CHAROID, // 17 CHAROID for dst_mask (byte)
+      CHAROID, // 18 CHAROID for tcp_flags (byte)
+  };
+
+
+  res = PQprepare(conn, stmtName, query, _N_PARAMS, paramTypes);
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+    fprintf(stderr, "PQprepare failed: %s", PQerrorMessage(conn));
+    char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows_v9\" already exists\n";
+    char *err_msg = PQerrorMessage(conn);
+    if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
+      PQclear(res);
+      goto prepare_statement_insert_flows_exit_nicely;
+    }
+  }
+  PQclear(res);
+  return;
+prepare_statement_insert_flows_exit_nicely:
+  if (conn != NULL) {
+    fprintf(stderr, PQerrorMessage(conn));
+    PQfinish(conn);
+  }
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  exit(-1);
+#undef _N_PARAMS
+}
+
+
 void prepare_statement_v9(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
     fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
@@ -268,6 +329,102 @@ insert_v5_exit_nicely:
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
+}
+
+
+/**
+ * Inserts a batch of NetFlow v9 records into a PostgreSQL database.
+ *
+ * @param conn       A pointer to the PostgreSQL connection object. Must be an open and valid connection.
+ * @param exporter   A unique identifier for the exporter sending the flow data. Must be non-zero.
+ * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
+ * @param count      The number of records in the `flows` array. Must be greater than zero.
+ */
+void insert_flows(uint32_t exporter, netflow_v9_flowset_t *flows) {
+  static THREAD_LOCAL PGconn *conn = NULL;
+  db_connect(&conn);
+  if (conn == NULL || exporter == 0) {
+    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+    exit(-1);
+  }
+  PGresult *res;
+  prepare_statement_v9(conn);
+
+  res = PQexec(conn, "BEGIN");
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+    fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
+    PQclear(res);
+    goto __function___exit_nicely;
+  }
+  PQclear(res);
+#define _N_PARAMS 19
+
+  for (int i = 0; i < flows->header.count; i++) {
+    int nParams = 18;
+    const char *const paramValues[_N_PARAMS] = {
+        // exporter,srcaddr,srcport,dstport,dstaddr,first,last,dpkts,doctets,input,output,prot
+        &exporter,
+        &(flows->records[i].srcaddr),
+        &(flows->records[i].srcport),
+        &(flows->records[i].dstaddr),
+        &(flows->records[i].dstport),
+        &(flows->records[i].First),
+        &(flows->records[i].Last),
+        &(flows->records[i].dPkts),
+        &(flows->records[i].dOctets),
+        &(flows->records[i].input),
+        &(flows->records[i].output),
+        &(flows->records[i].prot),
+        &(flows->records[i].tos),
+        &(flows->records[i].src_as),
+        &(flows->records[i].dst_as),
+        &(flows->records[i].src_mask),
+        &(flows->records[i].dst_mask),
+        &(flows->records[i].tcp_flags),
+        &(flows->records[i].ip_version)};
+    // https:// www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-EXEC-MAIN
+    const int paramLengths[_N_PARAMS] = {0}; // IGNORED IF TEXT FORMAT
+    const int paramFormats[_N_PARAMS] = {0}; // ALL TEXT FORMAT
+    const int resultFormat = 0;
+
+    res = PQexecPrepared(conn, "insert_flows", nParams, paramValues, paramLengths, paramFormats, resultFormat);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+      fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+      PQclear(res);
+      prepare_statement_v9(conn);
+      res = PQexecPrepared(conn, "insert_flows_v9", nParams, paramValues, paramLengths, paramFormats, resultFormat);
+      if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        PQclear(res);
+        fprintf(stderr, "%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+        goto __function___exit_nicely;
+      } else {
+        PQclear(res);
+      }
+    } else {
+      PQclear(res);
+    }
+  }
+  // PQfinish(conn);
+  /* end the transaction */
+
+  res = PQexec(conn, "END");
+  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+    fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+    PQclear(res);
+    goto __function___exit_nicely;
+  }
+  PQclear(res);
+
+__function___return:
+  return;
+__function___exit_nicely:
+  if (conn != NULL) {
+    fprintf(stderr, PQerrorMessage(conn));
+    PQfinish(conn);
+  }
+  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  exit(-1);
+#undef _N_PARAMS
 }
 
 

@@ -72,6 +72,7 @@ typedef struct {
   uint16_t dst_as;
   uint8_t src_mask;
   uint8_t dst_mask;
+  uint8_t ip_version;
 } netflow_v9_record_insert_t;
 typedef struct {
   uint32_t srcaddr;

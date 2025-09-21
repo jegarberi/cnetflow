@@ -38,4 +38,7 @@ void prepare_statement_v5(PGconn *conn);
 void prepare_statement_v9(PGconn *conn);
 void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows);
 void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows);
+
+void prepare_statement(PGconn *conn);
+void insert_flows(uint32_t, netflow_v9_flowset_t *);
 #endif // DB_H
