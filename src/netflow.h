@@ -58,6 +58,9 @@ typedef struct {
   uint32_t srcaddr;
   uint32_t dstaddr;
   uint32_t nexthop;
+  uint128_t ipv6srcaddr;
+  uint128_t ipv6dstaddr;
+  uint128_t ipv6nexthop;
   uint16_t input;
   uint16_t output;
   uint64_t dPkts;
@@ -66,7 +69,6 @@ typedef struct {
   uint32_t Last;
   uint16_t srcport;
   uint16_t dstport;
-  uint8_t pad1;
   uint8_t tcp_flags;
   uint8_t prot;
   uint8_t tos;

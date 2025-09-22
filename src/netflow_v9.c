@@ -104,7 +104,9 @@ void *parse_v9(uv_work_t *req) {
         // swap_endianness(&template->template_id,sizeof(template->template_id));
         uint16_t template_id = template->templates[0].template_id;
         uint16_t field_count = template->templates[0].field_count;
-
+        if (template_id == 257) {
+          fprintf(stderr, "template_id: %d\n", template_id);
+        }
         swap_endianness(&template_id, sizeof(template_id));
         swap_endianness(&field_count, sizeof(field_count));
         if (template_id == 0) {
@@ -228,10 +230,11 @@ void *parse_v9(uv_work_t *req) {
             uint32_t *tmp32; // 4 bytes
             uint64_t *tmp64; // 8 bytes
             uint64_t tmp6 = 0; // 6 bytes -> 8bytes
-            uint128_t *tmp128; // 8bytes
+            uint128_t *tmp128; // 16bytes
             if (field_type > 337) {
               goto unlock_mutex_parse_v9;
             }
+
             switch (record_length) {
               case 1:
                 tmp8 = (uint8_t *) pointer;
@@ -266,7 +269,7 @@ void *parse_v9(uv_work_t *req) {
             if (field_type > 337) {
               goto unlock_mutex_parse_v9;
             }
-            netflow_packet_ptr->records[record_counter].ip_version = 4;
+
             switch (field_type) {
               case IPFIX_FT_FLOWENDSYSUPTIME:
                 swap_endianness(tmp32, sizeof(*tmp32));
@@ -300,6 +303,7 @@ void *parse_v9(uv_work_t *req) {
                 netflow_packet_ptr->records[record_counter].srcaddr = *tmp32;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+                netflow_packet_ptr->records[record_counter].ip_version = 4;
                 print_flow++;
                 break;
               case IPFIX_FT_DESTINATIONIPV4ADDRESS:
@@ -307,6 +311,21 @@ void *parse_v9(uv_work_t *req) {
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
                 print_flow++;
+                break;
+              case IPFIX_FT_SOURCEIPV6ADDRESS:
+                netflow_packet_ptr->records[record_counter].ipv6srcaddr = *tmp128;
+                netflow_packet_ptr->records[record_counter].ip_version = 6;
+                // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+                //                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+                print_flow++;
+                is_ipv6 = 1;
+                break;
+              case IPFIX_FT_DESTINATIONIPV6ADDRESS:
+                netflow_packet_ptr->records[record_counter].ipv6dstaddr = *tmp128;
+                // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+                //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+                print_flow++;
+                is_ipv6 = 1;
                 break;
               case IPFIX_FT_OCTETDELTACOUNT:
                 switch (record_length) {
@@ -424,18 +443,12 @@ void *parse_v9(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV4ADDRESS:
-                switch (record_length) {
-                  case 2:
-                    netflow_packet_ptr->records[record_counter].nexthop = (uint32_t) *tmp16;
-                    netflow_packet_ptr->records[record_counter].nexthop <<= 16;
-                    break;
-                  case 4:
-                    netflow_packet_ptr->records[record_counter].nexthop = *tmp32;
-                    break;
-                  default:
-                    netflow_packet_ptr->records[record_counter].nexthop = 0;
-                    break;
-                }
+                netflow_packet_ptr->records[record_counter].nexthop = *tmp32;
+                print_flow++;
+                break;
+              case IPFIX_FT_BGPNEXTHOPIPV6ADDRESS:
+                netflow_packet_ptr->records[record_counter].ipv6nexthop = *tmp128;
+                is_ipv6 = 1;
                 print_flow++;
                 break;
               default:
@@ -561,15 +574,24 @@ void *parse_v9(uv_work_t *req) {
             // exit(-1);
           }
         }
+        netflow_packet_ptr->header.count = record_counter;
         if (!is_ipv6) {
-          netflow_packet_ptr->header.count = record_counter;
+
           insert_v9(args->exporter, netflow_packet_ptr);
+        } else {
+          fprintf(stderr, "ipv6 got ipv6...\n");
         }
 
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
-        copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert);
+        copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
         swap_endianness((void *) &(args->exporter), sizeof(args->exporter));
-        insert_flows(args->exporter, &flows_to_insert);
+        if (is_ipv6) {
+          fprintf(stderr, "%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
+          insert_flows(args->exporter, &flows_to_insert);
+        } else {
+          fprintf(stderr, "%s %d %s this is ipv4\n", __FILE__, __LINE__, __func__);
+          insert_flows(args->exporter, &flows_to_insert);
+        }
 
         // fclose(ftemplate);
       }
@@ -591,7 +613,7 @@ unlock_mutex_parse_v9:
 }
 
 
-void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out) {
+void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6) {
   fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
@@ -604,6 +626,9 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
     swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
     swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
     swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));
+    swap_endianness(&in->records[i].ipv6srcaddr, sizeof(in->records[i].ipv6srcaddr));
+    swap_endianness(&in->records[i].ipv6dstaddr, sizeof(in->records[i].ipv6dstaddr));
+    swap_endianness(&in->records[i].ipv6nexthop, sizeof(in->records[i].ipv6nexthop));
     swap_endianness(&in->records[i].srcport, sizeof(in->records[i].srcport));
     swap_endianness(&in->records[i].dstport, sizeof(in->records[i].dstport));
     swap_endianness(&in->records[i].dPkts, sizeof(in->records[i].dPkts));
@@ -616,10 +641,15 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
     swap_endianness(&in->records[i].dst_as, sizeof(in->records[i].dst_as));
     swap_endianness(&in->records[i].src_mask, sizeof(in->records[i].src_mask));
     swap_endianness(&in->records[i].dst_mask, sizeof(in->records[i].dst_mask));
-
-    out->records[i].dstaddr = in->records[i].dstaddr;
-    out->records[i].srcaddr = in->records[i].srcaddr;
-    out->records[i].nexthop = in->records[i].nexthop;
+    if (is_ipv6) {
+      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
+      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
+      out->records[i].nexthop = in->records[i].ipv6nexthop;
+    } else {
+      out->records[i].dstaddr = in->records[i].dstaddr;
+      out->records[i].srcaddr = in->records[i].srcaddr;
+      out->records[i].nexthop = in->records[i].nexthop;
+    }
     out->records[i].input = in->records[i].input;
     out->records[i].output = in->records[i].output;
     out->records[i].dPkts = in->records[i].dPkts;
@@ -635,7 +665,11 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
     out->records[i].tcp_flags = in->records[i].tcp_flags;
     out->records[i].prot = in->records[i].prot;
     out->records[i].tos = in->records[i].tos;
-    out->records[i].ip_version = in->records[i].ip_version;
+    if (is_ipv6) {
+      out->records[i].ip_version = 6;
+    } else {
+      out->records[i].ip_version = 4;
+    }
   }
   fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }
