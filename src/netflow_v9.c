@@ -568,6 +568,7 @@ void *parse_v9(uv_work_t *req) {
 
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert);
+        swap_endianness((void *) &(args->exporter), sizeof(args->exporter));
         insert_flows(args->exporter, &flows_to_insert);
 
         // fclose(ftemplate);
@@ -600,8 +601,24 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
     fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
-    out->records[i].srcaddr = in->records[i].srcaddr;
+    swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
+    swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
+    swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));
+    swap_endianness(&in->records[i].srcport, sizeof(in->records[i].srcport));
+    swap_endianness(&in->records[i].dstport, sizeof(in->records[i].dstport));
+    swap_endianness(&in->records[i].dPkts, sizeof(in->records[i].dPkts));
+    swap_endianness(&in->records[i].dOctets, sizeof(in->records[i].dOctets));
+    swap_endianness(&in->records[i].First, sizeof(in->records[i].First));
+    swap_endianness(&in->records[i].Last, sizeof(in->records[i].Last));
+    swap_endianness(&in->records[i].input, sizeof(in->records[i].input));
+    swap_endianness(&in->records[i].output, sizeof(in->records[i].output));
+    swap_endianness(&in->records[i].src_as, sizeof(in->records[i].src_as));
+    swap_endianness(&in->records[i].dst_as, sizeof(in->records[i].dst_as));
+    swap_endianness(&in->records[i].src_mask, sizeof(in->records[i].src_mask));
+    swap_endianness(&in->records[i].dst_mask, sizeof(in->records[i].dst_mask));
+
     out->records[i].dstaddr = in->records[i].dstaddr;
+    out->records[i].srcaddr = in->records[i].srcaddr;
     out->records[i].nexthop = in->records[i].nexthop;
     out->records[i].input = in->records[i].input;
     out->records[i].output = in->records[i].output;
