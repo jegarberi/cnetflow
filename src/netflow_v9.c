@@ -52,7 +52,7 @@ void *parse_v9(uv_work_t *req) {
   size_t total_flowsets = 0;
   uint16_t len = 0;
   size_t total_packet_length = args->len;
-  fprintf(stderr, "args->len: %d\n", total_packet_length);
+  fprintf(stderr, "args->len: %lu\n", total_packet_length);
 
   for (flowset_counter = 0; flowset_counter < flowsets; ++flowset_counter) {
     if (flowset_counter == 0) {
@@ -119,7 +119,7 @@ void *parse_v9(uv_work_t *req) {
           uint16_t l = (uint16_t) template->templates[0].fields[field].field_length;
           swap_endianness(&t, sizeof(t));
           swap_endianness(&l, sizeof(l));
-          if (t == 0 || t == 0) {
+          if (t == 0 || l == 0) {
             goto unlock_mutex_parse_v9;
           }
           if (t < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
@@ -137,7 +137,7 @@ void *parse_v9(uv_work_t *req) {
         fprintf(stderr, "key: %s\n", key);
         uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
         uint16_t *temp;
-        size_t template_init = &template->templates[0].fields[0].field_type;
+        size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
         if (template_hashmap == NULL) {
           fprintf(stderr, "%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
@@ -266,6 +266,7 @@ void *parse_v9(uv_work_t *req) {
             if (field_type > 337) {
               goto unlock_mutex_parse_v9;
             }
+            netflow_packet_ptr->records[record_counter].ip_version = 4;
             switch (field_type) {
               case IPFIX_FT_FLOWENDSYSUPTIME:
                 swap_endianness(tmp32, sizeof(*tmp32));
@@ -283,12 +284,15 @@ void *parse_v9(uv_work_t *req) {
                 switch (*tmp8) {
                   case 4:
                     is_ipv6 = 0;
+                    netflow_packet_ptr->records[record_counter].ip_version = 4;
                     break;
                   case 6:
                     is_ipv6 = 1;
+                    netflow_packet_ptr->records[record_counter].ip_version = 6;
                     break;
                   default:
                     is_ipv6 = 0;
+                    netflow_packet_ptr->records[record_counter].ip_version = 4;
                     break;
                 }
                 break;
@@ -561,6 +565,11 @@ void *parse_v9(uv_work_t *req) {
           netflow_packet_ptr->header.count = record_counter;
           insert_v9(args->exporter, netflow_packet_ptr);
         }
+
+        netflow_v9_uint128_flowset_t flows_to_insert = {0};
+        copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert);
+        insert_flows(args->exporter, &flows_to_insert);
+
         // fclose(ftemplate);
       }
     } else if ((flowset_id < 256)) {
@@ -578,4 +587,38 @@ unlock_mutex_parse_v9:
   args->status = collector_data_status_done;
 
   return NULL;
+}
+
+
+void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out) {
+  fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
+  out->header.count = in->header.count;
+  out->header.SysUptime = in->header.SysUptime;
+  out->header.unix_secs = in->header.unix_secs;
+  out->header.unix_nsecs = in->header.unix_nsecs;
+  out->header.flow_sequence = in->header.flow_sequence;
+  out->header.sampling_interval = in->header.sampling_interval;
+  for (int i = 0; i < in->header.count; i++) {
+    fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    out->records[i].srcaddr = in->records[i].srcaddr;
+    out->records[i].dstaddr = in->records[i].dstaddr;
+    out->records[i].nexthop = in->records[i].nexthop;
+    out->records[i].input = in->records[i].input;
+    out->records[i].output = in->records[i].output;
+    out->records[i].dPkts = in->records[i].dPkts;
+    out->records[i].dOctets = in->records[i].dOctets;
+    out->records[i].First = in->records[i].First;
+    out->records[i].Last = in->records[i].Last;
+    out->records[i].srcport = in->records[i].srcport;
+    out->records[i].dstport = in->records[i].dstport;
+    out->records[i].src_as = in->records[i].src_as;
+    out->records[i].dst_as = in->records[i].dst_as;
+    out->records[i].src_mask = in->records[i].src_mask;
+    out->records[i].dst_mask = in->records[i].dst_mask;
+    out->records[i].tcp_flags = in->records[i].tcp_flags;
+    out->records[i].prot = in->records[i].prot;
+    out->records[i].tos = in->records[i].tos;
+    out->records[i].ip_version = in->records[i].ip_version;
+  }
+  fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }

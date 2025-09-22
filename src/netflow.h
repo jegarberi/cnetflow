@@ -90,7 +90,6 @@ typedef struct {
   uint32_t Last;
   uint16_t srcport;
   uint16_t dstport;
-  uint8_t pad1;
   uint8_t tcp_flags;
   uint8_t prot;
   uint8_t tos;

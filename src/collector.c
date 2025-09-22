@@ -130,9 +130,9 @@ int8_t collector_default(collector_t *col_conf) {
 
   collector_config = col_conf;
   collector_config->alloc = arena_alloc;
-  collector_config->free = free;
-  collector_config->realloc = realloc;
-  collector_config->detect_version = detect_version;
+  collector_config->free = (void *) free;
+  collector_config->realloc = (void *) realloc;
+  collector_config->detect_version = (void *) detect_version;
   collector_config->parse_v5 = parse_v5;
   collector_config->parse_v9 = parse_v9;
   collector_config->parse_ipfix = parse_ipfix;
@@ -246,12 +246,12 @@ int8_t collector_start(collector_t *collector) {
   // uv_timer_init(loop_timer_snmp, &timer_req_snmp);
   // uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_init(loop_timer_rss, &timer_req_rss);
-  uv_timer_start(&timer_req_rss, print_rss_max_usage, 1000, 1000);
+  uv_timer_start(&timer_req_rss, (void *) print_rss_max_usage, 1000, 1000);
   fprintf(stderr, "%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n",
           __FILE__, __LINE__, __func__);
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
   if (udp_server == NULL) {
-    fprintf("%s %d %s could not allocate udp_server\n", __FILE__, __LINE__, __func__);
+    fprintf(stderr, "%s %d %s could not allocate udp_server\n", __FILE__, __LINE__, __func__);
   }
   uv_udp_init(loop_udp, udp_server);
 
@@ -373,7 +373,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   uv_work_cb work_cb;
   static size_t data_counter = 1;
   uint32_t *exporter_ptr = NULL;
-  exporter_ptr = &(addr->sa_data[2]);
+  exporter_ptr = (uint32_t *) &(addr->sa_data[2]);
   func_args->exporter = *(uint32_t *) exporter_ptr;
   func_args->data = buf->base;
   func_args->len = nread;
@@ -398,7 +398,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
       assert(false);
   }
-  uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
+  uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
   data_counter++;
   // after_work_cb will release all mmemory chunks
   return;

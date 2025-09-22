@@ -41,4 +41,5 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows);
 
 void prepare_statement(PGconn *conn);
 void insert_flows(uint32_t, netflow_v9_uint128_flowset_t *);
+char *ip_uint128_to_string(uint128_t value, uint8_t ip_version);
 #endif // DB_H

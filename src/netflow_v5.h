@@ -12,7 +12,10 @@
 #include "netflow.h"
 
 
-static void exit_nicely(PGconn *conn);
+static void exit_nicely(PGconn *);
 
-void *parse_v5(uv_work_t *req);
+void *parse_v5(uv_work_t *);
+
+void copy_v5_to_flow(netflow_v5_flowset_t *, netflow_v9_uint128_flowset_t *);
+
 #endif // NETFLOW_V5_H
