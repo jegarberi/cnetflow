@@ -395,7 +395,7 @@ void fill_param_values(char (*values)[_N_PARAMS][_MAX_LEN], uint128_t exporter,
   // char values[_N_PARAMS][_MAX_LEN] = {0};
   char temp_values[_N_PARAMS][_MAX_LEN] = {0};
   snprintf(temp_values[_IP_VERSION], _MAX_LEN, "%d", flow->ip_version);
-  snprintf(temp_values[_EXPORTER], _MAX_LEN, "%s", ip_uint128_to_string(exporter, flow->ip_version));
+  snprintf(temp_values[_EXPORTER], _MAX_LEN, "%s", ip_uint128_to_string(exporter, 4));
   snprintf(temp_values[_SRCADDR], _MAX_LEN, "%s", ip_uint128_to_string(flow->srcaddr, flow->ip_version));
   snprintf(temp_values[_SRCPORT], _MAX_LEN, "%u", flow->srcport);
   snprintf(temp_values[_DSTADDR], _MAX_LEN, "%s", ip_uint128_to_string(flow->dstaddr, flow->ip_version));
