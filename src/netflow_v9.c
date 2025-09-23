@@ -231,6 +231,7 @@ void *parse_v9(uv_work_t *req) {
             uint64_t *tmp64; // 8 bytes
             uint64_t tmp6 = 0; // 6 bytes -> 8bytes
             uint128_t *tmp128; // 16bytes
+            uint128_t val_tmp128; // 16bytes
             if (field_type > 337) {
               goto unlock_mutex_parse_v9;
             }
@@ -261,6 +262,8 @@ void *parse_v9(uv_work_t *req) {
                 break;
               case 16:
                 tmp128 = (uint128_t *) pointer;
+                // assert(((uintptr_t) tmp128 % 16) == 0);
+                memcpy(&val_tmp128, pointer, sizeof(uint128_t));
                 // swap_endianness(tmp128, sizeof(*tmp128));
                 break;
             }
@@ -313,7 +316,8 @@ void *parse_v9(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_SOURCEIPV6ADDRESS:
-                netflow_packet_ptr->records[record_counter].ipv6srcaddr = *tmp128;
+                // assert(((uintptr_t) tmp128 % 16) == 0);
+                netflow_packet_ptr->records[record_counter].ipv6srcaddr = val_tmp128;
                 netflow_packet_ptr->records[record_counter].ip_version = 6;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
@@ -321,7 +325,7 @@ void *parse_v9(uv_work_t *req) {
                 is_ipv6 = 1;
                 break;
               case IPFIX_FT_DESTINATIONIPV6ADDRESS:
-                netflow_packet_ptr->records[record_counter].ipv6dstaddr = *tmp128;
+                netflow_packet_ptr->records[record_counter].ipv6dstaddr = val_tmp128;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
                 print_flow++;
@@ -447,7 +451,7 @@ void *parse_v9(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV6ADDRESS:
-                netflow_packet_ptr->records[record_counter].ipv6nexthop = *tmp128;
+                netflow_packet_ptr->records[record_counter].ipv6nexthop = val_tmp128;
                 is_ipv6 = 1;
                 print_flow++;
                 break;
