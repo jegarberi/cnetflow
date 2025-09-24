@@ -387,9 +387,105 @@ $$;
 
 
 
+ALTER TABLE flows_agg_5min
+    ADD CONSTRAINT flows_agg_5min_unique
+        UNIQUE (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as, input, output,
+                ip_version);
+CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    aggregated_ids bigint[];
+BEGIN
+    LOCK TABLE flows IN EXCLUSIVE MODE;
+    -- Aggregate and upsert
+    WITH aggregated AS (SELECT time_bucket('5 minutes', first) AS bucket_5min,
+                               exporter                        AS exporter,
+                               srcaddr                         AS srcaddr,
+                               dstaddr                         AS dstaddr,
+                               srcport                         AS srcport,
+                               dstport                         AS dstport,
+                               prot                            AS prot,
+                               src_as                          AS src_as,
+                               dst_as                          AS dst_as,
+                               input                           AS input,
+                               output                          AS output,
+                               SUM(dpkts)::bigint              AS total_packets,
+                               SUM(doctets)::bigint            AS total_octets,
+                               ip_version                      AS ip_version,
+                               array_agg(id)                   AS ids
+                        FROM flows
+                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as,
+                                 input, output, ip_version)
+    INSERT
+    INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
+                         srcport, dstport, prot, src_as, dst_as, input, output, ip_version,
+                         total_packets, total_octets)
+    SELECT bucket_5min,
+           exporter,
+           srcaddr,
+           dstaddr,
+           srcport,
+           dstport,
+           prot,
+           src_as,
+           dst_as,
+           input,
+           output,
+           ip_version,
+           total_packets,
+           total_octets
+    FROM aggregated
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as,dst_as,input, output,ip_version)
+        DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
+                      total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
+
+    -- Collect all ids from current aggregation to a local variable
+    SELECT array_agg(id)
+    INTO aggregated_ids
+    FROM flows
+    WHERE id IN (SELECT unnest(ids)
+                 FROM (SELECT array_agg(id) as ids
+                       FROM flows
+                       GROUP BY time_bucket('5 minutes', first), exporter, srcaddr, dstaddr,
+                                srcport, dstport, prot, src_as, dst_as, input, output, ip_version) t);
+
+    -- Delete aggregated rows from source
+    IF aggregated_ids IS NOT NULL THEN
+        DELETE FROM flows WHERE id = ANY (aggregated_ids);
+    END IF;
+    truncate flows;
+    COMMIT;
+END;
+$$;
+
+drop function if exists import_exporters();
+drop procedure if exists import_exporters();
+create procedure import_exporters()
+    language plpgsql
+as
+$$
+BEGIN
+    insert into exporters (name, ip_bin, ip_inet)
+    select exporter, 0, exporter
+    FROM (select distinct exporter
+          from flows) flows
+    WHERE NOT EXISTS (SELECT 1
+                      FROM exporters e
+                      WHERE e.ip_inet = flows.exporter);
+
+    -- insert into importers (name, ip, port);
+END;
+$$;
+
+
+SELECT cron.schedule('*/4 * * * *', $$call import_exporters()$$);
+SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min()$$);
 SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v9()$$);
 SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v5()$$);
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_v5_agg_5min()$$);
+
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_v9_agg_5min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v5_agg_30min()$$);
 SELECT cron.schedule('*/15 * * * *', $$call import_flows_v9_agg_30min()$$);
