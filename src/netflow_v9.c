@@ -455,6 +455,14 @@ void *parse_v9(uv_work_t *req) {
                 is_ipv6 = 1;
                 print_flow++;
                 break;
+              case IPFIX_FT_TCPCONTROLBITS:
+                netflow_packet_ptr->records[record_counter].tcp_flags = *tmp8;
+                print_flow++;
+                break;
+              case IPFIX_FT_IPCLASSOFSERVICE:
+                netflow_packet_ptr->records[record_counter].tos = *tmp8;
+                print_flow++;
+                break;
               default:
                 break;
             }

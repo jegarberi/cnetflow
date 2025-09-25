@@ -1,4 +1,4 @@
-FROM docker.io/library/debian:bookworm-slim AS dependencies
+FROM docker.io/library/debian:trixie-slim AS dependencies
 LABEL authors="jon"
 
 # Combine RUN commands to reduce layers and use --no-install-recommends to minimize image size
@@ -21,7 +21,7 @@ RUN cmake --build build --config Release
 RUN ctest -C Release --test-dir build
 
 # Use minimal runtime image to reduce final image size
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 # Install only runtime dependencies
 RUN apt update && apt install -y --no-install-recommends \

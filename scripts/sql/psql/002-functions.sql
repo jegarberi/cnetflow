@@ -390,7 +390,7 @@ $$;
 ALTER TABLE flows_agg_5min
     ADD CONSTRAINT flows_agg_5min_unique
         UNIQUE (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as, input, output,
-                ip_version);
+                ip_version, tos);
 CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
     LANGUAGE plpgsql
 AS
@@ -414,14 +414,16 @@ BEGIN
                                SUM(dpkts)::bigint              AS total_packets,
                                SUM(doctets)::bigint            AS total_octets,
                                ip_version                      AS ip_version,
+                               tos                             as tos,
                                array_agg(id)                   AS ids
+
                         FROM flows
                         GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as,
-                                 input, output, ip_version)
+                                 input, output, ip_version, tos)
     INSERT
     INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
                          srcport, dstport, prot, src_as, dst_as, input, output, ip_version,
-                         total_packets, total_octets)
+                         total_packets, total_octets, tos)
     SELECT bucket_5min,
            exporter,
            srcaddr,
@@ -435,9 +437,10 @@ BEGIN
            output,
            ip_version,
            total_packets,
-           total_octets
+           total_octets,
+           tos
     FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as,dst_as,input, output,ip_version)
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as,dst_as,input, output,ip_version,tos)
         DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
                       total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
 
@@ -449,13 +452,13 @@ BEGIN
                  FROM (SELECT array_agg(id) as ids
                        FROM flows
                        GROUP BY time_bucket('5 minutes', first), exporter, srcaddr, dstaddr,
-                                srcport, dstport, prot, src_as, dst_as, input, output, ip_version) t);
+                                srcport, dstport, prot, src_as, dst_as, input, output, ip_version, tos) t);
 
     -- Delete aggregated rows from source
     IF aggregated_ids IS NOT NULL THEN
         DELETE FROM flows WHERE id = ANY (aggregated_ids);
     END IF;
-    truncate flows;
+    -- truncate flows;
     COMMIT;
 END;
 $$;
