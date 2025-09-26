@@ -291,18 +291,17 @@ error_destroy_arena:
   arena_destroy(arena_udp_handle);
   arena_destroy(arena_collector);
 error_no_arena:
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-  fprintf(STDERR, "exit collector_thread\n");
+  fprintf(stderr, "%s %d %s: exit collector_thread\n", __FILE__, __LINE__, __func__);
   return -1;
 }
 
 void *after_work_cb(uv_work_t *req, int status) {
   parse_args_t *func_args = req->data;
-  fprintf(stderr, "release func_args->data: %p\n", func_args->data);
+  fprintf(stderr, "%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
   arena_free(arena_udp_handle, func_args->data);
-  fprintf(stderr, "release func_args: %p\n", func_args);
+  fprintf(stderr, "%s %d %s: release func_args: %p\n", __FILE__, __LINE__, __func__, func_args);
   arena_free(arena_collector, func_args);
-  fprintf(stderr, "release req: %p\n", req);
+  fprintf(stderr, "%s %d %s: release req: %p\n", __FILE__, __LINE__, __func__, req);
   arena_free(arena_collector, req);
   // free(req);
 }
@@ -327,8 +326,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     goto udp_handle_free_and_return;
   }
   if (buf->base == NULL) {
-    fprintf(STDERR, "got buf->base == NULL\n");
-    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+    fprintf(STDERR, "%s %d %s: got buf->base == NULL\n", __FILE__, __LINE__, __func__);
     exit(-1);
   }
 
@@ -342,7 +340,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   char address_str[INET6_ADDRSTRLEN + 8]; // Enough space for IPv6 + port
   get_ip_str(addr, address_str, sizeof(address_str));
   // printf("Address: %s\n", address_str);
-  fprintf(STDERR, "%s %d %s got udp packet! handle: %p ip: %s flags: %d bytes: %d\n", __FILE__, __LINE__, __func__,
+  fprintf(STDERR, "%s %d %s got udp packet! handle: %p ip: %s flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
           (void *) handle, address_str, flags, nread);
 
   NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);

@@ -30,7 +30,7 @@ char *read_snmp_config(PGconn *conn, arena_struct_t *arena) {
   return config;
 read_snmp_config_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -83,7 +83,7 @@ void prepare_statement_v5(PGconn *conn) {
   res = PQprepare(conn, stmtName, query, nParams, paramTypes);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
-    fprintf(stderr, "PQprepare failed: %s", PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows_v5\" already exists\n";
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
@@ -95,7 +95,7 @@ void prepare_statement_v5(PGconn *conn) {
   return;
 prepare_statement_v5_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -104,7 +104,8 @@ prepare_statement_v5_exit_nicely:
 
 void prepare_statement_insert_flows(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
-    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    fprintf(stderr, "%s %d %s: Connection to database failed: %s\n", __FILE__, __LINE__, __func__,
+            conn ? PQerrorMessage(conn) : "NULL connection");
     goto prepare_statement_insert_flows_exit_nicely;
   }
 
@@ -143,7 +144,7 @@ void prepare_statement_insert_flows(PGconn *conn) {
   res = PQprepare(conn, stmtName, query, _N_PARAMS, NULL);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
-    fprintf(stderr, "PQprepare failed: %s", PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows\" already exists\n";
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
@@ -155,7 +156,7 @@ void prepare_statement_insert_flows(PGconn *conn) {
   return;
 prepare_statement_insert_flows_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -204,7 +205,7 @@ void prepare_statement_v9(PGconn *conn) {
   res = PQprepare(conn, stmtName, query, nParams, paramTypes);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
-    fprintf(stderr, "PQprepare failed: %s", PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows_v9\" already exists\n";
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
@@ -216,7 +217,7 @@ void prepare_statement_v9(PGconn *conn) {
   return;
 prepare_statement_v9_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -327,7 +328,7 @@ insert_v5_return:
   return;
 insert_v5_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -542,7 +543,7 @@ insert_flows_return:
   return;
 insert_flows_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -661,7 +662,7 @@ insert_v9_return:
 insert_v9_exit_nicely:
   PQclear(res);
   if (conn != NULL) {
-    fprintf(stderr, PQerrorMessage(conn));
+    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);

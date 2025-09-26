@@ -70,11 +70,11 @@ void *parse_v9(uv_work_t *req) {
       swap_endianness(&len, sizeof(len));
       flowset_end = flowset_base + len;
       if (flowset_end >= total_packet_length) {
-        fprintf(stderr, "read all packet\n");
+        fprintf(stderr, "%s %d %s: read all packet\n", __FILE__, __LINE__, __func__);
         break;
       }
       if (flowset_base == flowset_end) {
-        fprintf(stderr, "flowset_base == flowset_end\n");
+        fprintf(stderr, "%s %d %s: flowset_base == flowset_end\n", __FILE__, __LINE__, __func__);
         break;
       }
       // swap_endianness(&flowset_base,sizeof(flowset_base));
@@ -86,12 +86,12 @@ void *parse_v9(uv_work_t *req) {
     uint16_t flowset_id = flowset->template.flowset_id;
     uint16_t flowset_length = flowset->template.length;
     // uint16_t *template = NULL;
-    fprintf(stderr, "flowset_id: %d\n", flowset_id);
-    fprintf(stderr, "length: %d\n", flowset_length);
+    fprintf(stderr, "%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
+    fprintf(stderr, "%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
 
     if (0 == flowset_id) {
       // this is a template flowset
-      fprintf(stderr, "this is a template flowset\n");
+      fprintf(stderr, "%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
       size_t has_more_templates = 1;
       size_t pos = 0;
       // end = flowset_base + length;
@@ -104,16 +104,14 @@ void *parse_v9(uv_work_t *req) {
         // swap_endianness(&template->template_id,sizeof(template->template_id));
         uint16_t template_id = template->templates[0].template_id;
         uint16_t field_count = template->templates[0].field_count;
-        if (template_id == 257) {
-          fprintf(stderr, "template_id: %d\n", template_id);
-        }
+
         swap_endianness(&template_id, sizeof(template_id));
         swap_endianness(&field_count, sizeof(field_count));
         if (template_id == 0) {
           goto unlock_mutex_parse_v9;
         }
-        fprintf(stderr, "template_id: %d\n", template_id);
-        fprintf(stderr, "field count: %d\n", field_count);
+        fprintf(stderr, "%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
+        fprintf(stderr, "%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
         // size_t start_fields = template->templates[0].fields;
         //  size_t end_fields = start_fields + field_count * 4;
         for (size_t field = 0; field < field_count; field++) {
@@ -126,7 +124,8 @@ void *parse_v9(uv_work_t *req) {
           }
           if (t < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
 #ifdef CNETFLOW_DEBUG_BUILD
-            fprintf(stderr, "field: %d type: %u len: %u [%s]\n", field, t, l, ipfix_field_types[t].name);
+            fprintf(stderr, "%s %d %s field: %d type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field, t, l,
+                    ipfix_field_types[t].name);
 #endif
           } else {
             fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
@@ -461,6 +460,22 @@ void *parse_v9(uv_work_t *req) {
                 break;
               case IPFIX_FT_IPCLASSOFSERVICE:
                 netflow_packet_ptr->records[record_counter].tos = *tmp8;
+                print_flow++;
+                break;
+              case IPFIX_FT_SOURCEIPV4PREFIXLENGTH:
+                netflow_packet_ptr->records[record_counter].src_mask = *tmp8;
+                print_flow++;
+                break;
+              case IPFIX_FT_DESTINATIONIPV4PREFIXLENGTH:
+                netflow_packet_ptr->records[record_counter].dst_mask = *tmp8;
+                print_flow++;
+                break;
+              case IPFIX_FT_SOURCEIPV6PREFIXLENGTH:
+                netflow_packet_ptr->records[record_counter].src_mask = *tmp8;
+                print_flow++;
+                break;
+              case IPFIX_FT_DESTINATIONIPV6PREFIXLENGTH:
+                netflow_packet_ptr->records[record_counter].dst_mask = *tmp8;
                 print_flow++;
                 break;
               default:
