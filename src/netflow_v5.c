@@ -99,7 +99,7 @@ void *parse_v5(uv_work_t *req) {
 #endif
   }
   // swap_endianness((void *) &args->exporter, sizeof(args->exporter));
-  insert_v5(args->exporter, netflow_packet_ptr);
+  // insert_v5(args->exporter, netflow_packet_ptr);
 
   netflow_v9_uint128_flowset_t flows_to_insert = {0};
   copy_v5_to_flow(netflow_packet_ptr, &flows_to_insert);

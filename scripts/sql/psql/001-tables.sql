@@ -321,6 +321,7 @@ create role web_anon nologin;
 grant usage on schema public to web_anon;
 grant select on public.exporters to web_anon;
 grant select on public.flows to web_anon;
+grant select on public.flows_agg_5min to web_anon;
 grant select on public.flows_v5 to web_anon;
 grant select on public.flows_v9 to web_anon;
 grant select on public.config to web_anon;
@@ -330,3 +331,4 @@ grant select on public.interfaces to web_anon;
 grant select on public.flows_v9_agg_5min to web_anon;
 grant select on public.flows_v5_agg_5min to web_anon;
 ALTER DATABASE postgres SET timezone TO 'America/Argentina/Buenos_Aires';
+

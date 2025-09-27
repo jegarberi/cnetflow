@@ -602,13 +602,13 @@ void *parse_v9(uv_work_t *req) {
           }
         }
         netflow_packet_ptr->header.count = record_counter;
-        if (!is_ipv6) {
+        /*if (!is_ipv6) {
 
-          insert_v9(args->exporter, netflow_packet_ptr);
+          // insert_v9(args->exporter, netflow_packet_ptr);
         } else {
           fprintf(stderr, "ipv6 got ipv6...\n");
         }
-
+        */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
         swap_endianness((void *) &(args->exporter), sizeof(args->exporter));
