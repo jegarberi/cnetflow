@@ -64,7 +64,7 @@ size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
 
   // Ensure hash is within bucket range
   size_t index = hash % hashmap->bucket_count;
-  fprintf(stderr, "hashmap_hash key: %s =>  index: %lu\n", (char *) key, index);
+  fprintf(stderr, "%s %d %s: hashmap_hash key: %s =>  index: %lu\n", __FILE__, __LINE__, __func__, (char *) key, index);
   return index;
 }
 

@@ -241,7 +241,7 @@ int is_ipv4_private(const uint32_t ip) {
 }
 
 void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
-  if (is_ipv4_private(record->dstaddr) || record->dstport > record->srcport) {
+  if (!is_ipv4_private(record->srcaddr) && record->dstport > record->srcport) {
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
     record->srcport = tmp_port;
@@ -255,7 +255,7 @@ void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
 }
 
 void swap_src_dst_v5(netflow_v5_record_t *record) {
-  if (is_ipv4_private(record->dstaddr) || record->dstport > record->srcport) {
+  if (!is_ipv4_private(record->srcaddr) && record->dstport > record->srcport) {
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
     record->srcport = tmp_port;
