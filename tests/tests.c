@@ -32,21 +32,27 @@ Test(arena, create) {
   arena_destroy(arena_test);
   cr_assert_eq(arena_test->base_address, NULL);
 }
-/*
-Test(hashmap, create) {
-  arena_struct_t *arena_test = NULL;
-  arena_test = malloc(sizeof(arena_struct_t));
-  arena_status err = arena_create(arena_test, (size_t) 1 * 1024);
-  if (arena_test != ok) {
-    cr_log_info("Arena creation failed",0);
-  }
-  hashmap_t * hashmap = hashmap_create(arena_test, (size_t) 1 * 1024);
-  hashmap_set(hashmap,arena_test, (size_t) 1 * 1024, (char *) "test");
-  hashmap_set(hashmap, arena_test, (size_t) 1 * 1024, (char *) "test2");
-  char *test1;
-  char *test2;
-  test1 = hashmap_get(hashmap, (size_t) 1 * 1024, (char *) "test");
-  arena_destroy(arena_test);
+
+
+Test(hashmap, set_get) {
+
+  arena_struct_t *arena_hashmap = NULL;
+  arena_hashmap = malloc(sizeof(arena_struct_t));
+  arena_status err = arena_create(arena_hashmap, 1024*1024);
+  hashmap_t *hashmap = NULL;
+  hashmap = hashmap_create(arena_hashmap, 1024);
+  char test1[] = "testing string1";
+  char test2[] = "testing string2";
+  hashmap_set(hashmap, arena_hashmap, "key1",strlen("key1"),&test1);
+  hashmap_set(hashmap, arena_hashmap, "key2",strlen("key2"),&test2);
+
+  char * get_test1 = (char *)hashmap_get(hashmap, "key1",strlen("key1"));
+  char * get_test2 = (char *)hashmap_get(hashmap, "key2",strlen("key2"));
+  fprintf(stderr,"%s\n",get_test1);
+  fprintf(stderr,"%s\n",get_test2);
+  cr_assert_eq(strcmp(get_test1,"testing string1"),0);
+  cr_assert_eq(strcmp(get_test2,"testing string2"),0);
+  arena_destroy(arena_hashmap);
+
 
 }
-*/
