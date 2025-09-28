@@ -35,7 +35,6 @@ Test(arena, create) {
 
 
 Test(hashmap, set_get) {
-
   arena_struct_t *arena_hashmap = NULL;
   arena_hashmap = malloc(sizeof(arena_struct_t));
   arena_status err = arena_create(arena_hashmap, 1024*1024);
@@ -48,10 +47,15 @@ Test(hashmap, set_get) {
 
   char * get_test1 = (char *)hashmap_get(hashmap, "key1",strlen("key1"));
   char * get_test2 = (char *)hashmap_get(hashmap, "key2",strlen("key2"));
+  char * must_be_null = (char *)hashmap_get(hashmap, "key3",strlen("key3"));
   fprintf(stderr,"%s\n",get_test1);
   fprintf(stderr,"%s\n",get_test2);
   cr_assert_eq(strcmp(get_test1,"testing string1"),0);
   cr_assert_eq(strcmp(get_test2,"testing string2"),0);
+  cr_assert_eq(must_be_null,NULL);
+  hashmap_delete(hashmap,"key1",strlen("key1"));
+  get_test1 = (char *)hashmap_get(hashmap, "key1",strlen("key1"));
+  cr_assert_eq(get_test1,NULL);
   arena_destroy(arena_hashmap);
 
 
