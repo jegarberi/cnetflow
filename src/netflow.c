@@ -230,16 +230,25 @@ void *fix_endianness(void *buf, void *data, size_t len) {
   }
 }
 
+int is_ipv4_private(const uint32_t ip) {
+  if ((ip >= 167772160 && ip <= 184549375) || // CLASS A PRIVATE
+      (ip >= 2886729728 && ip <= 2887843839) || // CLASS B PRIVATE
+      (ip >= 3232235520 && ip <= 3232301055)) // CLASS C PRIVATE
+  {
+    return 1;
+  }
+  return 0;
+}
+
 void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
-  if (record->dstport > record->srcport) {
-    uint16_t tmp_port = record->dstport;
+  if (record->dstport > record->srcport || is_ipv4_private(record->dstaddr)) {
+    const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
     record->srcport = tmp_port;
-    uint32_t tmp_addr = record->dstaddr;
+    const uint32_t tmp_addr = record->dstaddr;
     record->dstaddr = record->srcaddr;
     record->srcaddr = tmp_addr;
-    uint16_t tmp_interface = 0;
-    tmp_interface = record->input;
+    const uint16_t tmp_interface = record->input;
     record->input = record->output;
     record->output = tmp_interface;
   }
