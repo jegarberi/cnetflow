@@ -255,15 +255,14 @@ void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
 }
 
 void swap_src_dst_v5(netflow_v5_record_t *record) {
-  if (record->dstport > record->srcport) {
-    uint16_t tmp_port = record->dstport;
+  if (record->dstport > record->srcport || is_ipv4_private(record->dstaddr)) {
+    const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
     record->srcport = tmp_port;
-    uint32_t tmp_addr = record->dstaddr;
+    const uint32_t tmp_addr = record->dstaddr;
     record->dstaddr = record->srcaddr;
     record->srcaddr = tmp_addr;
-    uint16_t tmp_interface = 0;
-    tmp_interface = record->input;
+    const uint16_t tmp_interface = record->input;
     record->input = record->output;
     record->output = tmp_interface;
   }
