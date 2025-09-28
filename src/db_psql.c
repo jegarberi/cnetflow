@@ -44,7 +44,8 @@ read_snmp_config_exit_nicely:
  *
  * @param conn   A pointer to the PostgreSQL connection object. Must be an open and valid connection.
  */
-void prepare_statement_v5(PGconn *conn) {
+/*
+ void prepare_statement_v5(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
     fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
     goto prepare_statement_v5_exit_nicely;
@@ -101,6 +102,7 @@ prepare_statement_v5_exit_nicely:
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }
+*/
 
 void prepare_statement_insert_flows(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
@@ -163,7 +165,7 @@ prepare_statement_insert_flows_exit_nicely:
   exit(-1);
 #undef _N_PARAMS
 }
-
+/*
 
 void prepare_statement_v9(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
@@ -223,6 +225,7 @@ prepare_statement_v9_exit_nicely:
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   // exit(-1);
 }
+*/
 /**
  * Inserts a batch of NetFlow v5 records into a PostgreSQL database.
  *
@@ -231,6 +234,7 @@ prepare_statement_v9_exit_nicely:
  * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
+/*
 void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
   static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
@@ -315,26 +319,24 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
   }
   // PQfinish(conn);
   /* end the transaction */
-
-  res = PQexec(conn, "END");
-  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
-    PQclear(res);
-    goto insert_v5_exit_nicely;
-  }
+/*
+res = PQexec(conn, "END");
+if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+  fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
   PQclear(res);
-
-insert_v5_return:
-  return;
-insert_v5_exit_nicely:
-  if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
-    PQfinish(conn);
-  }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-  exit(-1);
+  goto insert_v5_exit_nicely;
 }
+PQclear(res);
 
+insert_v5_return : return;
+insert_v5_exit_nicely : if (conn != NULL) {
+  fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+  PQfinish(conn);
+}
+fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+exit(-1);
+}
+*/
 char *ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
   // NOTE: Make the output buffer STATIC so it's not invalid after returning!
   // This makes this function NOT thread-safe. (Can be improved.)
@@ -477,6 +479,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   for (int i = 0; i < flows->header.count; i++) {
     int nParams = _N_PARAMS;
+
     fill_param_values(&paramValuesAsString, (uint128_t) exporter, &(flows->records[i]));
     const char *paramValues[_N_PARAMS];
     for (int k = 0; k < _N_PARAMS; k++) {
@@ -513,7 +516,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       fprintf(stderr, "%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
               PQresultErrorMessage(res));
       PQclear(res);
-      prepare_statement_v9(conn);
+      prepare_statement_insert_flows(conn);
       res = PQexecPrepared(conn, "insert_flows", nParams, (const char *const *) paramValues, NULL, NULL, resultFormat);
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
@@ -561,6 +564,7 @@ insert_flows_exit_nicely:
  * @param flows      A pointer to an array of NetFlow v5 records to be inserted into the database.
  * @param count      The number of records in the `flows` array. Must be greater than zero.
  */
+/*
 void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
 
   static THREAD_LOCAL PGconn *conn = NULL;
@@ -648,27 +652,25 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
   }
   // PQfinish(conn);
   /* end the transaction */
+/*
+res = PQexec(conn, "END");
+if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+  fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
 
-  res = PQexec(conn, "END");
-  if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
-
-    goto insert_v9_exit_nicely;
-  }
-
-insert_v9_return:
-  PQclear(res);
-  return;
-insert_v9_exit_nicely:
-  PQclear(res);
-  if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
-    PQfinish(conn);
-  }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-  exit(-1);
+  goto insert_v9_exit_nicely;
 }
 
+insert_v9_return : PQclear(res);
+return;
+insert_v9_exit_nicely : PQclear(res);
+if (conn != NULL) {
+  fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+  PQfinish(conn);
+}
+fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+exit(-1);
+}
+*/
 
 /**
  * Establishes a connection to a PostgreSQL database using the connection string
@@ -776,8 +778,9 @@ void db_connect(PGconn **conn) {
   /* close the connection to the database and cleanup */
 
   //  PQfinish(conn);
-  prepare_statement_v5(*conn);
-  prepare_statement_v9(*conn);
+  // prepare_statement_v5(*conn);
+  // prepare_statement_v9(*conn);
+  prepare_statement_insert_flows(*conn);
   return;
 db_connect_exit_nicely:
   if (*conn != NULL) {
@@ -786,4 +789,12 @@ db_connect_exit_nicely:
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
+}
+
+
+void swap_src_dst(netflow_v9_uint128_flowset_t *flows) {
+  for (int i = 0; i < flows->header.count; ++i) {
+    if (flows->records[i].dstport > flows->records[i].srcport) {
+    }
+  }
 }

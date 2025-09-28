@@ -117,54 +117,15 @@ BEGIN
 END;
 $$;
 
-drop function if exists import_exporters_v5();
-drop procedure if exists import_exporters_v5();
-create procedure import_exporters_v5()
-    language plpgsql
-as
-$$
-BEGIN
-    insert into exporters (name, ip_bin, ip_inet)
-    select int2inet(exporter)::text, exporter, int2inet(exporter)
-    FROM (select distinct exporter
-          from flows_v5) flows
-    WHERE NOT EXISTS (SELECT 1
-                      FROM exporters e
-                      WHERE e.ip_bin = flows.exporter);
 
-    -- insert into importers (name, ip, port);
-END;
-$$;
-
-
-drop function if exists import_exporters_v9();
-drop procedure if exists import_exporters_v9();
-create procedure import_exporters_v9()
-    language plpgsql
-as
-$$
-BEGIN
-    insert into exporters (name, ip_bin, ip_inet)
-    select int2inet(exporter)::text, exporter, int2inet(exporter)
-    FROM (select distinct exporter
-          from flows_v9) flows
-    WHERE NOT EXISTS (SELECT 1
-                      FROM exporters e
-                      WHERE e.ip_bin = flows.exporter);
-
-    -- insert into importers (name, ip, port);
-END;
-$$;
-
-
-CREATE OR REPLACE PROCEDURE import_flows_v5_agg_5min()
+CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
     LANGUAGE plpgsql
 AS
 $$
 DECLARE
     aggregated_ids bigint[];
 BEGIN
-    LOCK TABLE flows_v5 IN EXCLUSIVE MODE;
+    LOCK TABLE flows IN EXCLUSIVE MODE;
     -- Aggregate and upsert
     WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
                                int2inet(exporter)                            AS exporter,
@@ -180,80 +141,13 @@ BEGIN
                                SUM(dpkts)::bigint                            AS total_packets,
                                SUM(doctets)::bigint                          AS total_octets,
                                array_agg(id)                                 AS ids
-                        FROM flows_v5
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output,
-                                 src_as, dst_as)
-    INSERT
-    INTO flows_v5_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                            srcport, dstport, protocol, src_as, dst_as, input, output,
-                            total_packets, total_octets)
-    SELECT bucket_5min,
-           exporter,
-           srcaddr,
-           dstaddr,
-           srcport,
-           dstport,
-           protocol,
-           src_as,
-           dst_as,
-           input,
-           output,
-           total_packets,
-           total_octets
-    FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as,dst_as,input, output)
-        DO UPDATE SET total_packets = flows_v5_agg_5min.total_packets + EXCLUDED.total_packets,
-                      total_octets  = flows_v5_agg_5min.total_octets + EXCLUDED.total_octets;
-
-    -- Collect all ids from current aggregation to a local variable
-    SELECT array_agg(id)
-    INTO aggregated_ids
-    FROM flows_v5
-    WHERE id IN (SELECT unnest(ids)
-                 FROM (SELECT array_agg(id) as ids
-                       FROM flows_v5
-                       GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
-                                srcport, dstport, prot, src_as, dst_as, input, output) t);
-
-    -- Delete aggregated rows from source
-    IF aggregated_ids IS NOT NULL THEN
-        DELETE FROM flows_v5 WHERE id = ANY (aggregated_ids);
-    END IF;
-    truncate flows_v5;
-    COMMIT;
-END;
-$$;
-
-CREATE OR REPLACE PROCEDURE import_flows_v9_agg_5min()
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    aggregated_ids bigint[];
-BEGIN
-    LOCK TABLE flows_v9 IN EXCLUSIVE MODE;
-    -- Aggregate and upsert
-    WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
-                               int2inet(exporter)                            AS exporter,
-                               int2inet(srcaddr)                             AS srcaddr,
-                               int2inet(dstaddr)                             AS dstaddr,
-                               int2port(srcport)                             AS srcport,
-                               int2port(dstport)                             AS dstport,
-                               ascii(prot)                                   AS protocol,
-                               src_as                                        AS src_as,
-                               dst_as                                        AS dst_as,
-                               input                                         AS input,
-                               output                                        AS output,
-                               SUM(dpkts)::bigint                            AS total_packets,
-                               SUM(doctets)::bigint                          AS total_octets,
-                               array_agg(id)                                 AS ids
-                        FROM flows_v9
+                        FROM flows
                         GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as, dst_as,
                                  input, output)
     INSERT
-    INTO flows_v9_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                            srcport, dstport, protocol, src_as, dst_as, input, output,
-                            total_packets, total_octets)
+    INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
+                         srcport, dstport, prot, src_as, dst_as, input, output,
+                         total_packets, total_octets)
     SELECT bucket_5min,
            exporter,
            srcaddr,
@@ -269,31 +163,31 @@ BEGIN
            total_octets
     FROM aggregated
     ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as,dst_as,input, output)
-        DO UPDATE SET total_packets = flows_v9_agg_5min.total_packets + EXCLUDED.total_packets,
-                      total_octets  = flows_v9_agg_5min.total_octets + EXCLUDED.total_octets;
+        DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
+                      total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
 
     -- Collect all ids from current aggregation to a local variable
     SELECT array_agg(id)
     INTO aggregated_ids
-    FROM flows_v9
+    FROM flows
     WHERE id IN (SELECT unnest(ids)
                  FROM (SELECT array_agg(id) as ids
-                       FROM flows_v9
+                       FROM flows
                        GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
                                 srcport, dstport, prot, src_as, dst_as, input, output) t);
 
     -- Delete aggregated rows from source
     IF aggregated_ids IS NOT NULL THEN
-        DELETE FROM flows_v9 WHERE id = ANY (aggregated_ids);
+        DELETE FROM flows WHERE id = ANY (aggregated_ids);
     END IF;
-    truncate flows_v9;
+    truncate flows;
     COMMIT;
 END;
 $$;
 
 
 
-CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_v9_5min()
+CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_5min()
     LANGUAGE plpgsql
 AS
 $$
@@ -305,7 +199,7 @@ BEGIN
     FOR iface_record IN
         SELECT DISTINCT e.id    AS exporter_id,
                         f.input AS snmp_index
-        FROM flows_v9_agg_5min f
+        FROM flows_agg_5min f
                  JOIN exporters e ON e.ip_inet = f.exporter
         WHERE f.input IS NOT NULL
           AND f.input > 0
@@ -323,53 +217,7 @@ BEGIN
     FOR iface_record IN
         SELECT DISTINCT e.id     AS exporter_id,
                         f.output AS snmp_index
-        FROM flows_v9_agg_5min f
-                 JOIN exporters e ON e.ip_inet = f.exporter
-        WHERE f.output IS NOT NULL
-          AND f.output > 0
-        LOOP
-            -- Insert if it doesn't exist
-            INSERT INTO interfaces (created_at, exporter, snmp_index)
-            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
-            WHERE NOT EXISTS (SELECT 1
-                              FROM interfaces
-                              WHERE exporter = iface_record.exporter_id
-                                AND snmp_index = iface_record.snmp_index);
-        END LOOP;
-END;
-$$;
-
-CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_v5_5min()
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    iface_record RECORD;
-    exporter_id  BIGINT;
-BEGIN
-    -- For each unique exporter::input
-    FOR iface_record IN
-        SELECT DISTINCT e.id    AS exporter_id,
-                        f.input AS snmp_index
-        FROM flows_v5_agg_5min f
-                 JOIN exporters e ON e.ip_inet = f.exporter
-        WHERE f.input IS NOT NULL
-          AND f.input > 0
-        LOOP
-            -- Insert if it doesn't exist
-            INSERT INTO interfaces (created_at, exporter, snmp_index)
-            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
-            WHERE NOT EXISTS (SELECT 1
-                              FROM interfaces
-                              WHERE exporter = iface_record.exporter_id
-                                AND snmp_index = iface_record.snmp_index);
-        END LOOP;
-
-    -- For each unique exporter::output
-    FOR iface_record IN
-        SELECT DISTINCT e.id     AS exporter_id,
-                        f.output AS snmp_index
-        FROM flows_v5_agg_5min f
+        FROM flows_agg_5min f
                  JOIN exporters e ON e.ip_inet = f.exporter
         WHERE f.output IS NOT NULL
           AND f.output > 0
@@ -387,10 +235,6 @@ $$;
 
 
 
-ALTER TABLE flows_agg_5min
-    ADD CONSTRAINT flows_agg_5min_unique
-        UNIQUE (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as, input, output,
-                ip_version, tos);
 CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
     LANGUAGE plpgsql
 AS
@@ -463,8 +307,6 @@ BEGIN
 END;
 $$;
 
-drop function if exists import_exporters();
-drop procedure if exists import_exporters();
 create procedure import_exporters()
     language plpgsql
 as
@@ -485,14 +327,5 @@ $$;
 
 SELECT cron.schedule('*/4 * * * *', $$call import_exporters()$$);
 SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min()$$);
-SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v9()$$);
-SELECT cron.schedule('*/4 * * * *', $$call import_exporters_v5()$$);
-SELECT cron.schedule('*/1 * * * *', $$call import_flows_v5_agg_5min()$$);
-
-SELECT cron.schedule('*/1 * * * *', $$call import_flows_v9_agg_5min()$$);
-SELECT cron.schedule('*/15 * * * *', $$call import_flows_v5_agg_30min()$$);
-SELECT cron.schedule('*/15 * * * *', $$call import_flows_v9_agg_30min()$$);
-SELECT cron.schedule('0 * * * *', $$call import_flows_v9_agg_2hour()$$);
-select cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_v9_5min()$$);
-select cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_v5_5min()$$);
+SELECT cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_5min()$$);
 

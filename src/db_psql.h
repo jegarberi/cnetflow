@@ -34,12 +34,13 @@
 static void exit_nicely();
 
 void db_connect(PGconn **conn);
-void prepare_statement_v5(PGconn *conn);
-void prepare_statement_v9(PGconn *conn);
-void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows);
-void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows);
+// void prepare_statement_v5(PGconn *conn);
+// void prepare_statement_v9(PGconn *conn);
+// void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows);
+// void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows);
 
-void prepare_statement(PGconn *conn);
+void prepare_statement_insert_flows(PGconn *conn);
 void insert_flows(uint32_t, netflow_v9_uint128_flowset_t *);
 char *ip_uint128_to_string(uint128_t value, uint8_t ip_version);
+void swap_src_dst(netflow_v9_uint128_flowset_t *);
 #endif // DB_H
