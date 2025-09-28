@@ -12,7 +12,7 @@ extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
 
 void init_v9(arena_struct_t *arena, const size_t cap) {
-  fprintf(stderr, "Initializing v9 [templates_nfv9_hashmap]...\n");
+  fprintf(stderr, "%s %d %s: Initializing v9 [templates_nfv9_hashmap]...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
 }
 
@@ -29,11 +29,11 @@ void *parse_v9(uv_work_t *req) {
   }
   swap_endianness((void *) &(header->count), sizeof(header->count));
   if (header->count > 30000) {
-    fprintf(stderr, "Too many flows\n");
+    fprintf(stderr, "%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
     goto unlock_mutex_parse_v9;
   }
   size_t flowsets = header->count;
-  fprintf(stderr, "flowsets in data: %d\n", header->count);
+  fprintf(stderr, "%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
   swap_endianness((void *) &(header->unix_secs), sizeof(header->unix_secs));
   swap_endianness((void *) &(header->package_sequence), sizeof(header->package_sequence));
@@ -52,7 +52,7 @@ void *parse_v9(uv_work_t *req) {
   size_t total_flowsets = 0;
   uint16_t len = 0;
   size_t total_packet_length = args->len;
-  fprintf(stderr, "args->len: %lu\n", total_packet_length);
+  fprintf(stderr, "%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
 
   for (flowset_counter = 0; flowset_counter < flowsets; ++flowset_counter) {
     if (flowset_counter == 0) {
@@ -135,7 +135,7 @@ void *parse_v9(uv_work_t *req) {
         pos += (field_count * 4) + 4;
         char key[255];
         snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
-        fprintf(stderr, "key: %s\n", key);
+        fprintf(stderr, "%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, key);
         uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
         uint16_t *temp;
         size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
@@ -157,7 +157,7 @@ void *parse_v9(uv_work_t *req) {
           memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2),
                  sizeof(uint16_t) * (field_count + 1) * 2);
         }
-        fprintf(stderr, "template_counter: %lu\n", template_counter);
+        fprintf(stderr, "%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
         if (pos >= flowset_length - 4) {
@@ -166,7 +166,7 @@ void *parse_v9(uv_work_t *req) {
       }
     } else if (flowset_id >= 256) {
       // this a record flowset
-      fprintf(stderr, "this is a record flowset\n");
+      fprintf(stderr, "%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
 
       size_t has_more_records = 1;
       size_t pos = 0;
@@ -386,15 +386,16 @@ void *parse_v9(uv_work_t *req) {
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].input = (uint16_t) ((*tmp32) >> 16);
-                    fprintf(stderr, "ingress tmp32: %d\n", *tmp32);
-                    fprintf(stderr, "ingress tmp32: %d\n", netflow_packet_ptr->records[record_counter].input);
+                    // fprintf(stderr, "ingress tmp32: %d\n", *tmp32);
+                    // fprintf(stderr, "ingress tmp32: %d\n", netflow_packet_ptr->records[record_counter].input);
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].input = 0;
                     break;
                 }
                 if (netflow_packet_ptr->records[record_counter].input > 3000) {
-                  fprintf(stderr, "input: %d\n", netflow_packet_ptr->records[record_counter].input);
+                  fprintf(stderr, "%s %d %s: input: %d\n", __FILE__, __LINE__, __func__,
+                          netflow_packet_ptr->records[record_counter].input);
                 }
                 print_flow++;
                 break;
