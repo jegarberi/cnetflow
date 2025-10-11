@@ -9,6 +9,7 @@ services:
     environment:
       - UV_THREADPOOL_SIZE
       - PG_CONN_STRING
+      - TZ
     depends_on:
       - db
   dbrest:
@@ -62,6 +63,8 @@ services:
     command: [ "softflowd",  "-v","9","-i", "any" ,"-D", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
     network_mode: host
     restart: unless-stopped
+    environment:
+      - TZ
 
   grafana:
     image: grafana/grafana
@@ -74,6 +77,7 @@ services:
       - POSTGRES_DB
       - POSTGRES_HOST
       - POSTGRES_PORT
+      - TZ
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/etc_dashboards/:/etc/grafana/json_dashboards/

@@ -520,11 +520,9 @@ INSERT INTO services (addr, port, protocol, name)
 VALUES ('13.32.0.0/15', 2055, 17, 'aws-netflow-udp'),
        ('104.16.0.0/12', 2055, 17, 'cloudflare-netflow-udp'),
        ('151.101.0.0/16', 2055, 17, 'fastly-netflow-udp');
-
+/*
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('3.4.12.4/32', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.5.140.0/22', 443, 6, 'aws-amazon-ap-northeast-2');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('15.190.244.0/22', 443, 6, 'aws-amazon-ap-east-2');
 INSERT INTO services (addr, port, protocol, name)
@@ -2870,8 +2868,6 @@ VALUES ('150.222.24.39/32', 443, 6, 'aws-amazon-us-east-1');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('150.222.208.0/24', 443, 6, 'aws-amazon-af-south-1');
 INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.32.0.0/15', 443, 6, 'aws-amazon-global');
-INSERT INTO services (addr, port, protocol, name)
 VALUES ('13.112.0.0/14', 443, 6, 'aws-amazon-ap-northeast-1');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('15.181.144.0/20', 443, 6, 'aws-amazon-us-east-1');
@@ -4635,8 +4631,6 @@ INSERT INTO services (addr, port, protocol, name)
 VALUES ('35.96.38.0/24', 443, 6, 'aws-amazon-ap-northeast-1');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('52.93.126.131/32', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.245.0/24', 443, 6, 'aws-amazon-us-east-1');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('54.240.242.0/24', 443, 6, 'aws-amazon-us-west-1');
 INSERT INTO services (addr, port, protocol, name)
@@ -19061,7 +19055,7 @@ INSERT INTO services (addr, port, protocol, name)
 VALUES ('13.248.64.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('35.71.108.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
-
+*/
 
 create role web_anon nologin;
 grant usage on schema public to web_anon;
