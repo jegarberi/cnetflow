@@ -203,73 +203,148 @@ VALUES (20, 6, 'FTP-DATA',
         'Trivial File Transfer Protocol. See: https://en.wikipedia.org/wiki/Trivial_File_Transfer_Protocol'),
        (80, 6, 'HTTP',
         'Hypertext Transfer Protocol. See: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol'),
+       (88, 6, 'KERBEROS',
+        'Kerberos authentication protocol (TCP). See: https://en.wikipedia.org/wiki/Kerberos_(protocol)'),
+       (88, 17, 'KERBEROS',
+        'Kerberos authentication protocol (UDP). See: https://en.wikipedia.org/wiki/Kerberos_(protocol)'),
        (110, 6, 'POP3', 'Post Office Protocol 3. See: https://en.wikipedia.org/wiki/Post_Office_Protocol'),
+       (119, 6, 'NNTP',
+        'Network News Transfer Protocol. See: https://en.wikipedia.org/wiki/Network_News_Transfer_Protocol'),
        (123, 17, 'NTP', 'Network Time Protocol. See: https://en.wikipedia.org/wiki/Network_Time_Protocol'),
+       (135, 6, 'MSRPC', 'Microsoft RPC. See: https://en.wikipedia.org/wiki/Microsoft_RPC'),
+       (137, 17, 'NETBIOS-NS', 'NetBIOS Name Service. See: https://en.wikipedia.org/wiki/NetBIOS'),
+       (138, 17, 'NETBIOS-DGM', 'NetBIOS Datagram Service. See: https://en.wikipedia.org/wiki/NetBIOS'),
+       (139, 6, 'NETBIOS-SSN',
+        'NetBIOS Session Service (SMB over NetBIOS). See: https://en.wikipedia.org/wiki/NetBIOS'),
        (143, 6, 'IMAP',
         'Internet Message Access Protocol. See: https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol'),
        (161, 17, 'SNMP',
         'Simple Network Management Protocol. See: https://en.wikipedia.org/wiki/Simple_Network_Management_Protocol'),
        (162, 17, 'SNMPTRAP',
         'SNMP Trap. See: https://en.wikipedia.org/wiki/Simple_Network_Management_Protocol#SNMP_traps'),
+       (179, 6, 'BGP', 'Border Gateway Protocol. See: https://en.wikipedia.org/wiki/Border_Gateway_Protocol'),
+       (194, 6, 'IRC', 'Internet Relay Chat. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (194, 17, 'IRC', 'Internet Relay Chat. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
        (389, 6, 'LDAP',
+        'Lightweight Directory Access Protocol. See: https://en.wikipedia.org/wiki/Lightweight_Directory_Access_Protocol'),
+       (389, 17, 'LDAP',
         'Lightweight Directory Access Protocol. See: https://en.wikipedia.org/wiki/Lightweight_Directory_Access_Protocol'),
        (443, 6, 'HTTPS', 'Hypertext Transfer Protocol Secure. See: https://en.wikipedia.org/wiki/HTTPS'),
        (443, 17, 'QUIC', 'QUIC. See: https://en.wikipedia.org/wiki/QUIC'),
+       (445, 6, 'SMB', 'Server Message Block. See: https://en.wikipedia.org/wiki/Server_Message_Block'),
        (465, 6, 'SMTPS', 'SMTP Secure (SSL, deprecated). See: https://en.wikipedia.org/wiki/SMTPS'),
        (514, 17, 'SYSLOG', 'Syslog (logging). See: https://en.wikipedia.org/wiki/Syslog'),
+       (515, 6, 'LPD', 'Line Printer Daemon. See: https://en.wikipedia.org/wiki/Line_Printer_Daemon_protocol'),
+       (520, 17, 'RIP',
+        'Routing Information Protocol. See: https://en.wikipedia.org/wiki/Routing_Information_Protocol'),
        (543, 6, 'KLOGIN', 'Kerberos login. See: https://en.wikipedia.org/wiki/Kerberos_(protocol)'),
+       (544, 6, 'KSHELL', 'Kerberos remote shell. See: https://en.wikipedia.org/wiki/Kerberos_(protocol)'),
        (587, 6, 'SUBMISSION',
         'Mail message submission (SMTP, message submission port). See: https://en.wikipedia.org/wiki/Message_submission_agent'),
+       (636, 6, 'LDAPS', 'LDAP over SSL. See: https://en.wikipedia.org/wiki/Lightweight_Directory_Access_Protocol'),
+       (636, 17, 'LDAPS', 'LDAP over SSL. See: https://en.wikipedia.org/wiki/Lightweight_Directory_Access_Protocol'),
+       (873, 6, 'RSYNC', 'rsync file synchronization. See: https://en.wikipedia.org/wiki/Rsync'),
+       (989, 6, 'FTPS-DATA', 'FTP over SSL/TLS (data). See: https://en.wikipedia.org/wiki/FTPS'),
+       (990, 6, 'FTPS', 'FTP over SSL/TLS (control). See: https://en.wikipedia.org/wiki/FTPS'),
        (993, 6, 'IMAPS', 'IMAP over SSL. See: https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol'),
        (995, 6, 'POP3S', 'POP3 over SSL. See: https://en.wikipedia.org/wiki/Post_Office_Protocol'),
        (1080, 6, 'SOCKS', 'SOCKS proxy. See: https://en.wikipedia.org/wiki/SOCKS'),
+       (1194, 6, 'OPENVPN', 'OpenVPN. See: https://en.wikipedia.org/wiki/OpenVPN'),
+       (1194, 17, 'OPENVPN', 'OpenVPN. See: https://en.wikipedia.org/wiki/OpenVPN'),
        (1433, 6, 'MS-SQL-S', 'Microsoft SQL Server. See: https://en.wikipedia.org/wiki/Microsoft_SQL_Server'),
+       (1434, 17, 'MS-SQL-M', 'Microsoft SQL Server Monitor. See: https://en.wikipedia.org/wiki/Microsoft_SQL_Server'),
+       (1521, 6, 'ORACLE', 'Oracle database. See: https://en.wikipedia.org/wiki/Oracle_Database'),
+       (1701, 17, 'L2TP', 'Layer 2 Tunneling Protocol. See: https://en.wikipedia.org/wiki/Layer_2_Tunneling_Protocol'),
+       (1723, 6, 'PPTP',
+        'Point-to-Point Tunneling Protocol. See: https://en.wikipedia.org/wiki/Point-to-Point_Tunneling_Protocol'),
+       (1812, 17, 'RADIUS', 'RADIUS authentication. See: https://en.wikipedia.org/wiki/RADIUS'),
+       (1813, 17, 'RADIUS-ACCT', 'RADIUS accounting. See: https://en.wikipedia.org/wiki/RADIUS'),
+       (1883, 6, 'MQTT', 'MQTT protocol. See: https://en.wikipedia.org/wiki/MQTT'),
+       (1883, 17, 'MQTT', 'MQTT protocol. See: https://en.wikipedia.org/wiki/MQTT'),
        (2049, 6, 'NFS', 'Network File System. See: https://en.wikipedia.org/wiki/Network_File_System_(protocol)'),
        (2049, 17, 'NFS', 'Network File System. See: https://en.wikipedia.org/wiki/Network_File_System_(protocol)'),
+       (2082, 6, 'CPANEL', 'cPanel. See: https://en.wikipedia.org/wiki/CPanel'),
+       (2083, 6, 'CPANEL-SSL', 'cPanel over SSL. See: https://en.wikipedia.org/wiki/CPanel'),
+       (2086, 6, 'WHM', 'WHM (Web Host Manager). See: https://en.wikipedia.org/wiki/CPanel'),
+       (2087, 6, 'WHM-SSL', 'WHM over SSL. See: https://en.wikipedia.org/wiki/CPanel'),
+       (2181, 6, 'ZOOKEEPER', 'Apache ZooKeeper. See: https://en.wikipedia.org/wiki/Apache_ZooKeeper'),
+       (2375, 6, 'DOCKER', 'Docker REST API (unencrypted). See: https://docs.docker.com/engine/api/'),
+       (2376, 6, 'DOCKER-SSL', 'Docker REST API (SSL). See: https://docs.docker.com/engine/api/'),
+       (3000, 6, 'GRAFANA', 'Grafana. See: https://grafana.com/'),
+       (3128, 6, 'SQUID-PROXY', 'HTTP proxy (Squid default). See: https://en.wikipedia.org/wiki/Squid_(software)'),
        (3306, 6, 'MYSQL', 'MySQL database. See: https://en.wikipedia.org/wiki/MySQL'),
        (3389, 6, 'RDP', 'Remote Desktop Protocol. See: https://en.wikipedia.org/wiki/Remote_Desktop_Protocol'),
+       (3478, 17, 'STUN', 'Session Traversal Utilities for NAT. See: https://en.wikipedia.org/wiki/STUN'),
+       (3478, 6, 'STUN', 'Session Traversal Utilities for NAT. See: https://en.wikipedia.org/wiki/STUN'),
+       (4443, 6, 'HTTPS-ALT', 'HTTPS alternate port. See: https://en.wikipedia.org/wiki/HTTPS'),
+       (4500, 17, 'IPSEC-NAT', 'IPsec NAT Traversal. See: https://en.wikipedia.org/wiki/IPsec'),
+       (5000, 6, 'DOCKER-REGISTRY', 'Docker Registry. See: https://docs.docker.com/registry/'),
+       (5060, 6, 'SIP', 'SIP signaling (TCP). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol'),
+       (5060, 17, 'SIP', 'SIP signaling (UDP). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol'),
+       (5061, 6, 'SIPS', 'SIP over TLS (TCP). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol'),
+       (5222, 6, 'XMPP-CLIENT', 'XMPP client connection. See: https://en.wikipedia.org/wiki/XMPP'),
+       (5269, 6, 'XMPP-SERVER', 'XMPP server connection. See: https://en.wikipedia.org/wiki/XMPP'),
        (5432, 6, 'PostgreSQL', 'PostgreSQL database. See: https://en.wikipedia.org/wiki/PostgreSQL'),
+       (5672, 6, 'AMQP',
+        'Advanced Message Queuing Protocol. See: https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol'),
        (5900, 6, 'VNC', 'Virtual Network Computing. See: https://en.wikipedia.org/wiki/Virtual_Network_Computing'),
+       (5938, 6, 'TEAMVIEWER', 'TeamViewer. See: https://en.wikipedia.org/wiki/TeamViewer'),
        (6379, 6, 'Redis', 'Redis key-value store. See: https://en.wikipedia.org/wiki/Redis'),
-       (8080, 6, 'HTTP-ALT',
-        'Alternative HTTP. See: https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers')
-;
-INSERT INTO ports (number, protocol, name, description)
-VALUES
--- Kerberos (both TCP and UDP)
-(88, 6, 'KERBEROS',
- 'Kerberos authentication protocol (TCP). See: https://en.wikipedia.org/wiki/Kerberos_(protocol)'),
-(88, 17, 'KERBEROS',
- 'Kerberos authentication protocol (UDP). See: https://en.wikipedia.org/wiki/Kerberos_(protocol)'),
-
--- SMB (Server Message Block), often on TCP 445 & legacy NetBIOS on 139
-(445, 6, 'SMB', 'Server Message Block. See: https://en.wikipedia.org/wiki/Server_Message_Block'),
-(139, 6, 'NETBIOS-SSN', 'NetBIOS Session Service (SMB over NetBIOS). See: https://en.wikipedia.org/wiki/NetBIOS'),
-
-
--- Proxy (SOCKS proxy, already included), add HTTP proxy (3128 and 8080 are common)
-(3128, 6, 'SQUID-PROXY', 'HTTP proxy (Squid default). See: https://en.wikipedia.org/wiki/Squid_(software)'),
-
--- Elastic (Elasticsearch HTTP API)
-(9200, 6, 'ELASTICSEARCH',
- 'Elasticsearch HTTP API. See: https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html'),
-(9300, 6, 'ES-CLUSTER',
- 'Elasticsearch internal cluster communication. See: https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-transport.html'),
-
--- NetFlow (UDP, traditionally 2055, 9555, 9995, 4739 for IPFIX)
-(2055, 17, 'NETFLOW', 'NetFlow data export. See: https://en.wikipedia.org/wiki/NetFlow'),
-(4739, 17, 'IPFIX',
- 'IPFIX data export (NetFlow v10). See: https://en.wikipedia.org/wiki/IP_Flow_Information_Export'),
-(9995, 17, 'NETFLOW',
- 'NetFlow alternative port. See: https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Well-known_ports'),
-(9555, 17, 'NETFLOW',
- 'NetFlow v9 alternative port. See: https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Well-known_ports'),
-
--- SIP (Session Initiation Protocol, commonly on 5060 UDP/TCP, and 5061 for TLS)
-(5060, 6, 'SIP', 'SIP signaling (TCP). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol'),
-(5060, 17, 'SIP', 'SIP signaling (UDP). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol'),
-(5061, 6, 'SIPS', 'SIP over TLS (TCP). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol'),
-(5061, 17, 'SIPS', 'SIP over TLS (UDP, rare). See: https://en.wikipedia.org/wiki/Session_Initiation_Protocol')
+       (6443, 6, 'KUBERNETES', 'Kubernetes API server. See: https://kubernetes.io/'),
+       (6379, 6, 'REDIS', 'Redis key-value store. See: https://en.wikipedia.org/wiki/Redis'),
+       (6660, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6661, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6662, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6663, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6664, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6665, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6666, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6667, 6, 'IRC', 'IRC standard port. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6668, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (6669, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
+       (7001, 6, 'CASSANDRA', 'Apache Cassandra. See: https://cassandra.apache.org/'),
+       (8000, 6, 'HTTP-ALT', 'HTTP alternate port. See: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol'),
+       (8008, 6, 'HTTP-ALT', 'HTTP alternate port. See: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol'),
+       (8080, 6, 'HTTP-PROXY',
+        'HTTP proxy. See: https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers'),
+       (8081, 6, 'HTTP-ALT', 'HTTP alternate port. See: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol'),
+       (8086, 6, 'INFLUXDB', 'InfluxDB HTTP API. See: https://www.influxdata.com/'),
+       (8088, 6, 'INFLUXDB-RPC', 'InfluxDB RPC. See: https://www.influxdata.com/'),
+       (8123, 6, 'POLIPO', 'Polipo proxy. See: https://en.wikipedia.org/wiki/Polipo'),
+       (8200, 6, 'VAULT', 'HashiCorp Vault. See: https://www.vaultproject.io/'),
+       (8291, 6, 'WINBOX', 'MikroTik Winbox. See: https://wiki.mikrotik.com/wiki/Manual:Winbox'),
+       (8300, 6, 'CONSUL', 'HashiCorp Consul. See: https://www.consul.io/'),
+       (8332, 6, 'BITCOIN', 'Bitcoin RPC. See: https://en.wikipedia.org/wiki/Bitcoin'),
+       (8333, 6, 'BITCOIN', 'Bitcoin network. See: https://en.wikipedia.org/wiki/Bitcoin'),
+       (8443, 6, 'HTTPS-ALT', 'HTTPS alternate port. See: https://en.wikipedia.org/wiki/HTTPS'),
+       (8500, 6, 'CONSUL-UI', 'HashiCorp Consul UI. See: https://www.consul.io/'),
+       (8545, 6, 'ETHEREUM', 'Ethereum JSON-RPC. See: https://ethereum.org/'),
+       (8600, 6, 'CONSUL-DNS', 'HashiCorp Consul DNS. See: https://www.consul.io/'),
+       (8600, 17, 'CONSUL-DNS', 'HashiCorp Consul DNS. See: https://www.consul.io/'),
+       (8888, 6, 'HTTP-ALT', 'HTTP alternate port. See: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol'),
+       (9000, 6, 'PORTAINER', 'Portainer. See: https://www.portainer.io/'),
+       (9042, 6, 'CASSANDRA-CLIENT', 'Cassandra client port. See: https://cassandra.apache.org/'),
+       (9090, 6, 'PROMETHEUS', 'Prometheus. See: https://prometheus.io/'),
+       (9092, 6, 'KAFKA', 'Apache Kafka. See: https://kafka.apache.org/'),
+       (9093, 6, 'KAFKA-ALT', 'Apache Kafka alternate. See: https://kafka.apache.org/'),
+       (9094, 6, 'KAFKA-ALT', 'Apache Kafka alternate. See: https://kafka.apache.org/'),
+       (9100, 6, 'NODE-EXPORTER', 'Prometheus Node Exporter. See: https://prometheus.io/'),
+       (9200, 6, 'ELASTICSEARCH',
+        'Elasticsearch HTTP API. See: https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html'),
+       (9300, 6, 'ES-CLUSTER',
+        'Elasticsearch internal cluster communication. See: https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-transport.html'),
+       (9418, 6, 'GIT', 'Git protocol. See: https://git-scm.com/'),
+       (9418, 17, 'GIT', 'Git protocol. See: https://git-scm.com/'),
+       (9999, 6, 'ABYSS', 'Abyss Web Server. See: https://aprelium.com/'),
+       (10000, 6, 'WEBMIN', 'Webmin. See: https://www.webmin.com/'),
+       (10050, 6, 'ZABBIX-AGENT', 'Zabbix Agent. See: https://www.zabbix.com/'),
+       (10051, 6, 'ZABBIX-SERVER', 'Zabbix Server. See: https://www.zabbix.com/'),
+       (11211, 6, 'MEMCACHED', 'Memcached. See: https://memcached.org/'),
+       (11211, 17, 'MEMCACHED', 'Memcached. See: https://memcached.org/'),
+       (27017, 6, 'MONGODB', 'MongoDB. See: https://www.mongodb.com/'),
+       (27018, 6, 'MONGODB-SHARD', 'MongoDB shard server. See: https://www.mongodb.com/'),
+       (27019, 6, 'MONGODB-CONFIG', 'MongoDB config server. See: https://www.mongodb.com/'),
+       (50000, 6, 'DB2', 'IBM DB2. See: https://www.ibm.com/products/db2')
 ;
 INSERT INTO public.protocols(id, name, description)
 VALUES (0, 'HOPOPT', 'IPv6 Hop-by-Hop Option. See: https://en.wikipedia.org/wiki/IPv6_packet#IPv6_Hop-by-Hop_Option'),
@@ -452,511 +527,262 @@ VALUES (0, 'HOPOPT', 'IPv6 Hop-by-Hop Option. See: https://en.wikipedia.org/wiki
        (255, 'Reserved', 'Reserved. See: https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers');
 
 
--- Amazon AWS EC2, S3, ELB (example, see AWS ip-ranges.json for full)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.32.0.0/15', 443, 6, 'aws-cloudfront-https'),
-       ('52.95.110.0/24', 443, 6, 'aws-s3-https'),
-       ('3.5.140.0/22', 443, 6, 'aws-ap-southeast-2-https'),
-       ('52.95.245.0/24', 443, 6, 'aws-s3-https'),
-       ('205.251.192.0/19', 53, 17, 'aws-route53-udp'),
-       ('205.251.192.0/19', 53, 6, 'aws-route53-tcp');
 
--- Google Cloud Platform (GCP), Google Public DNS, Google APIs
 INSERT INTO services (addr, port, protocol, name)
-VALUES ('8.8.8.0/24', 53, 17, 'google-public-dns-udp'),
+VALUES ('52.46.0.0/18', 443, 6, 'netflix-cdn-https'),
+       ('69.53.224.0/19', 443, 6, 'netflix-cdn-https'),
+       ('198.38.96.0/19', 443, 6, 'netflix-cdn-https'),
+       ('198.45.48.0/20', 443, 6, 'netflix-cdn-https'),
+       ('103.87.204.0/22', 443, 6, 'netflix-cdn-https'),
+       ('23.32.0.0/11', 443, 6, 'akamai-cdn-https'),
+       ('23.32.0.0/11', 80, 6, 'akamai-cdn-http'),
+       ('104.16.0.0/12', 443, 6, 'cloudflare-https'),
+       ('104.16.0.0/12', 80, 6, 'cloudflare-http'),
+       ('172.64.0.0/13', 443, 6, 'cloudflare-https'),
+       ('172.64.0.0/13', 80, 6, 'cloudflare-http'),
+       ('151.101.0.0/16', 443, 6, 'fastly-cdn-https'),
+       ('151.101.0.0/16', 80, 6, 'fastly-cdn-http'),
+       ('68.142.64.0/18', 443, 6, 'edgio-limelight-cdn-https'),
+       ('68.142.64.0/18', 80, 6, 'edgio-limelight-cdn-http'),
+       ('157.240.0.0/16', 443, 6, 'facebook-meta-https'),
+       ('13.107.128.0/22', 443, 6, 'azure-cdn-https'),
+       ('13.107.136.0/22', 443, 6, 'azure-cdn-https'),
+       ('17.0.0.0/8', 443, 6, 'apple-services-https'),
+       ('13.32.0.0/15', 2055, 17, 'aws-netflow-udp'),
+       ('104.16.0.0/12', 2055, 17, 'cloudflare-netflow-udp'),
+       ('151.101.0.0/16', 2055, 17, 'fastly-netflow-udp'),
+       ('3.4.12.4/32', 443, 6, 'aws-amazon-eu-west-1'),
+       ('8.8.8.0/24', 53, 17, 'google-public-dns-udp'),
        ('8.8.4.0/24', 53, 17, 'google-public-dns-udp'),
        ('8.8.8.0/24', 53, 6, 'google-public-dns-tcp'),
        ('8.8.4.0/24', 53, 6, 'google-public-dns-tcp'),
        ('64.233.160.0/19', 443, 6, 'google-cloud-https'),
        ('66.102.0.0/20', 443, 6, 'google-https'),
        ('172.217.0.0/16', 443, 6, 'google-https'),
-       ('108.177.8.0/21', 443, 6, 'google-mail-https');
-
--- Netflix OpenConnect CDN (taken from official list)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.46.0.0/18', 443, 6, 'netflix-cdn-https'),
-       ('69.53.224.0/19', 443, 6, 'netflix-cdn-https'),
-       ('198.38.96.0/19', 443, 6, 'netflix-cdn-https'),
-       ('198.45.48.0/20', 443, 6, 'netflix-cdn-https'),
-       ('103.87.204.0/22', 443, 6, 'netflix-cdn-https');
-
--- Akamai (very large, example only)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('23.32.0.0/11', 443, 6, 'akamai-cdn-https'),
-       ('23.32.0.0/11', 80, 6, 'akamai-cdn-http');
-
--- Cloudflare (more at https://www.cloudflare.com/ips/)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('104.16.0.0/12', 443, 6, 'cloudflare-https'),
-       ('104.16.0.0/12', 80, 6, 'cloudflare-http'),
-       ('172.64.0.0/13', 443, 6, 'cloudflare-https'),
-       ('172.64.0.0/13', 80, 6, 'cloudflare-http');
-
--- Fastly CDN (see https://api.fastly.com/public-ip-list)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('151.101.0.0/16', 443, 6, 'fastly-cdn-https'),
-       ('151.101.0.0/16', 80, 6, 'fastly-cdn-http');
-
--- Limelight (Edgio) CDN
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('68.142.64.0/18', 443, 6, 'edgio-limelight-cdn-https'),
-       ('68.142.64.0/18', 80, 6, 'edgio-limelight-cdn-http');
-
--- Meta/Facebook Caches (edge example)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('157.240.0.0/16', 443, 6, 'facebook-meta-https');
-
--- Microsoft Azure / CDN (example subnets)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.107.128.0/22', 443, 6, 'azure-cdn-https'),
-       ('13.107.136.0/22', 443, 6, 'azure-cdn-https');
-
--- Apple (example)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('17.0.0.0/8', 443, 6, 'apple-services-https');
-
--- General: NetFlow collectors on AWS, Google, CDNs (example: NetFlow-over-UDP)
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.32.0.0/15', 2055, 17, 'aws-netflow-udp'),
-       ('104.16.0.0/12', 2055, 17, 'cloudflare-netflow-udp'),
-       ('151.101.0.0/16', 2055, 17, 'fastly-netflow-udp');
-/*
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.12.4/32', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.190.244.0/22', 443, 6, 'aws-amazon-ap-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.29/32', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.76/31', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.221.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('23.254.120.0/21', 443, 6, 'aws-amazon-sa-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.180.0.0/16', 443, 6, 'aws-amazon-eu-west-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('51.85.0.0/16', 443, 6, 'aws-amazon-il-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.153.170/32', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.178.234/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.244.0/24', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.76.0/22', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.36.0/22', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.219.170.0/23', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('99.87.32.0/22', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('120.52.22.96/27', 443, 6, 'aws-amazon-global');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.47.64/26', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.81.0/24', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.234.54/31', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.2.75.0/24', 443, 6, 'aws-amazon-ap-northeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.39.60/31', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.102.0/24', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.113.0/24', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('51.168.0.0/15', 443, 6, 'aws-amazon-me-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.22.48/28', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.152.9/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.219.168.0/24', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.53.160/27', 443, 6, 'aws-amazon-mx-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.78.0/24', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('216.244.32.0/22', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.2.58.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.108.0.0/14', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.181.232.0/21', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.39.208/31', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('16.12.80.0/24', 443, 6, 'aws-amazon-ap-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.99.176.0/20', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.50.192.0/24', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.17.0/24', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.45.0/25', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.127.163/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.199.31/32', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.150.0/24', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.219.60.0/23', 443, 6, 'aws-amazon-ap-northeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.43.0/26', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('216.244.7.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.2.0.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.5.60.0/22', 443, 6, 'aws-amazon-ap-southeast-7');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.248.56.0/22', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.248.117.0/24', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.221.34.0/24', 443, 6, 'aws-amazon-ap-northeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.137.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.177.0/24', 443, 6, 'aws-amazon-me-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.97.192.0/18', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('31.220.235.0/24', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.84.195/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.126.135/32', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.178.219/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.199.90/32', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.24.0/23', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('96.0.80.0/22', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.199.0/25', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.252.248/31', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.190.32.0/20', 443, 6, 'aws-amazon-ap-southeast-5');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.39.44/31', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.110.0/24', 443, 6, 'aws-amazon-ca-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.216.8/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.97.0.0/18', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('43.249.45.0/24', 443, 6, 'aws-amazon-ap-northeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.4.0.0/14', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.100.0/23', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.127.27/32', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.228.193/32', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.144.227.192/26', 443, 6, 'aws-amazon-ap-northeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.144.229.64/26', 443, 6, 'aws-amazon-ap-northeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.222.88.0/24', 443, 6, 'aws-amazon-cn-north-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('64.252.81.0/24', 443, 6, 'aws-amazon-sa-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('96.0.102.0/23', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.15.168/29', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.248.70.0/24', 443, 6, 'aws-amazon-ap-northeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.104/31', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.162/31', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.73.192/26', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('16.12.44.0/24', 443, 6, 'aws-amazon-ap-southeast-5');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.96.32.0/19', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.96.248.0/24', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('50.16.0.0/15', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.127.133/32', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.198.0/25', 443, 6, 'aws-amazon-eu-west-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.208.0/22', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.224.0/24', 443, 6, 'aws-amazon-eu-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.222.64.0/24', 443, 6, 'aws-amazon-cn-north-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('99.151.160.0/21', 443, 6, 'aws-amazon-ap-southeast-5');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('104.255.59.104/32', 443, 6, 'aws-amazon-ap-southeast-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('104.255.59.114/32', 443, 6, 'aws-amazon-ap-northeast-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('139.56.16.0/23', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.14.0/24', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.84.0/24', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.234.50/31', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('205.251.249.0/24', 443, 6, 'aws-amazon-global');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.193.3.0/24', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.220.196.0/22', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.220.216.0/22', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.48/31', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.96.160.0/19', 443, 6, 'aws-amazon-il-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.71.115.0/24', 443, 6, 'aws-amazon-us-gov-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.22.64/29', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.127.169/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.153.148/32', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.244.0/22', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.119.208.0/23', 443, 6, 'aws-amazon-us-gov-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.240.236.26/32', 443, 6, 'aws-amazon-eu-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('136.18.152.0/21', 443, 6, 'aws-amazon-mx-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.228.0/24', 443, 6, 'aws-amazon-sa-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.238.0/24', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('161.188.116.0/22', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('192.31.212.0/24', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.197.34.0/23', 443, 6, 'aws-amazon-global');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.205.0.0/16', 443, 6, 'aws-amazon-us-gov-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.39.10/31', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.254.2/31', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('16.12.6.0/23', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.56.0.0/15', 443, 6, 'aws-amazon-me-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.82.169.16/28', 443, 6, 'aws-amazon-cn-northwest-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.90.193/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.198.16/28', 443, 6, 'aws-amazon-sa-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.144.225.128/26', 443, 6, 'aws-amazon-ap-northeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('64.252.69.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('71.131.192.0/18', 443, 6, 'aws-amazon-cn-north-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('104.255.59.208/32', 443, 6, 'aws-amazon-ap-southeast-7');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.144.98/32', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('216.244.40.0/21', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.236.0.0/14', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.103.0.0/16', 443, 6, 'aws-amazon-af-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.177.100.0/24', 443, 6, 'aws-amazon-ca-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.197.36.0/22', 443, 6, 'aws-amazon-global');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.178/31', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.15.188/31', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.158.0/23', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('16.12.32.0/22', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.96.28.0/23', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.96.240.0/24', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('43.206.0.0/15', 443, 6, 'aws-amazon-ap-northeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.46.220.0/22', 443, 6, 'aws-amazon-eu-north-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.56.0/24', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.178.152/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.41.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.100.0/22', 443, 6, 'aws-amazon-us-gov-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.226.0/24', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.219.204.0/22', 443, 6, 'aws-amazon-ap-northeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('77.112.0.0/14', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('99.78.152.0/22', 443, 6, 'aws-amazon-af-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.135.0/24', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.160.34/32', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.202.0/24', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.247.37.0/24', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('151.148.16.10/31', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.0.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.12.35/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.12.36/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.177.83.0/24', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.185.0.0/16', 443, 6, 'aws-amazon-me-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.220.252.0/22', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.221.35.0/24', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.39.28/31', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.248.28.0/22', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('16.30.0.0/16', 443, 6, 'aws-amazon-af-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('16.49.0.0/16', 443, 6, 'aws-amazon-ca-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.96.192.0/19', 443, 6, 'aws-amazon-eu-south-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.54.58.0/24', 443, 6, 'aws-amazon-ap-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.55.17.0/24', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.96.52.0/24', 443, 6, 'aws-amazon-eu-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('40.167.0.0/16', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.127.118/32', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.178.205/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.26.0/23', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.94.152.44/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.95.182.0/23', 443, 6, 'aws-amazon-ap-northeast-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.240.236.54/32', 443, 6, 'aws-amazon-eu-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.247.0.0/16', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.248.0.0/15', 443, 6, 'aws-amazon-ap-northeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('56.128.0.0/16', 443, 6, 'aws-amazon-ap-southeast-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.52.224/27', 443, 6, 'aws-amazon-ap-southeast-5');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.12.39/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('3.4.15.48/29', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.248.72.0/24', 443, 6, 'aws-amazon-il-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.4.129/32', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.39.196/31', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.251.0.9/32', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('35.71.99.0/24', 443, 6, 'aws-amazon-me-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('51.46.0.0/15', 443, 6, 'aws-amazon-eu-west-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.119.252.0/22', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.219.212.0/22', 443, 6, 'aws-amazon-us-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.148.0.0/15', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('69.107.7.16/29', 443, 6, 'aws-amazon-ap-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('99.77.130.0/24', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.234.52/31', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.234.68/31', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('180.163.57.128/26', 443, 6, 'aws-amazon-global');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.193.11.0/24', 443, 6, 'aws-amazon-ap-northeast-3');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('15.230.68.192/26', 443, 6, 'aws-amazon-eu-north-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('18.200.0.0/16', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.19.0/24', 443, 6, 'aws-amazon-ap-southeast-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.52.167/32', 443, 6, 'aws-amazon-us-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.91.102/32', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('52.93.152.197/32', 443, 6, 'aws-amazon-eu-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.206.0.0/16', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('54.240.236.69/32', 443, 6, 'aws-amazon-eu-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('66.7.0.0/21', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('99.150.56.0/21', 443, 6, 'aws-amazon-us-west-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('108.175.56.0/22', 443, 6, 'aws-amazon-us-gov-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.44.192/26', 443, 6, 'aws-amazon-ap-southeast-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.48.128/27', 443, 6, 'aws-amazon-eu-south-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.52.32/27', 443, 6, 'aws-amazon-il-central-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.54.192/27', 443, 6, 'aws-amazon-ap-southeast-6');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.222.96.0/24', 443, 6, 'aws-amazon-eu-west-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('150.247.33.0/24', 443, 6, 'aws-amazon-us-east-1');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('5.60.0.0/20', 443, 6, 'aws-amazon-ap-east-2');
-INSERT INTO services (addr, port, protocol, name)
-VALUES ('13.248.124.0/24', 443, 6, 'aws-amazon-us-east-1');
+       ('108.177.8.0/21', 443, 6, 'google-mail-https'),
+       ('13.32.0.0/15', 443, 6, 'aws-cloudfront-https'),
+       ('52.95.110.0/24', 443, 6, 'aws-s3-https'),
+       ('3.5.140.0/22', 443, 6, 'aws-ap-southeast-2-https'),
+       ('52.95.245.0/24', 443, 6, 'aws-s3-https'),
+       ('205.251.192.0/19', 53, 17, 'aws-route53-udp'),
+       ('205.251.192.0/19', 53, 6, 'aws-route53-tcp'),
+       ('15.190.244.0/22', 443, 6, 'aws-amazon-ap-east-2'),
+       ('15.230.15.29/32', 443, 6, 'aws-amazon-eu-central-1'),
+       ('15.230.15.76/31', 443, 6, 'aws-amazon-eu-central-1'),
+       ('15.230.221.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('23.254.120.0/21', 443, 6, 'aws-amazon-sa-west-1'),
+       ('35.180.0.0/16', 443, 6, 'aws-amazon-eu-west-3'),
+       ('51.85.0.0/16', 443, 6, 'aws-amazon-il-central-1'),
+       ('52.93.153.170/32', 443, 6, 'aws-amazon-eu-west-2'),
+       ('52.93.178.234/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.93.244.0/24', 443, 6, 'aws-amazon-eu-central-1'),
+       ('52.94.76.0/22', 443, 6, 'aws-amazon-us-west-2'),
+       ('52.95.36.0/22', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('52.219.170.0/23', 443, 6, 'aws-amazon-eu-central-1'),
+       ('99.87.32.0/22', 443, 6, 'aws-amazon-eu-west-1'),
+       ('120.52.22.96/27', 443, 6, 'aws-amazon-global'),
+       ('150.222.47.64/26', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('150.222.81.0/24', 443, 6, 'aws-amazon-eu-west-1'),
+       ('150.222.234.54/31', 443, 6, 'aws-amazon-us-west-1'),
+       ('3.2.75.0/24', 443, 6, 'aws-amazon-ap-northeast-2'),
+       ('15.230.39.60/31', 443, 6, 'aws-amazon-us-east-2'),
+       ('15.230.102.0/24', 443, 6, 'aws-amazon-us-west-2'),
+       ('15.230.113.0/24', 443, 6, 'aws-amazon-eu-west-1'),
+       ('51.168.0.0/15', 443, 6, 'aws-amazon-me-west-1'),
+       ('52.93.22.48/28', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.94.152.9/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.219.168.0/24', 443, 6, 'aws-amazon-eu-central-1'),
+       ('150.222.53.160/27', 443, 6, 'aws-amazon-mx-central-1'),
+       ('150.222.78.0/24', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('216.244.32.0/22', 443, 6, 'aws-amazon-ap-east-1'),
+       ('3.2.58.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('3.108.0.0/14', 443, 6, 'aws-amazon-ap-south-1'),
+       ('15.181.232.0/21', 443, 6, 'aws-amazon-us-east-1'),
+       ('15.230.39.208/31', 443, 6, 'aws-amazon-us-east-2'),
+       ('16.12.80.0/24', 443, 6, 'aws-amazon-ap-east-2'),
+       ('18.99.176.0/20', 443, 6, 'aws-amazon-ap-east-1'),
+       ('35.50.192.0/24', 443, 6, 'aws-amazon-eu-central-1'),
+       ('52.93.17.0/24', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.93.45.0/25', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.93.127.163/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.93.199.31/32', 443, 6, 'aws-amazon-us-east-2'),
+       ('52.95.150.0/24', 443, 6, 'aws-amazon-eu-west-2'),
+       ('52.219.60.0/23', 443, 6, 'aws-amazon-ap-northeast-2'),
+       ('150.222.43.0/26', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('216.244.7.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('3.2.0.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('3.5.60.0/22', 443, 6, 'aws-amazon-ap-southeast-7'),
+       ('13.248.56.0/22', 443, 6, 'aws-amazon-ap-east-1'),
+       ('13.248.117.0/24', 443, 6, 'aws-amazon-ap-south-1'),
+       ('15.221.34.0/24', 443, 6, 'aws-amazon-ap-northeast-1'),
+       ('15.230.137.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('15.230.177.0/24', 443, 6, 'aws-amazon-me-central-1'),
+       ('18.97.192.0/18', 443, 6, 'aws-amazon-eu-west-1'),
+       ('31.220.235.0/24', 443, 6, 'aws-amazon-ap-south-1'),
+       ('52.93.84.195/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.93.126.135/32', 443, 6, 'aws-amazon-eu-central-1'),
+       ('52.93.178.219/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.93.199.90/32', 443, 6, 'aws-amazon-us-east-2'),
+       ('52.94.24.0/23', 443, 6, 'aws-amazon-eu-west-1'),
+       ('96.0.80.0/22', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('150.222.199.0/25', 443, 6, 'aws-amazon-us-west-1'),
+       ('150.222.252.248/31', 443, 6, 'aws-amazon-us-west-1'),
+       ('15.190.32.0/20', 443, 6, 'aws-amazon-ap-southeast-5'),
+       ('15.230.39.44/31', 443, 6, 'aws-amazon-us-east-2'),
+       ('15.230.110.0/24', 443, 6, 'aws-amazon-ca-central-1'),
+       ('15.230.216.8/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('18.97.0.0/18', 443, 6, 'aws-amazon-us-east-1'),
+       ('43.249.45.0/24', 443, 6, 'aws-amazon-ap-northeast-2'),
+       ('52.4.0.0/14', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.93.100.0/23', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.93.127.27/32', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.93.228.193/32', 443, 6, 'aws-amazon-eu-west-2'),
+       ('52.144.227.192/26', 443, 6, 'aws-amazon-ap-northeast-2'),
+       ('52.144.229.64/26', 443, 6, 'aws-amazon-ap-northeast-1'),
+       ('54.222.88.0/24', 443, 6, 'aws-amazon-cn-north-1'),
+       ('64.252.81.0/24', 443, 6, 'aws-amazon-sa-east-1'),
+       ('96.0.102.0/23', 443, 6, 'aws-amazon-us-east-1'),
+       ('3.4.15.168/29', 443, 6, 'aws-amazon-eu-west-1'),
+       ('13.248.70.0/24', 443, 6, 'aws-amazon-ap-northeast-1'),
+       ('15.230.15.104/31', 443, 6, 'aws-amazon-eu-central-1'),
+       ('15.230.15.162/31', 443, 6, 'aws-amazon-eu-central-1'),
+       ('15.230.73.192/26', 443, 6, 'aws-amazon-ap-east-1'),
+       ('16.12.44.0/24', 443, 6, 'aws-amazon-ap-southeast-5'),
+       ('18.96.32.0/19', 443, 6, 'aws-amazon-eu-central-1'),
+       ('35.96.248.0/24', 443, 6, 'aws-amazon-eu-west-2'),
+       ('50.16.0.0/15', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.93.127.133/32', 443, 6, 'aws-amazon-ap-south-1'),
+       ('52.93.198.0/25', 443, 6, 'aws-amazon-eu-west-3'),
+       ('52.95.208.0/22', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.95.224.0/24', 443, 6, 'aws-amazon-eu-south-1'),
+       ('54.222.64.0/24', 443, 6, 'aws-amazon-cn-north-1'),
+       ('99.151.160.0/21', 443, 6, 'aws-amazon-ap-southeast-5'),
+       ('104.255.59.104/32', 443, 6, 'aws-amazon-ap-southeast-3'),
+       ('104.255.59.114/32', 443, 6, 'aws-amazon-ap-northeast-3'),
+       ('139.56.16.0/23', 443, 6, 'aws-amazon-us-west-2'),
+       ('150.222.14.0/24', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('150.222.84.0/24', 443, 6, 'aws-amazon-ap-south-1'),
+       ('150.222.234.50/31', 443, 6, 'aws-amazon-us-west-1'),
+       ('205.251.249.0/24', 443, 6, 'aws-amazon-global'),
+       ('15.193.3.0/24', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('15.220.196.0/22', 443, 6, 'aws-amazon-us-east-1'),
+       ('15.220.216.0/22', 443, 6, 'aws-amazon-ap-south-1'),
+       ('15.230.15.48/31', 443, 6, 'aws-amazon-eu-central-1'),
+       ('18.96.160.0/19', 443, 6, 'aws-amazon-il-central-1'),
+       ('35.71.115.0/24', 443, 6, 'aws-amazon-us-gov-east-1'),
+       ('52.93.22.64/29', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.93.127.169/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.93.153.148/32', 443, 6, 'aws-amazon-eu-west-2'),
+       ('52.94.244.0/22', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.119.208.0/23', 443, 6, 'aws-amazon-us-gov-west-1'),
+       ('54.240.236.26/32', 443, 6, 'aws-amazon-eu-south-1'),
+       ('136.18.152.0/21', 443, 6, 'aws-amazon-mx-central-1'),
+       ('150.222.228.0/24', 443, 6, 'aws-amazon-sa-east-1'),
+       ('150.222.238.0/24', 443, 6, 'aws-amazon-eu-west-2'),
+       ('161.188.116.0/22', 443, 6, 'aws-amazon-us-east-1'),
+       ('192.31.212.0/24', 443, 6, 'aws-amazon-us-west-1'),
+       ('15.197.34.0/23', 443, 6, 'aws-amazon-global'),
+       ('15.205.0.0/16', 443, 6, 'aws-amazon-us-gov-west-1'),
+       ('15.230.39.10/31', 443, 6, 'aws-amazon-us-east-2'),
+       ('15.230.254.2/31', 443, 6, 'aws-amazon-us-east-1'),
+       ('16.12.6.0/23', 443, 6, 'aws-amazon-ap-east-1'),
+       ('35.56.0.0/15', 443, 6, 'aws-amazon-me-west-1'),
+       ('52.82.169.16/28', 443, 6, 'aws-amazon-cn-northwest-1'),
+       ('52.93.90.193/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.94.198.16/28', 443, 6, 'aws-amazon-sa-east-1'),
+       ('52.144.225.128/26', 443, 6, 'aws-amazon-ap-northeast-1'),
+       ('64.252.69.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('71.131.192.0/18', 443, 6, 'aws-amazon-cn-north-1'),
+       ('104.255.59.208/32', 443, 6, 'aws-amazon-ap-southeast-7'),
+       ('150.222.144.98/32', 443, 6, 'aws-amazon-eu-central-1'),
+       ('216.244.40.0/21', 443, 6, 'aws-amazon-us-east-1'),
+       ('13.236.0.0/14', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('15.103.0.0/16', 443, 6, 'aws-amazon-af-south-1'),
+       ('15.177.100.0/24', 443, 6, 'aws-amazon-ca-west-1'),
+       ('15.197.36.0/22', 443, 6, 'aws-amazon-global'),
+       ('15.230.15.178/31', 443, 6, 'aws-amazon-eu-central-1'),
+       ('15.230.15.188/31', 443, 6, 'aws-amazon-eu-central-1'),
+       ('15.230.158.0/23', 443, 6, 'aws-amazon-eu-west-2'),
+       ('16.12.32.0/22', 443, 6, 'aws-amazon-eu-central-1'),
+       ('35.96.28.0/23', 443, 6, 'aws-amazon-us-east-1'),
+       ('35.96.240.0/24', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('43.206.0.0/15', 443, 6, 'aws-amazon-ap-northeast-1'),
+       ('52.46.220.0/22', 443, 6, 'aws-amazon-eu-north-1'),
+       ('52.93.56.0/24', 443, 6, 'aws-amazon-eu-west-2'),
+       ('52.93.178.152/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.95.41.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.95.100.0/22', 443, 6, 'aws-amazon-us-gov-west-1'),
+       ('52.95.226.0/24', 443, 6, 'aws-amazon-ap-east-1'),
+       ('52.219.204.0/22', 443, 6, 'aws-amazon-ap-northeast-2'),
+       ('77.112.0.0/14', 443, 6, 'aws-amazon-us-east-2'),
+       ('99.78.152.0/22', 443, 6, 'aws-amazon-af-south-1'),
+       ('150.222.135.0/24', 443, 6, 'aws-amazon-ap-east-1'),
+       ('150.222.160.34/32', 443, 6, 'aws-amazon-eu-west-1'),
+       ('150.222.202.0/24', 443, 6, 'aws-amazon-eu-west-1'),
+       ('150.247.37.0/24', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('151.148.16.10/31', 443, 6, 'aws-amazon-us-west-1'),
+       ('3.4.0.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('3.4.12.35/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('3.4.12.36/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('15.177.83.0/24', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('15.185.0.0/16', 443, 6, 'aws-amazon-me-south-1'),
+       ('15.220.252.0/22', 443, 6, 'aws-amazon-us-west-2'),
+       ('15.221.35.0/24', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('15.230.39.28/31', 443, 6, 'aws-amazon-us-east-2'),
+       ('15.248.28.0/22', 443, 6, 'aws-amazon-eu-west-2'),
+       ('16.30.0.0/16', 443, 6, 'aws-amazon-af-south-1'),
+       ('16.49.0.0/16', 443, 6, 'aws-amazon-ca-central-1'),
+       ('18.96.192.0/19', 443, 6, 'aws-amazon-eu-south-2'),
+       ('35.54.58.0/24', 443, 6, 'aws-amazon-ap-south-1'),
+       ('35.55.17.0/24', 443, 6, 'aws-amazon-eu-central-1'),
+       ('35.96.52.0/24', 443, 6, 'aws-amazon-eu-central-1'),
+       ('40.167.0.0/16', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.93.127.118/32', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.93.178.205/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.94.26.0/23', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.94.152.44/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.95.182.0/23', 443, 6, 'aws-amazon-ap-northeast-3'),
+       ('54.240.236.54/32', 443, 6, 'aws-amazon-eu-south-1'),
+       ('54.247.0.0/16', 443, 6, 'aws-amazon-eu-west-1'),
+       ('54.248.0.0/15', 443, 6, 'aws-amazon-ap-northeast-1'),
+       ('56.128.0.0/16', 443, 6, 'aws-amazon-ap-southeast-3'),
+       ('150.222.52.224/27', 443, 6, 'aws-amazon-ap-southeast-5'),
+       ('3.4.12.39/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('3.4.15.48/29', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('13.248.72.0/24', 443, 6, 'aws-amazon-il-central-1'),
+       ('15.230.4.129/32', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('15.230.39.196/31', 443, 6, 'aws-amazon-us-east-2'),
+       ('15.251.0.9/32', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('35.71.99.0/24', 443, 6, 'aws-amazon-me-south-1'),
+       ('51.46.0.0/15', 443, 6, 'aws-amazon-eu-west-3'),
+       ('52.119.252.0/22', 443, 6, 'aws-amazon-us-west-2'),
+       ('52.219.212.0/22', 443, 6, 'aws-amazon-us-east-2'),
+       ('54.148.0.0/15', 443, 6, 'aws-amazon-us-west-2'),
+       ('69.107.7.16/29', 443, 6, 'aws-amazon-ap-east-1'),
+       ('99.77.130.0/24', 443, 6, 'aws-amazon-us-west-2'),
+       ('150.222.234.52/31', 443, 6, 'aws-amazon-us-west-1'),
+       ('150.222.234.68/31', 443, 6, 'aws-amazon-us-west-1'),
+       ('180.163.57.128/26', 443, 6, 'aws-amazon-global'),
+       ('15.193.11.0/24', 443, 6, 'aws-amazon-ap-northeast-3'),
+       ('15.230.68.192/26', 443, 6, 'aws-amazon-eu-north-1'),
+       ('18.200.0.0/16', 443, 6, 'aws-amazon-eu-west-1'),
+       ('52.93.19.0/24', 443, 6, 'aws-amazon-ap-southeast-1'),
+       ('52.93.52.167/32', 443, 6, 'aws-amazon-us-west-1'),
+       ('52.93.91.102/32', 443, 6, 'aws-amazon-us-east-1'),
+       ('52.93.152.197/32', 443, 6, 'aws-amazon-eu-west-2'),
+       ('54.206.0.0/16', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('54.240.236.69/32', 443, 6, 'aws-amazon-eu-south-1'),
+       ('66.7.0.0/21', 443, 6, 'aws-amazon-us-west-2'),
+       ('99.150.56.0/21', 443, 6, 'aws-amazon-us-west-2'),
+       ('108.175.56.0/22', 443, 6, 'aws-amazon-us-gov-west-1'),
+       ('150.222.44.192/26', 443, 6, 'aws-amazon-ap-southeast-2'),
+       ('150.222.48.128/27', 443, 6, 'aws-amazon-eu-south-1'),
+       ('150.222.52.32/27', 443, 6, 'aws-amazon-il-central-1'),
+       ('150.222.54.192/27', 443, 6, 'aws-amazon-ap-southeast-6'),
+       ('150.222.96.0/24', 443, 6, 'aws-amazon-eu-west-1'),
+       ('150.247.33.0/24', 443, 6, 'aws-amazon-us-east-1'),
+       ('5.60.0.0/20', 443, 6, 'aws-amazon-ap-east-2'),
+       ('13.248.124.0/24', 443, 6, 'aws-amazon-us-east-1');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('15.193.2.0/24', 443, 6, 'aws-amazon-ap-southeast-1');
 INSERT INTO services (addr, port, protocol, name)
@@ -19055,7 +18881,7 @@ INSERT INTO services (addr, port, protocol, name)
 VALUES ('13.248.64.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('35.71.108.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
-*/
+
 
 create role web_anon nologin;
 grant usage on schema public to web_anon;
