@@ -194,16 +194,25 @@ endif ()
 if (CRITERION_FOUND)
     add_executable(cnetflow_tests
             tests/tests.c
+            tests/test_netflow.c
     )
     target_include_directories(cnetflow_tests PRIVATE ${CRITERION_INCLUDE_DIRS})
     target_link_libraries(cnetflow_tests
             arena
             hashmap
             dyn_array
+            netflow
+            netflow_v5
             uv
             ${CRITERION_LDFLAGS}
     )
+    # Aggregate test (all suites)
     add_test(NAME cnetflow_tests COMMAND cnetflow_tests)
+    # Separate steps per suite
+    add_test(NAME tests_arena COMMAND cnetflow_tests -s arena)
+    add_test(NAME tests_hashmap COMMAND cnetflow_tests -s hashmap)
+    add_test(NAME tests_dyn_array COMMAND cnetflow_tests -s dyn_array)
+    add_test(NAME tests_netflow COMMAND cnetflow_tests -s netflow)
 else ()
     message(WARNING "Criterion not found. Unit tests will not be built.")
 endif ()
