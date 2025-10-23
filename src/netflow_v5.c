@@ -103,7 +103,9 @@ void *parse_v5(uv_work_t *req) {
 
   netflow_v9_uint128_flowset_t flows_to_insert = {0};
   copy_v5_to_flow(netflow_packet_ptr, &flows_to_insert);
-  insert_flows(args->exporter, &flows_to_insert);
+  uint32_t exporter_host = args->exporter;
+  swap_endianness((void *)&exporter_host, sizeof(exporter_host));
+  insert_flows(exporter_host, &flows_to_insert);
 
 unlock_mutex_parse_v5:
   // uv_mutex_unlock(lock);

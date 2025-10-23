@@ -77,6 +77,7 @@ endianness_e detect_endianness(void) {
  *              The value is modified in place.
  * @param len   The length of the value in bytes. Supported lengths are 2, 4, and 8 bytes.
  */
+#if !CNETFLOW_BIG_ENDIAN_ARCH
 void swap_endianness(void *value, size_t len) {
   if (endianness == NETFLOW_NO_ENDIAN) {
     endianness = detect_endianness();
@@ -85,28 +86,33 @@ void swap_endianness(void *value, size_t len) {
     return;
   }
   switch (len) {
-    case 2:
+    case 2: {
       uint16_t tmp16 = *(uint16_t *) value;
       tmp16 = swap_endian_16(tmp16);
       memcpy(value, &tmp16, sizeof(uint16_t));
       break;
-    case 4:
+    }
+    case 4: {
       uint32_t tmp32 = *(uint32_t *) value;
       tmp32 = swap_endian_32(tmp32);
       memcpy(value, &tmp32, sizeof(uint32_t));
       break;
-    case 8:
+    }
+    case 8: {
       uint64_t tmp64 = *(uint64_t *) value;
       tmp64 = swap_endian_64(tmp64);
       memcpy(value, &tmp64, sizeof(uint64_t));
       break;
-    case 16:
+    }
+    case 16: {
       uint128_t tmp128 = *(uint128_t *) value;
       tmp128 = swap_endian_128(tmp128);
       memcpy(value, &tmp128, sizeof(uint128_t));
       break;
+    }
   }
 }
+#endif
 
 /**
  * Swaps the byte order of a 64-bit unsigned integer.
@@ -169,7 +175,12 @@ uint32_t swap_endian_32(uint32_t value) {
 }
 */
 uint32_t swap_endian_32(uint32_t value) {
-  return htonl(value); // or ntohl(value)
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_bswap32(value);
+#else
+  return ((value & 0xFF000000) >> 24) | ((value & 0x00FF0000) >> 8) |
+         ((value & 0x0000FF00) << 8) | ((value & 0x000000FF) << 24);
+#endif
 }
 
 /**
@@ -183,7 +194,11 @@ uint32_t swap_endian_32(uint32_t value) {
  */
 /*uint16_t swap_endian_16(uint16_t value) { return (value >> 8) | (value << 8); }*/
 uint16_t swap_endian_16(uint16_t value) {
-  return htons(value); // or ntohs(value), equivalent for simple swap
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_bswap16(value);
+#else
+  return (uint16_t)((value >> 8) | (value << 8));
+#endif
 }
 
 
@@ -303,7 +318,7 @@ void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, int i) {
   uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
-  tmp_address = netflow_packet->records[i].srcaddr;
+  tmp_address = netflow_packet->records[i].dstaddr;
   swap_endianness(&tmp_address, sizeof(tmp_address));
   tmp = ip_int_to_str(tmp_address);
   strncpy(ip_dst_str, tmp, strlen(tmp));

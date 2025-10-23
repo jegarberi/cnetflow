@@ -612,13 +612,14 @@ void *parse_v9(uv_work_t *req) {
         */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
-        swap_endianness((void *) &(args->exporter), sizeof(args->exporter));
+        uint32_t exporter_host = args->exporter;
+        swap_endianness((void *) &exporter_host, sizeof(exporter_host));
         if (is_ipv6) {
           fprintf(stderr, "%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
-          insert_flows(args->exporter, &flows_to_insert);
+          insert_flows(exporter_host, &flows_to_insert);
         } else {
           fprintf(stderr, "%s %d %s this is ipv4\n", __FILE__, __LINE__, __func__);
-          insert_flows(args->exporter, &flows_to_insert);
+          insert_flows(exporter_host, &flows_to_insert);
         }
 
         // fclose(ftemplate);

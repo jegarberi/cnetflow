@@ -8,6 +8,13 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// Compile-time architecture endianness detection
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+  #define CNETFLOW_BIG_ENDIAN_ARCH 1
+#else
+  #define CNETFLOW_BIG_ENDIAN_ARCH 0
+#endif
+
 typedef __uint128_t uint128_t;
 
 typedef struct {
@@ -135,7 +142,11 @@ typedef enum {
 
 NETFLOW_VERSION detect_version(void *data);
 endianness_e detect_endianness(void);
-void swap_endianness(void *value, size_t len);
+#if CNETFLOW_BIG_ENDIAN_ARCH
+  #define swap_endianness(value, len) ((void)0)
+#else
+  void swap_endianness(void *value, size_t len);
+#endif
 uint64_t swap_endian_64(uint64_t value);
 uint32_t swap_endian_32(uint32_t value);
 uint16_t swap_endian_16(uint16_t value);
