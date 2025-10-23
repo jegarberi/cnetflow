@@ -12,7 +12,6 @@
 #include <sys/resource.h>
 #include <uv.h>
 #include "arena.h"
-#include "cnetflow_snmp.h"
 #include "dyn_array.h"
 #include "netflow.h"
 #include "netflow_ipfix.h"

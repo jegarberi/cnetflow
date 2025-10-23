@@ -8,3 +8,4 @@ bin
 /scripts/sql/psql/003-dontupload.sql
 tmp
 tests
+data

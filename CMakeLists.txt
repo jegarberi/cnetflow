@@ -26,7 +26,6 @@ endif ()
 add_executable(cnetflow src/main.c)
 add_library(collector SHARED src/collector.c)
 add_library(arena SHARED src/arena.c)
-add_library(cnetflow_snmp SHARED src/cnetflow_snmp.c)
 add_library(dyn_array SHARED src/dyn_array.c)
 add_library(db_psql SHARED src/db_psql.c)
 add_library(netflow SHARED src/netflow.c)
@@ -36,14 +35,13 @@ add_library(netflow_ipfix SHARED src/netflow_ipfix.c)
 add_library(hashmap SHARED src/hashmap.c)
 target_link_libraries(db_psql pq)
 target_link_libraries(netflow_v9 arena netflow netflow_v5)
-target_link_libraries(cnetflow_snmp netsnmp)
-target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq cnetflow_snmp netsnmp dyn_array)
-target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq cnetflow_snmp netsnmp dyn_array)
+target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq dyn_array)
+target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq dyn_array)
 
 install(FILES cnetflow.service DESTINATION /lib/systemd/system/)
 install(FILES local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
 install(TARGETS cnetflow RUNTIME DESTINATION /usr/local/cnetflow/)
-install(TARGETS collector arena cnetflow_snmp dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
+install(TARGETS collector arena dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
 
 # Create directories for logs and data
 install(DIRECTORY DESTINATION /var/log/cnetflow DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
@@ -143,7 +141,7 @@ set(CPACK_GENERATOR "DEB;RPM;TGZ")
 
 # DEB-specific settings
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Juan Garberi <jgarberi@arca.gob.ar>")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libpq-dev, libuv1-dev, libsnmp-dev")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libpq-dev, libuv1-dev")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
@@ -154,7 +152,7 @@ set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/preinst;${CMAKE_BINA
 # RPM-specific settings
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_RPM_PACKAGE_GROUP "Applications/Internet")
-set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel, libuv-devel, net-snmp-devel")
+set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel, libuv-devel")
 set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
 
 # RPM package scripts
@@ -171,3 +169,41 @@ set_target_properties(cnetflow PROPERTIES
 )
 file(WRITE "${CMAKE_BINARY_DIR}/cnetflow.conf" "/usr/local/cnetflow\n")
 install(FILES "${CMAKE_BINARY_DIR}/cnetflow.conf" DESTINATION /etc/ld.so.conf.d/)
+
+# -------------------- Tests --------------------
+include(CTest)
+enable_testing()
+
+# Try to find Criterion via pkg-config
+find_package(PkgConfig)
+if (PkgConfig_FOUND)
+    pkg_check_modules(CRITERION criterion)
+endif ()
+
+# Fallbacks if pkg-config is unavailable
+if (NOT CRITERION_FOUND)
+    find_library(CRITERION_LIBRARY NAMES criterion)
+    find_path(CRITERION_INCLUDE_DIR criterion/criterion.h)
+    if (CRITERION_LIBRARY AND CRITERION_INCLUDE_DIR)
+        set(CRITERION_FOUND TRUE)
+        set(CRITERION_LDFLAGS ${CRITERION_LIBRARY})
+        set(CRITERION_INCLUDE_DIRS ${CRITERION_INCLUDE_DIR})
+    endif ()
+endif ()
+
+if (CRITERION_FOUND)
+    add_executable(cnetflow_tests
+            tests/tests.c
+    )
+    target_include_directories(cnetflow_tests PRIVATE ${CRITERION_INCLUDE_DIRS})
+    target_link_libraries(cnetflow_tests
+            arena
+            hashmap
+            dyn_array
+            uv
+            ${CRITERION_LDFLAGS}
+    )
+    add_test(NAME cnetflow_tests COMMAND cnetflow_tests)
+else ()
+    message(WARNING "Criterion not found. Unit tests will not be built.")
+endif ()
