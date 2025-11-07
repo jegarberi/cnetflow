@@ -289,7 +289,6 @@ VALUES (20, 6, 'FTP-DATA',
         'Advanced Message Queuing Protocol. See: https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol'),
        (5900, 6, 'VNC', 'Virtual Network Computing. See: https://en.wikipedia.org/wiki/Virtual_Network_Computing'),
        (5938, 6, 'TEAMVIEWER', 'TeamViewer. See: https://en.wikipedia.org/wiki/TeamViewer'),
-       (6379, 6, 'Redis', 'Redis key-value store. See: https://en.wikipedia.org/wiki/Redis'),
        (6443, 6, 'KUBERNETES', 'Kubernetes API server. See: https://kubernetes.io/'),
        (6379, 6, 'REDIS', 'Redis key-value store. See: https://en.wikipedia.org/wiki/Redis'),
        (6660, 6, 'IRC-ALT', 'IRC alternate ports. See: https://en.wikipedia.org/wiki/Internet_Relay_Chat'),
@@ -783,6 +782,7 @@ VALUES ('52.46.0.0/18', 443, 6, 'netflix-cdn-https'),
        ('150.247.33.0/24', 443, 6, 'aws-amazon-us-east-1'),
        ('5.60.0.0/20', 443, 6, 'aws-amazon-ap-east-2'),
        ('13.248.124.0/24', 443, 6, 'aws-amazon-us-east-1');
+/*
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('15.193.2.0/24', 443, 6, 'aws-amazon-ap-southeast-1');
 INSERT INTO services (addr, port, protocol, name)
@@ -18881,7 +18881,7 @@ INSERT INTO services (addr, port, protocol, name)
 VALUES ('13.248.64.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
 INSERT INTO services (addr, port, protocol, name)
 VALUES ('35.71.108.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
-
+*/
 
 create role web_anon nologin;
 grant usage on schema public to web_anon;

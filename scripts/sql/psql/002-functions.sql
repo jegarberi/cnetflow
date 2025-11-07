@@ -126,6 +126,12 @@ DECLARE
     aggregated_ids bigint[];
 BEGIN
     LOCK TABLE flows IN EXCLUSIVE MODE;
+    
+    -- Collect all ids that will be aggregated
+    SELECT array_agg(id)
+    INTO aggregated_ids
+    FROM flows;
+    
     -- Aggregate and upsert
     WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
                                int2inet(exporter)                            AS exporter,
@@ -139,8 +145,7 @@ BEGIN
                                input                                         AS input,
                                output                                        AS output,
                                SUM(dpkts)::bigint                            AS total_packets,
-                               SUM(doctets)::bigint                          AS total_octets,
-                               array_agg(id)                                 AS ids
+                               SUM(doctets)::bigint                          AS total_octets
                         FROM flows
                         GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as, dst_as,
                                  input, output)
@@ -162,25 +167,15 @@ BEGIN
            total_packets,
            total_octets
     FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as,dst_as,input, output)
+    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as, dst_as, input, output)
         DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
                       total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
 
-    -- Collect all ids from current aggregation to a local variable
-    SELECT array_agg(id)
-    INTO aggregated_ids
-    FROM flows
-    WHERE id IN (SELECT unnest(ids)
-                 FROM (SELECT array_agg(id) as ids
-                       FROM flows
-                       GROUP BY time_bucket('5 minutes', to_timestamp(first)), exporter, srcaddr, dstaddr,
-                                srcport, dstport, prot, src_as, dst_as, input, output) t);
-
-    -- Delete aggregated rows from source
-    IF aggregated_ids IS NOT NULL THEN
+    -- Delete aggregated rows from source using the collected IDs
+    IF aggregated_ids IS NOT NULL AND array_length(aggregated_ids, 1) > 0 THEN
         DELETE FROM flows WHERE id = ANY (aggregated_ids);
     END IF;
-    truncate flows;
+    
     COMMIT;
 END;
 $$;
