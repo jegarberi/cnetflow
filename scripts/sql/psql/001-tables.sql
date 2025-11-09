@@ -113,7 +113,7 @@ create table public.flows_agg_5min
     flow_hash     VARCHAR(64),
     primary key (flow_hash, exporter, bucket_5min),
     constraint flows_agg_5min_unique
-        unique (flow_hash, bucket_5min)
+        unique (flow_hash, exporter, bucket_5min)
 );
 
 alter table public.flows_agg_5min
