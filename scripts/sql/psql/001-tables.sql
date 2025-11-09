@@ -111,9 +111,9 @@ create table public.flows_agg_5min
     dst_mask      integer,
     ip_version    integer,
     flow_hash     VARCHAR(64),
-    primary key (id, exporter, bucket_5min),
+    primary key (flow_hash, exporter, bucket_5min),
     constraint flows_agg_5min_unique
-        unique (flow_hash)
+        unique (flow_hash, bucket_5min)
 );
 
 alter table public.flows_agg_5min

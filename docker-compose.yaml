@@ -3,7 +3,8 @@ services:
     build:
       context: .
     image: cnetflow
-    restart: no
+    #restart: no
+    restart: unless-stopped
     ports:
       - "2055:2055/udp"
     environment:
