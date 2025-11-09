@@ -118,69 +118,6 @@ END;
 $$;
 
 
-CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    aggregated_ids bigint[];
-BEGIN
-    LOCK TABLE flows IN EXCLUSIVE MODE;
-    
-    -- Collect all ids that will be aggregated
-    SELECT array_agg(id)
-    INTO aggregated_ids
-    FROM flows;
-    
-    -- Aggregate and upsert
-    WITH aggregated AS (SELECT time_bucket('5 minutes', to_timestamp(first)) AS bucket_5min,
-                               int2inet(exporter)                            AS exporter,
-                               int2inet(srcaddr)                             AS srcaddr,
-                               int2inet(dstaddr)                             AS dstaddr,
-                               int2port(srcport)                             AS srcport,
-                               int2port(dstport)                             AS dstport,
-                               ascii(prot)                                   AS protocol,
-                               src_as                                        AS src_as,
-                               dst_as                                        AS dst_as,
-                               input                                         AS input,
-                               output                                        AS output,
-                               SUM(dpkts)::bigint                            AS total_packets,
-                               SUM(doctets)::bigint                          AS total_octets
-                        FROM flows
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as, dst_as,
-                                 input, output)
-    INSERT
-    INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                         srcport, dstport, prot, src_as, dst_as, input, output,
-                         total_packets, total_octets)
-    SELECT bucket_5min,
-           exporter,
-           srcaddr,
-           dstaddr,
-           srcport,
-           dstport,
-           protocol,
-           src_as,
-           dst_as,
-           input,
-           output,
-           total_packets,
-           total_octets
-    FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, protocol, src_as, dst_as, input, output)
-        DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
-                      total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
-
-    -- Delete aggregated rows from source using the collected IDs
-    IF aggregated_ids IS NOT NULL AND array_length(aggregated_ids, 1) > 0 THEN
-        DELETE FROM flows WHERE id = ANY (aggregated_ids);
-    END IF;
-    
-    COMMIT;
-END;
-$$;
-
-
 
 CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_5min()
     LANGUAGE plpgsql
@@ -254,15 +191,16 @@ BEGIN
                                SUM(doctets)::bigint            AS total_octets,
                                ip_version                      AS ip_version,
                                tos                             as tos,
+                               flow_hash                       AS flow_hash,
                                array_agg(id)                   AS ids
 
                         FROM flows
                         GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as,
-                                 input, output, ip_version, tos)
+                                 input, output, ip_version, tos, flow_hash)
     INSERT
     INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
                          srcport, dstport, prot, src_as, dst_as, input, output, ip_version,
-                         total_packets, total_octets, tos)
+                         total_packets, total_octets, tos, flow_hash)
     SELECT bucket_5min,
            exporter,
            srcaddr,
@@ -277,9 +215,10 @@ BEGIN
            ip_version,
            total_packets,
            total_octets,
-           tos
+           tos,
+           flow_hash
     FROM aggregated
-    ON CONFLICT (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as,dst_as,input, output,ip_version,tos)
+    ON CONFLICT (flow_hash)
         DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
                       total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
 

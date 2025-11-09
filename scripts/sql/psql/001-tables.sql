@@ -2,6 +2,50 @@
 CREATE EXTENSION if not exists pg_cron;
 CREATE EXTENSION if not exists timescaledb;
 
+CREATE OR REPLACE FUNCTION calculate_flow_hash_time_bucket()
+    RETURNS TRIGGER AS
+$$
+DECLARE
+    -- Variable to hold the time_bucket start time
+    bucket_start TIMESTAMPTZ;
+BEGIN
+    -- 1. Determine the 5-minute bucket start time
+    -- Convert to TIMESTAMPTZ, truncate to the hour, extract total minutes since the hour,
+    -- and then subtract the remainder of (minutes % 5) to get the bucket start.
+    bucket_start := date_trunc('hour', NEW.inserted_at AT TIME ZONE 'UTC') +
+                    (FLOOR(EXTRACT(MINUTE FROM NEW.inserted_at AT TIME ZONE 'UTC') / 5) * '5 minutes'::INTERVAL);
+
+
+    NEW.flow_hash = ENCODE(
+            SHA256(
+                    (
+                        -- Use the calculated bucket start time
+                        bucket_start::TEXT || '|' ||
+
+                            -- CORE FLOW ATTRIBUTES
+                        COALESCE(NEW.exporter::TEXT, '~~NULL_EXP~~') || '|' ||
+                        COALESCE(NEW.srcaddr::TEXT, '~~NULL_SRC_ADDR~~') || '|' ||
+                        COALESCE(NEW.dstaddr::TEXT, '~~NULL_DST_ADDR~~') || '|' ||
+                        COALESCE(NEW.srcport::TEXT, '~~NULL_SRCPORT~~') || '|' ||
+                        COALESCE(NEW.dstport::TEXT, '~~NULL_DSTPORT~~') || '|' ||
+                        COALESCE(NEW.prot::TEXT, '~~NULL_PROT~~') || '|' ||
+
+                            -- AS AND INTERFACE
+                        COALESCE(NEW.src_as::TEXT, '~~NULL_SRC_AS~~') || '|' ||
+                        COALESCE(NEW.dst_as::TEXT, '~~NULL_DST_AS~~') || '|' ||
+                        COALESCE(NEW.input::TEXT, '~~NULL_INPUT~~') || '|' ||
+                        COALESCE(NEW.output::TEXT, '~~NULL_OUTPUT~~') || '|' ||
+
+                            -- IP METADATA
+                        COALESCE(NEW.ip_version::TEXT, '~~NULL_IPVER~~') || '|' ||
+                        COALESCE(NEW.tos::TEXT, '~~NULL_TOS~~')
+                        )::BYTEA
+            ),
+            'hex'
+                    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 
 CREATE TABLE IF NOT EXISTS flows
@@ -28,6 +72,7 @@ CREATE TABLE IF NOT EXISTS flows
 
     first       timestamp,
     last        timestamp,
+    flow_hash   VARCHAR(64),
     PRIMARY KEY (id, exporter, first)
 ) WITH (
       timescaledb.hypertable,
@@ -35,7 +80,14 @@ CREATE TABLE IF NOT EXISTS flows
       timescaledb.segmentby = 'exporter'
       );
 
+alter table public.flows
+    owner to cnetflow;
 
+CREATE OR REPLACE TRIGGER set_flow_hash_trigger_timebucket
+    BEFORE INSERT
+    ON flows
+    FOR EACH ROW
+EXECUTE FUNCTION calculate_flow_hash_time_bucket();
 
 create table public.flows_agg_5min
 (
@@ -58,10 +110,10 @@ create table public.flows_agg_5min
     src_mask      integer,
     dst_mask      integer,
     ip_version    integer,
+    flow_hash     VARCHAR(64),
     primary key (id, exporter, bucket_5min),
     constraint flows_agg_5min_unique
-        unique (bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as, input, output,
-                ip_version, tos)
+        unique (flow_hash)
 );
 
 alter table public.flows_agg_5min
