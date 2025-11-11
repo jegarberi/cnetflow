@@ -172,71 +172,96 @@ CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
 AS
 $$
 DECLARE
-    aggregated_ids bigint[];
+    max_first_time timestamp;
 BEGIN
-    LOCK TABLE flows IN EXCLUSIVE MODE;
-    -- Aggregate and upsert
-    WITH aggregated AS (SELECT time_bucket('5 minutes', first) AS bucket_5min,
-                               exporter                        AS exporter,
-                               srcaddr                         AS srcaddr,
-                               dstaddr                         AS dstaddr,
-                               srcport                         AS srcport,
-                               dstport                         AS dstport,
-                               prot                            AS prot,
-                               src_as                          AS src_as,
-                               dst_as                          AS dst_as,
-                               input                           AS input,
-                               output                          AS output,
+    -- Get the oldest timestamp to process (limit scope to avoid full table scan)
+    SELECT MIN(first)
+    INTO max_first_time
+    FROM flows
+    -- WHERE first < NOW() - INTERVAL '5 days'
+    LIMIT 1;
+
+    -- Exit early if nothing to process
+    IF max_first_time IS NULL THEN
+        RETURN;
+    END IF;
+
+    -- Process in small batches: aggregate only the oldest 5-minute bucket
+    WITH to_process AS (SELECT *
+                        FROM flows
+                        WHERE first >= max_first_time
+                          AND first < max_first_time + INTERVAL '5 minutes'
+                        LIMIT 50000),
+         aggregated AS (SELECT time_bucket('5 minutes', first) AS bucket_5min,
+                               exporter,
+                               srcaddr,
+                               dstaddr,
+                               srcport,
+                               dstport,
+                               prot,
+                               src_as,
+                               dst_as,
+                               input,
+                               output,
                                SUM(dpkts)::bigint              AS total_packets,
                                SUM(doctets)::bigint            AS total_octets,
-                               ip_version                      AS ip_version,
-                               tos                             as tos,
-                               flow_hash                       AS flow_hash,
+                               ip_version,
+                               tos,
+                               ENCODE(
+                                       SHA256(
+                                               (
+                                                   time_bucket('5 minutes', first)::TEXT || '|' ||
+                                                   COALESCE(exporter::TEXT, '~~NULL_EXP~~') || '|' ||
+                                                   COALESCE(srcaddr::TEXT, '~~NULL_SRC_ADDR~~') || '|' ||
+                                                   COALESCE(dstaddr::TEXT, '~~NULL_DST_ADDR~~') || '|' ||
+                                                   COALESCE(srcport::TEXT, '~~NULL_SRCPORT~~') || '|' ||
+                                                   COALESCE(dstport::TEXT, '~~NULL_DSTPORT~~') || '|' ||
+                                                   COALESCE(prot::TEXT, '~~NULL_PROT~~') || '|' ||
+                                                   COALESCE(src_as::TEXT, '~~NULL_SRC_AS~~') || '|' ||
+                                                   COALESCE(dst_as::TEXT, '~~NULL_DST_AS~~') || '|' ||
+                                                   COALESCE(input::TEXT, '~~NULL_INPUT~~') || '|' ||
+                                                   COALESCE(output::TEXT, '~~NULL_OUTPUT~~') || '|' ||
+                                                   COALESCE(ip_version::TEXT, '~~NULL_IPVER~~') || '|' ||
+                                                   COALESCE(tos::TEXT, '~~NULL_TOS~~')
+                                                   )::BYTEA
+                                       ),
+                                       'hex'
+                               )                               AS flow_hash,
                                array_agg(id)                   AS ids
-
-                        FROM flows
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot, src_as, dst_as,
-                                 input, output, ip_version, tos, flow_hash)
-    INSERT
-    INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                         srcport, dstport, prot, src_as, dst_as, input, output, ip_version,
-                         total_packets, total_octets, tos, flow_hash)
-    SELECT bucket_5min,
-           exporter,
-           srcaddr,
-           dstaddr,
-           srcport,
-           dstport,
-           prot,
-           src_as,
-           dst_as,
-           input,
-           output,
-           ip_version,
-           total_packets,
-           total_octets,
-           tos,
-           flow_hash
-    FROM aggregated
-    ON CONFLICT (flow_hash)
-        DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
-                      total_octets  = flows_agg_5min.total_octets + EXCLUDED.total_octets;
-
-    -- Collect all ids from current aggregation to a local variable
-    SELECT array_agg(id)
-    INTO aggregated_ids
+                        FROM to_process
+                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot,
+                                 src_as, dst_as, input, output, ip_version, tos),
+         inserted AS (
+             INSERT INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
+                                         srcport, dstport, prot, src_as, dst_as, input, output,
+                                         ip_version, total_packets, total_octets, tos, flow_hash)
+                 SELECT bucket_5min,
+                        exporter,
+                        srcaddr,
+                        dstaddr,
+                        srcport,
+                        dstport,
+                        prot,
+                        src_as,
+                        dst_as,
+                        input,
+                        output,
+                        ip_version,
+                        total_packets,
+                        total_octets,
+                        tos,
+                        flow_hash
+                 FROM aggregated
+                 ON CONFLICT (flow_hash)
+                     DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
+                         total_octets = flows_agg_5min.total_octets + EXCLUDED.total_octets
+                 RETURNING 1),
+         ids_to_delete AS (SELECT DISTINCT unnest(ids) AS id
+                           FROM aggregated)
+    DELETE
     FROM flows
-    WHERE id IN (SELECT unnest(ids)
-                 FROM (SELECT array_agg(id) as ids
-                       FROM flows
-                       GROUP BY time_bucket('5 minutes', first), exporter, srcaddr, dstaddr,
-                                srcport, dstport, prot, src_as, dst_as, input, output, ip_version, tos) t);
+    WHERE id IN (SELECT id FROM ids_to_delete);
 
-    -- Delete aggregated rows from source
-    IF aggregated_ids IS NOT NULL THEN
-        DELETE FROM flows WHERE id = ANY (aggregated_ids);
-    END IF;
-    -- truncate flows;
     COMMIT;
 END;
 $$;
