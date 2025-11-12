@@ -229,18 +229,20 @@ void *fix_endianness(void *buf, void *data, size_t len) {
       case 1:
         memcpy(buf, (uint8_t *) data, 1);
         break;
-      case 2:
+      case 2: {
         int16_t *ptr16 = (uint16_t *) data;
         int16_t tmp16 = *ptr16;
         tmp16 = ntohs(tmp16);
         memcpy(buf, &tmp16, 2);
         break;
-      case 4:
+      }
+      case 4: {
         int32_t *ptr32 = (uint32_t *) data;
         int32_t tmp32 = *ptr32;
         tmp32 = ntohs(tmp32);
         memcpy(buf, &tmp32, 2);
         break;
+      }
     }
   }
 }

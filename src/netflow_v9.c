@@ -347,7 +347,7 @@ void *parse_v9(uv_work_t *req) {
                 }
                 print_flow++;
                 break;
-              case IPFIX_FT_PACKETDELTACOUNT:
+              case IPFIX_FT_PACKETDELTACOUNT: {
                 uint64_t dpkts_64 = 0;
                 uint32_t dpkts_32 = 0;
                 switch (record_length) {
@@ -366,6 +366,7 @@ void *parse_v9(uv_work_t *req) {
                 }
                 print_flow++;
                 break;
+              }
               case IPFIX_FT_DESTINATIONTRANSPORTPORT:
                 netflow_packet_ptr->records[record_counter].dstport = *tmp16;
                 print_flow++;

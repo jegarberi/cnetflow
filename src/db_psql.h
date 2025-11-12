@@ -4,7 +4,15 @@
 
 #ifndef DB_H
 #define DB_H
-#include <postgresql/libpq-fe.h>
+#ifdef __has_include
+#  if __has_include(<postgresql/libpq-fe.h>)
+#    include <postgresql/libpq-fe.h>
+#  else
+#    include <libpq-fe.h>
+#  endif
+#else
+#  include <libpq-fe.h>
+#endif
 #include "netflow.h"
 #define BOOLOID 16 // boolean
 #define BYTEAOID 17 // binary data ("byte array")

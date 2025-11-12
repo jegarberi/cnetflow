@@ -1,8 +1,11 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.17.5)
 project(cnetflow C)
 SET(CMAKE_PROJECT_NAME "cnetflow")
 #SET (CMAKE_BUILD_TYPE Debug)
-SET(CMAKE_C_COMPILER "/usr/bin/gcc")
+# Only set compiler if not already specified via command line
+if(NOT CMAKE_C_COMPILER)
+    SET(CMAKE_C_COMPILER "/usr/bin/gcc")
+endif()
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
 SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra  ")
 SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG -Wall -Wextra ")
@@ -38,8 +41,12 @@ target_link_libraries(netflow_v9 arena netflow netflow_v5)
 target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq dyn_array)
 target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq dyn_array)
 
-install(FILES cnetflow.service DESTINATION /lib/systemd/system/)
-install(FILES local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
+if(EXISTS ${CMAKE_SOURCE_DIR}/cnetflow.service)
+    install(FILES ${CMAKE_SOURCE_DIR}/cnetflow.service DESTINATION /lib/systemd/system/)
+endif()
+if(EXISTS ${CMAKE_SOURCE_DIR}/local.conf)
+    install(FILES ${CMAKE_SOURCE_DIR}/local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
+endif()
 install(TARGETS cnetflow RUNTIME DESTINATION /usr/local/cnetflow/)
 install(TARGETS collector arena dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
 
@@ -154,6 +161,17 @@ set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_RPM_PACKAGE_GROUP "Applications/Internet")
 set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel, libuv-devel")
 set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
+
+# RHEL7/CentOS7 specific settings
+# For RHEL7/CentOS7, dependencies are: postgresql-devel >= 9.2, libuv >= 1.0
+# Enable RHEL7 build with: cmake -DBUILD_FOR_RHEL7=ON ..
+option(BUILD_FOR_RHEL7 "Build for RHEL7/CentOS7 compatibility" OFF)
+if(BUILD_FOR_RHEL7)
+    set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel >= 9.2, libuv >= 1.0")
+    # RHEL7 uses dist tag
+    set(CPACK_RPM_PACKAGE_RELEASE "1.el7")
+    set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-1.el7.${CPACK_RPM_PACKAGE_ARCHITECTURE}")
+endif()
 
 # RPM package scripts
 set(CPACK_RPM_PRE_INSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/preinst")

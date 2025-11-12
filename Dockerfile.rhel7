@@ -1,0 +1,46 @@
+# Dockerfile for building cnetflow RPM on RHEL7/CentOS7
+FROM centos:7
+RUN mkdir -p /etc/yum.repos.d/old
+RUN mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/old/
+ADD centos-base.repo /etc/yum.repos.d/
+ADD epel.repo /etc/yum.repos.d/
+ADD centos-scl.repo /etc/yum.repos.d/
+# Install EPEL repository for cmake3
+RUN yum install -y epel-release
+
+# Install build dependencies with newer GCC from SCL
+RUN yum install -y \
+    cmake3 \
+    devtoolset-7-gcc \
+    devtoolset-7-gcc-c++ \
+    make \
+    rpm-build \
+    postgresql-devel \
+    libuv-devel \
+    && yum clean all
+
+# Set working directory
+WORKDIR /build
+
+# Copy source code
+COPY . .
+
+# Create build directory and configure with SCL GCC
+# Use devtoolset-7 which provides GCC 7.3.1 with C11 support
+RUN scl enable devtoolset-7 - << \EOF
+set -ex
+export CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
+export CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
+mkdir -p build
+cd build
+cmake3 -DCMAKE_BUILD_TYPE=Release -DBUILD_FOR_RHEL7=ON ..
+cmake3 --build .
+cpack3 -G RPM
+EOF
+
+# The RPM will be in /build/build/
+# To extract it, run:
+# docker build -f Dockerfile.rhel7 -t cnetflow-rhel7-builder .
+# docker create --name temp cnetflow-rhel7-builder
+# docker cp temp:/build/build/cnetflow-1.0.0-1.el7.x86_64.rpm .
+# docker rm temp
