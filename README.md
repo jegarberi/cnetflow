@@ -11,7 +11,6 @@ https://github.com/tubav/libipfix
 - **Multi-version NetFlow support**: NetFlow v5, v9, and IPFIX
 - **High performance**: Asynchronous I/O using libuv
 - **PostgreSQL integration**: Direct database storage for flow records
-- **SNMP support**: Network device monitoring capabilities
 - **Memory efficient**: Custom arena allocator and dynamic arrays
 - **Systemd integration**: Native Linux service support
 - **Docker support**: Containerized deployment option
@@ -26,7 +25,6 @@ CNetflow is built with a modular architecture consisting of several shared libra
 - **netflow_v9**: NetFlow version 9 implementation
 - **netflow_ipfix**: IPFIX (Internet Protocol Flow Information Export) support
 - **db_psql**: PostgreSQL database interface
-- **cnetflow_snmp**: SNMP monitoring capabilities
 - **arena**: Memory arena allocator
 - **hashmap**: Hash table implementation
 - **dyn_array**: Dynamic array utilities
@@ -39,13 +37,11 @@ CNetflow is built with a modular architecture consisting of several shared libra
 - CMake 3.25 or higher
 - PostgreSQL development libraries (`libpq-dev`)
 - libuv development libraries (`libuv1-dev`)
-- Net-SNMP development libraries (`libsnmp-dev`)
 
 ### Runtime Dependencies
 
 - PostgreSQL server
 - libuv
-- Net-SNMP libraries
 
 ## Installation
 
@@ -53,7 +49,7 @@ CNetflow is built with a modular architecture consisting of several shared libra
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/jegarberi/cnetflow
    cd cnetflow
    ```
 

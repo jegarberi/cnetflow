@@ -82,7 +82,6 @@ CREATE TABLE IF NOT EXISTS flows
 
 alter table public.flows
     owner to cnetflow;
-
 CREATE OR REPLACE TRIGGER set_flow_hash_trigger_timebucket
     BEFORE INSERT
     ON flows

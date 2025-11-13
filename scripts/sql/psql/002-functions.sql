@@ -173,6 +173,11 @@ AS
 $$
 DECLARE
     max_first_time timestamp;
+    v_error_state TEXT;
+    v_error_msg TEXT;
+    v_error_detail TEXT;
+    v_error_hint TEXT;
+    v_error_context TEXT;
 BEGIN
     -- Get the oldest timestamp to process (limit scope to avoid full table scan)
     SELECT MIN(first)
@@ -262,7 +267,19 @@ BEGIN
     FROM flows
     WHERE id IN (SELECT id FROM ids_to_delete);
 
-    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        GET STACKED DIAGNOSTICS
+            v_error_state = RETURNED_SQLSTATE,
+            v_error_msg = MESSAGE_TEXT,
+            v_error_detail = PG_EXCEPTION_DETAIL,
+            v_error_hint = PG_EXCEPTION_HINT,
+            v_error_context = PG_EXCEPTION_CONTEXT;
+
+        RAISE WARNING 'ROLLBACK in import_flows_agg_5min() - SQLSTATE: %, Message: %, Detail: %, Hint: %, Context: %',
+            v_error_state, v_error_msg, v_error_detail, v_error_hint, v_error_context;
+
+        RAISE;
 END;
 $$;
 
