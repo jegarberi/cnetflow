@@ -178,8 +178,8 @@ uint32_t swap_endian_32(uint32_t value) {
 #if defined(__GNUC__) || defined(__clang__)
   return __builtin_bswap32(value);
 #else
-  return ((value & 0xFF000000) >> 24) | ((value & 0x00FF0000) >> 8) |
-         ((value & 0x0000FF00) << 8) | ((value & 0x000000FF) << 24);
+  return ((value & 0xFF000000) >> 24) | ((value & 0x00FF0000) >> 8) | ((value & 0x0000FF00) << 8) |
+         ((value & 0x000000FF) << 24);
 #endif
 }
 
@@ -197,7 +197,7 @@ uint16_t swap_endian_16(uint16_t value) {
 #if defined(__GNUC__) || defined(__clang__)
   return __builtin_bswap16(value);
 #else
-  return (uint16_t)((value >> 8) | (value << 8));
+  return (uint16_t) ((value >> 8) | (value << 8));
 #endif
 }
 
@@ -257,9 +257,30 @@ int is_ipv4_private(const uint32_t ip) {
   return 0;
 }
 
-void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
+void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
+  /*
+    char srcaddr[250];
+    char dstaddr[250];
+    memccpy(srcaddr, ip_int_to_str(record->srcaddr), '\0', 250);
+    memccpy(dstaddr, ip_int_to_str(record->dstaddr), '\0', 250);
+    fprintf(stderr, "%lu %s %d %s: %s:%d  -> %s:%d \n", uv_thread_self(), __FILE__, __LINE__, __func__, srcaddr,
+            record->srcport, dstaddr, record->dstport);
+    */
   if (!is_ipv4_private(record->srcaddr) || (is_ipv4_private(record->dstaddr) && record->dstport > record->srcport)) {
-    fprintf(stderr, "%s %d %s: swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
+    /*
+    fprintf(stderr, "%lu %s %d %s is_ipv4_private(record->srcaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
+            __func__, is_ipv4_private(record->srcaddr));
+    fprintf(stderr, "%lu %s %d %s record->srcaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
+            record->srcaddr);
+    fprintf(stderr, "%lu %s %d %s is_ipv4_private(record->dstaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
+            __func__, is_ipv4_private(record->dstaddr));
+    fprintf(stderr, "%lu %s %d %s record->dstaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
+            record->dstaddr);
+    fprintf(stderr, "%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
+            __func__, record->dstport > record->srcport);
+    */
+    fprintf(stderr, "%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
     record->srcport = tmp_port;
@@ -274,9 +295,30 @@ void swap_src_dst_v9(netflow_v9_record_insert_t *record) {
   }
 }
 
-void swap_src_dst_v5(netflow_v5_record_t *record) {
+void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
+  /*
+    char srcaddr[250];
+    char dstaddr[250];
+    memccpy(srcaddr, ip_int_to_str(record->srcaddr), '\0', 250);
+    memccpy(dstaddr, ip_int_to_str(record->dstaddr), '\0', 250);
+    fprintf(stderr, "%lu,%s %d %s: %s:%d  -> %s:%d \n", uv_thread_self(), __FILE__, __LINE__, __func__, srcaddr,
+            record->srcport, dstaddr, record->dstport);
+  */
   if (!is_ipv4_private(record->srcaddr) || (is_ipv4_private(record->dstaddr) && record->dstport > record->srcport)) {
-    fprintf(stderr, "%s %d %s: swapping flow_v5 src and dst\n", __FILE__, __LINE__, __func__);
+    /*
+        fprintf(stderr, "%lu %s %d %s is_ipv4_private(record->srcaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
+                __func__, is_ipv4_private(record->srcaddr));
+        fprintf(stderr, "%lu %s %d %s record->srcaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
+                record->srcaddr);
+        fprintf(stderr, "%lu %s %d %s is_ipv4_private(record->dstaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
+                __func__, is_ipv4_private(record->dstaddr));
+        fprintf(stderr, "%lu %s %d %s record->dstaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
+                record->dstaddr);
+        fprintf(stderr, "%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
+                __func__, record->dstport > record->srcport);
+    */
+    fprintf(stderr, "%lu %s %d %s: swapping flow_v5 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
     record->srcport = tmp_port;

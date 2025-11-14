@@ -21,7 +21,7 @@
 #define false 0
 #define STDERR stderr
 #define MALLOC(x, y) arena_alloc(x, y)
-#define MALLOC(x, y) malloc(y)
+// #define MALLOC(x, y) malloc(y)
 #define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
 volatile arena_struct_t *arena_collector;

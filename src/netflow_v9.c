@@ -348,8 +348,8 @@ void *parse_v9(uv_work_t *req) {
                 print_flow++;
                 break;
               case IPFIX_FT_PACKETDELTACOUNT: {
-                uint64_t dpkts_64 = 0;
-                uint32_t dpkts_32 = 0;
+                // uint64_t dpkts_64 = 0;
+                // uint32_t dpkts_32 = 0;
                 switch (record_length) {
                   case 4:
                     netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) *tmp32;
@@ -542,9 +542,7 @@ void *parse_v9(uv_work_t *req) {
                   }
                   break;
                 case IPFIX_CODING_STRING:
-                  break;
                 case IPFIX_CODING_FLOAT:
-                  break;
                 case IPFIX_CODING_NTP:
                   break;
                 case IPFIX_CODING_IPADDR:
@@ -562,7 +560,6 @@ void *parse_v9(uv_work_t *req) {
                       break;
                     default:
                       exit(-1);
-                      break;
                   }
                   break;
                 default:
@@ -582,11 +579,19 @@ void *parse_v9(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
                             sizeof(netflow_packet_ptr->records[record_counter].dstport));
-            swap_src_dst_v9(&netflow_packet_ptr->records[record_counter]);
+            swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+                            sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+                            sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+            swap_src_dst_v9_ipv4(&netflow_packet_ptr->records[record_counter]);
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
                             sizeof(netflow_packet_ptr->records[record_counter].dstport));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+                            sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+                            sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif
