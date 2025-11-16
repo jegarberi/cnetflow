@@ -583,6 +583,8 @@ void *parse_v9(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                             sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+
+
             swap_src_dst_v9_ipv4(&netflow_packet_ptr->records[record_counter]);
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
@@ -620,6 +622,7 @@ void *parse_v9(uv_work_t *req) {
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
+
         if (is_ipv6) {
           fprintf(stderr, "%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
           insert_flows(exporter_host, &flows_to_insert);

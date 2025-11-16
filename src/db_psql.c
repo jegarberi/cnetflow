@@ -162,7 +162,7 @@ prepare_statement_insert_flows_exit_nicely:
     PQfinish(conn);
   }
   fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-  exit(-1);
+  // exit(-1);
 #undef _N_PARAMS
 }
 /*
@@ -406,7 +406,12 @@ void fill_param_values(char (*values)[_N_PARAMS][_MAX_LEN], uint128_t exporter,
   snprintf(temp_values[_FIRST], _MAX_LEN, "%u", flow->First);
   snprintf(temp_values[_LAST], _MAX_LEN, "%u", flow->Last);
 
+  // swap_endianness(&flow->dPkts, sizeof(flow->dPkts));
+  if (flow->dPkts > 1000000) {
+    fprintf(stderr, "%s %d %s flow->dPkts = %lu\n", __FILE__, __LINE__, __func__, flow->dPkts);
+  }
   snprintf(temp_values[_DPKTS], _MAX_LEN, "%lu", flow->dPkts);
+  // swap_endianness(&flow->dOctets, sizeof(flow->dOctets));
   snprintf(temp_values[_DOCTETS], _MAX_LEN, "%lu", flow->dOctets);
 
   snprintf(temp_values[_INPUT], _MAX_LEN, "%u", flow->input);
@@ -515,6 +520,9 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
       fprintf(stderr, "%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
               PQresultErrorMessage(res));
+      for (int k = 0; k < _N_PARAMS; k++) {
+        fprintf(stderr, "%s[%d] %s: paramValues[%d] = %s\n", __FILE__, __LINE__, __func__, k, paramValuesAsString[k]);
+      }
       PQclear(res);
       prepare_statement_insert_flows(conn);
       res = PQexecPrepared(conn, "insert_flows", nParams, (const char *const *) paramValues, NULL, NULL, resultFormat);

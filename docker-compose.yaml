@@ -36,6 +36,7 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_DB
       - TZ
+      - PGOPTIONS
     volumes:
       - ./data/psql:/var/lib/postgresql/data
       - ./scripts/sql/psql/:/docker-entrypoint-initdb.d/:r

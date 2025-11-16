@@ -172,31 +172,30 @@ CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
 AS
 $$
 DECLARE
-    max_first_time timestamp;
-    v_error_state TEXT;
-    v_error_msg TEXT;
-    v_error_detail TEXT;
-    v_error_hint TEXT;
+    min_first_time  timestamp;
+    v_error_state   TEXT;
+    v_error_msg     TEXT;
+    v_error_detail  TEXT;
+    v_error_hint    TEXT;
     v_error_context TEXT;
 BEGIN
     -- Get the oldest timestamp to process (limit scope to avoid full table scan)
     SELECT MIN(first)
-    INTO max_first_time
+    INTO min_first_time
     FROM flows
     -- WHERE first < NOW() - INTERVAL '5 days'
     LIMIT 1;
 
     -- Exit early if nothing to process
-    IF max_first_time IS NULL THEN
+    IF min_first_time IS NULL THEN
         RETURN;
     END IF;
 
     -- Process in small batches: aggregate only the oldest 5-minute bucket
     WITH to_process AS (SELECT *
                         FROM flows
-                        WHERE first >= max_first_time
-                          AND first < max_first_time + INTERVAL '5 minutes'
-                        LIMIT 50000),
+                        WHERE first >= min_first_time
+                          AND first < min_first_time + INTERVAL '5 minutes'),
          aggregated AS (SELECT time_bucket('5 minutes', first) AS bucket_5min,
                                exporter,
                                srcaddr,
