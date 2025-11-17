@@ -256,7 +256,7 @@ BEGIN
                         tos,
                         flow_hash
                  FROM aggregated
-                 ON CONFLICT (flow_hash)
+                 ON CONFLICT (bucket_5min, exporter,flow_hash)
                      DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
                          total_octets = flows_agg_5min.total_octets + EXCLUDED.total_octets
                  RETURNING 1),

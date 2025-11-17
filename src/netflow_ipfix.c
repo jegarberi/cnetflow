@@ -20,6 +20,8 @@ void *parse_ipfix(uv_work_t *req) {
 
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
+  // TODO - Implement parse_ipfix
+  fprintf(stderr, "TODO: parse_ipfix: %p\n", args);
   goto unlock_mutex_parse_ipfix;
 
 

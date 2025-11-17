@@ -36,25 +36,12 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_DB
       - TZ
-      - PGOPTIONS
     volumes:
       - ./data/psql:/var/lib/postgresql/data
       - ./scripts/sql/psql/:/docker-entrypoint-initdb.d/:r
     ports:
       - "$POSTGRES_PORT:5432"
     restart: unless-stopped
-    #    command:
-    #      [
-    #        "postgres",
-    #        "-c",
-    #        "log_statement=all",
-    #        "-c",
-    #        "log_destination=stderr",
-    #        "-c",
-    #        "shared_preload_libraries=pg_cron",
-    #        "-c",
-    #        "cron.database_name=${POSTGRES_DB-postgres}",
-    #      ]
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d postgres" ]
       interval: 30s
