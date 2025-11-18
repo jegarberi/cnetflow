@@ -257,6 +257,45 @@ int is_ipv4_private(const uint32_t ip) {
   return 0;
 }
 
+void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
+  /*
+    char srcaddr[250];
+    char dstaddr[250];
+    memccpy(srcaddr, ip_int_to_str(record->srcaddr), '\0', 250);
+    memccpy(dstaddr, ip_int_to_str(record->dstaddr), '\0', 250);
+    fprintf(stderr, "%lu %s %d %s: %s:%d  -> %s:%d \n", uv_thread_self(), __FILE__, __LINE__, __func__, srcaddr,
+            record->srcport, dstaddr, record->dstport);
+    */
+  if (!is_ipv4_private(record->srcaddr) || (is_ipv4_private(record->dstaddr) && record->dstport > record->srcport)) {
+    /*
+    fprintf(stderr, "%lu %s %d %s is_ipv4_private(record->srcaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
+            __func__, is_ipv4_private(record->srcaddr));
+    fprintf(stderr, "%lu %s %d %s record->srcaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
+            record->srcaddr);
+    fprintf(stderr, "%lu %s %d %s is_ipv4_private(record->dstaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
+            __func__, is_ipv4_private(record->dstaddr));
+    fprintf(stderr, "%lu %s %d %s record->dstaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
+            record->dstaddr);
+    fprintf(stderr, "%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
+            __func__, record->dstport > record->srcport);
+    */
+    fprintf(stderr, "%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+
+    const uint16_t tmp_port = record->dstport;
+    record->dstport = record->srcport;
+    record->srcport = tmp_port;
+    const uint32_t tmp_addr = record->dstaddr;
+    record->dstaddr = record->srcaddr;
+    record->srcaddr = tmp_addr;
+    const uint16_t tmp_interface = record->input;
+    record->input = record->output;
+    record->output = tmp_interface;
+  } else {
+    fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
+  }
+}
+
+
 void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
   /*
     char srcaddr[250];
