@@ -10,5 +10,6 @@ EOT
 
 sed -i 's|#fsync = on|fsync = off|g' ${PGDATA}/postgresql.conf
 sed -i 's|#synchronous_commit = on|synchronous_commit = off|g' ${PGDATA}/postgresql.conf
+sed -i 's|#max_locks_per_transaction = 64|max_locks_per_transaction = 256 |g' ${PGDATA}/postgresql.conf
 # Required to load pg_cron
 pg_ctl restart
