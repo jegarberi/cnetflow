@@ -20,6 +20,7 @@ void *parse_v9(uv_work_t *req) {
 
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
+
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v9_header_t *header = (netflow_v9_header_t *) (args->data);
 
@@ -35,6 +36,9 @@ void *parse_v9(uv_work_t *req) {
   size_t flowsets = header->count;
   fprintf(stderr, "%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
+  if (header->SysUptime == 1384148828) {
+    fprintf(stderr, "%s %d %s: SysUptime == 1384148828\n", __FILE__, __LINE__, __func__);
+  }
   swap_endianness((void *) &(header->unix_secs), sizeof(header->unix_secs));
   swap_endianness((void *) &(header->package_sequence), sizeof(header->package_sequence));
   swap_endianness((void *) &(header->source_id), sizeof(header->source_id));
@@ -69,7 +73,7 @@ void *parse_v9(uv_work_t *req) {
       len = flowset->record.length;
       swap_endianness(&len, sizeof(len));
       flowset_end = flowset_base + len;
-      if (flowset_end >= total_packet_length) {
+      if (flowset_end > total_packet_length) {
         fprintf(stderr, "%s %d %s: read all packet\n", __FILE__, __LINE__, __func__);
         break;
       }
@@ -619,6 +623,12 @@ void *parse_v9(uv_work_t *req) {
         }
         */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
+        if (netflow_packet_ptr->records[0].dOctets == 0) {
+          fprintf(stderr, "%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
+        }
+        if (netflow_packet_ptr->records[0].dPkts == 0) {
+          fprintf(stderr, "%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
+        }
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
@@ -640,6 +650,7 @@ void *parse_v9(uv_work_t *req) {
       fprintf(stderr, "%s %d %s this should not happen\n", __FILE__, __LINE__, __func__);
       goto unlock_mutex_parse_v9;
     }
+    record_counter = 0;
   }
 
 
@@ -661,6 +672,14 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
     fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    if (in->records[i].dOctets == 0) {
+      fprintf(stderr, "%s %d %s dOctets is 0\n", __FILE__, __LINE__, __func__);
+      continue;
+    }
+    if (in->records[i].dPkts == 0) {
+      fprintf(stderr, "%s %d %s dPkts is 0\n", __FILE__, __LINE__, __func__);
+      continue;
+    }
     swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
     swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
     swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));

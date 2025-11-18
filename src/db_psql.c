@@ -484,7 +484,14 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   for (int i = 0; i < flows->header.count; i++) {
     int nParams = _N_PARAMS;
-
+    if (flows->records[i].dOctets == 0) {
+      fprintf(stderr, "%s[%d] %s: flow->dOctets = 0\n", __FILE__, __LINE__, __func__);
+      continue;
+    }
+    if (flows->records[i].dPkts == 0) {
+      fprintf(stderr, "%s[%d] %s: flow->dOctets = 0\n", __FILE__, __LINE__, __func__);
+      continue;
+    }
     fill_param_values(&paramValuesAsString, (uint128_t) exporter, &(flows->records[i]));
     const char *paramValues[_N_PARAMS];
     for (int k = 0; k < _N_PARAMS; k++) {

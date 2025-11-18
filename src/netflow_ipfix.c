@@ -32,9 +32,11 @@ void *parse_ipfix(uv_work_t *req) {
   swap_endianness((void *) &(header->ExportTime), sizeof(header->ExportTime));
   swap_endianness((void *) &(header->SequenceNumber), sizeof(header->SequenceNumber));
   swap_endianness((void *) &(header->ObsDomainId), sizeof(header->ObsDomainId));
-
-  fprintf(stderr, "%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u\n", __FILE__, __LINE__,
-          __func__, header->length, header->ExportTime, header->SequenceNumber, header->ObsDomainId);
+  uint32_t now = (uint32_t) time(NULL);
+  uint32_t diff = now - (uint32_t) (header->ExportTime);
+  fprintf(stderr, "%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u Now: %u Diff: %u\n",
+          __FILE__, __LINE__, __func__, header->length, header->ExportTime, header->SequenceNumber, header->ObsDomainId,
+          now, diff);
 
   flowset_union_ipfix_t *flowset;
 
@@ -159,6 +161,8 @@ void *parse_ipfix(uv_work_t *req) {
       }
 
     } else if (flowset_id >= 256) {
+
+
       // Data Set
       fprintf(stderr, "%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
 
@@ -173,6 +177,10 @@ void *parse_ipfix(uv_work_t *req) {
         fprintf(stderr, "%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                 ip_int_to_str(args->exporter));
       } else {
+        if (args->exporter == 1090654892) {
+          fprintf(stderr, "%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
+                  args->exporter);
+        }
         void *pointer = args->data + flowset_base + 4; // Skip set header
         size_t pos = 4;
 
@@ -255,6 +263,18 @@ void *parse_ipfix(uv_work_t *req) {
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
                 swap_endianness(tmp32, sizeof(*tmp32));
                 netflow_packet_ptr->records[record_counter].First = *tmp32;
+                break;
+              case IPFIX_FT_FLOWSTARTMILLISECONDS:
+                swap_endianness(tmp64, sizeof(*tmp64));
+                *tmp64 = *tmp64 / 1000 + diff;
+                swap_endianness(tmp64, sizeof(*tmp64));
+                netflow_packet_ptr->records[record_counter].First = (uint32_t) (*tmp64 >> 32);
+                break;
+              case IPFIX_FT_FLOWENDMILLISECONDS:
+                swap_endianness(tmp64, sizeof(*tmp64));
+                *tmp64 = *tmp64 / 1000 + diff;
+                swap_endianness(tmp64, sizeof(*tmp64));
+                netflow_packet_ptr->records[record_counter].Last = (uint32_t) (*tmp64 >> 32);
                 break;
               case IPFIX_FT_IPVERSION:
                 switch (*tmp8) {
@@ -463,6 +483,7 @@ void *parse_ipfix(uv_work_t *req) {
 
     flowset_base = flowset_end;
     flowset_counter++;
+    record_counter = 0;
   }
 
   fprintf(stderr, "%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,

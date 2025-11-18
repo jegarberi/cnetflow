@@ -382,9 +382,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   switch (nf_version) {
     case NETFLOW_V5:
       work_cb = (void *) collector_config->parse_v5;
+      // work_cb = NULL;
       break;
     case NETFLOW_V9:
       work_cb = (void *) collector_config->parse_v9;
+      // work_cb = NULL;
       break;
     case NETFLOW_IPFIX:
       work_cb = (void *) collector_config->parse_ipfix;
@@ -395,8 +397,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
       assert(false);
   }
-  uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
-  data_counter++;
+  if (work_cb) {
+    uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
+    data_counter++;
+  }
   // after_work_cb will release all mmemory chunks
   return;
 // memset((void *) buf->base, 0, nread);
