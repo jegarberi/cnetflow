@@ -180,6 +180,7 @@ set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/prerm")
 set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE "${CMAKE_BINARY_DIR}/postrm")
 
 # Enable CPack packaging
+set(CPACK_SET_DESTDIR ON)
 include(CPack)
 set_target_properties(cnetflow PROPERTIES
         INSTALL_RPATH "/usr/local/cnetflow"
