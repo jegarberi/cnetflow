@@ -1,7 +1,7 @@
 {
   "__inputs": [
     {
-      "name": "DS_CNETFLOW",
+      "name": "db",
       "label": "cnetflow",
       "description": "",
       "type": "datasource",
@@ -66,7 +66,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "${DS_CNETFLOW}"
+        "uid": "P7BDC25D1694EF984"
       },
       "fieldConfig": {
         "defaults": {
@@ -152,7 +152,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -181,7 +181,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -214,7 +214,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "${DS_CNETFLOW}"
+        "uid": "P7BDC25D1694EF984"
       },
       "fieldConfig": {
         "defaults": {
@@ -295,7 +295,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -324,7 +324,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -357,7 +357,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "${DS_CNETFLOW}"
+        "uid": "P7BDC25D1694EF984"
       },
       "fieldConfig": {
         "defaults": {
@@ -423,7 +423,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -452,7 +452,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -485,7 +485,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "${DS_CNETFLOW}"
+        "uid": "P7BDC25D1694EF984"
       },
       "fieldConfig": {
         "defaults": {
@@ -551,7 +551,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -580,7 +580,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -610,7 +610,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -640,7 +640,7 @@
           "dataset": "cnetflow",
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "${DS_CNETFLOW}"
+            "uid": "P7BDC25D1694EF984"
           },
           "editorMode": "code",
           "format": "table",
@@ -681,7 +681,7 @@
         "current": {},
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "${DS_CNETFLOW}"
+          "uid": "P7BDC25D1694EF984"
         },
         "definition": "select distinct(exporter) from flows where first > now() - interval '7 day' group by exporter ;",
         "description": "Exporter",
@@ -700,7 +700,7 @@
         "current": {},
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "${DS_CNETFLOW}"
+          "uid": "P7BDC25D1694EF984"
         },
         "definition": "select interface from (select input as interface from flows where first > now() - interval '7 day' AND exporter = '$Exporter' group by input UNION select output as interface from flows where first > now() - interval '7 day'  AND exporter = '$Exporter' group by output) group by interface;",
         "description": "Interface",

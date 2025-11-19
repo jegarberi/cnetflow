@@ -27,4 +27,5 @@ datasources:
       maxOpenConns: 100
       postgresVersion: 1500
       sslmode: disable
+      timescaledb: true
     readOnly: false
