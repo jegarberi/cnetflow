@@ -390,6 +390,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       break;
     case NETFLOW_IPFIX:
       work_cb = (void *) collector_config->parse_ipfix;
+      // work_cb = NULL;
       break;
     default:
       fprintf(STDERR, "unsupported nf version %d\n", nf_version);

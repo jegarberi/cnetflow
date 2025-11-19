@@ -166,6 +166,31 @@ END;
 $$;
 
 
+CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces()
+    LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    -- Batch insert for both input and output interfaces
+    INSERT INTO interfaces (created_at, exporter, snmp_index)
+    SELECT DISTINCT now(), e.id, f.input
+    FROM flows f
+             JOIN exporters e ON e.ip_inet = f.exporter
+    WHERE f.input IS NOT NULL
+      AND f.input > 0
+      AND f.inserted_at > NOW() - INTERVAL '1 day'
+    UNION
+    SELECT DISTINCT now(), e.id, f.output
+    FROM flows f
+             JOIN exporters e ON e.ip_inet = f.exporter
+    WHERE f.output IS NOT NULL
+      AND f.output > 0
+      AND f.inserted_at > NOW() - INTERVAL '1 day'
+    ON CONFLICT (exporter, snmp_index) DO NOTHING;
+END;
+$$;
+
+
 
 CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
     LANGUAGE plpgsql
@@ -501,8 +526,8 @@ END;
 $$;
 
 
-SELECT cron.schedule('*/4 * * * *', $$call import_exporters()$$);
-SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min()$$);
-SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min_segmented()$$);
-SELECT cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_5min()$$);
+--SELECT cron.schedule('*/4 * * * *', $$call import_exporters()$$);
+--SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min()$$);
+--SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min_segmented()$$);
+--SELECT cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_5min()$$);
 

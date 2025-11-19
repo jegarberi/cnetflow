@@ -77,8 +77,11 @@ CREATE TABLE IF NOT EXISTS flows
 ) WITH (
       timescaledb.hypertable,
       timescaledb.partition_column = 'first',
-      timescaledb.segmentby = 'exporter'
+      timescaledb.segmentby = 'exporter',
+      timescaledb.compress
       );
+SELECT set_chunk_time_interval('flows', INTERVAL '5 minutes');
+
 
 alter table public.flows
     owner to cnetflow;
@@ -127,11 +130,121 @@ create index flows_agg_5min_exporter_idx
     on public.flows_agg_5min (exporter desc);
 SELECT create_hypertable('flows_agg_5min', 'bucket_5min');
 SELECT add_dimension('flows_agg_5min', by_hash('exporter', 10240));
-SELECT set_chunk_time_interval('flows', INTERVAL '10 minutes');
-SELECT set_chunk_time_interval('flows_agg_5min', INTERVAL '1 hour');
+
+SELECT set_chunk_time_interval('flows_agg_5min', INTERVAL '5 minutes');
 --ALTER TABLE flows_agg_5min
 --    ADD CONSTRAINT flows_agg_5min_bucket_hash_key
 --        UNIQUE (bucket_5min, flow_hash,exporter);
+
+-- ============================================================
+-- TIMESCALEDB OPTIMIZATION POLICIES FOR FLOWS TABLE
+-- ============================================================
+
+-- 1. COMPRESSION POLICY: Automatically compress chunks older than 1 day
+-- This significantly reduces storage while maintaining query performance
+SELECT add_compression_policy('flows', INTERVAL '1 hour');
+
+-- 2. RETENTION POLICY: Automatically drop chunks older than 90 days
+-- Adjust the retention period based on your requirements
+SELECT add_retention_policy('flows', INTERVAL '30 days');
+
+-- 3. Add useful indexes for common query patterns
+CREATE INDEX idx_flows_first_exporter ON flows (first DESC, exporter);
+CREATE INDEX idx_flows_srcaddr ON flows (srcaddr) WHERE srcaddr IS NOT NULL;
+CREATE INDEX idx_flows_dstaddr ON flows (dstaddr) WHERE dstaddr IS NOT NULL;
+CREATE INDEX idx_flows_prot ON flows (prot) WHERE prot IS NOT NULL;
+CREATE INDEX idx_flows_srcport ON flows (srcport) WHERE srcport IS NOT NULL;
+CREATE INDEX idx_flows_dstport ON flows (dstport) WHERE dstport IS NOT NULL;
+
+-- 4. CONTINUOUS AGGREGATES for faster analytics queries
+-- Hourly aggregation for recent data analysis
+CREATE MATERIALIZED VIEW flows_hourly
+    WITH (timescaledb.continuous) AS
+SELECT time_bucket('1 hour', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       srcport,
+       dstport,
+       prot,
+       COUNT(*)                     as flow_count,
+       SUM(dpkts)                   as total_packets,
+       SUM(doctets)                 as total_bytes,
+       MIN(first)                   as earliest_flow,
+       MAX(last)                    as latest_flow
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr, srcport, dstport, prot
+WITH NO DATA;
+
+-- Daily aggregation for long-term trends
+CREATE MATERIALIZED VIEW flows_daily
+    WITH (timescaledb.continuous) AS
+SELECT time_bucket('1 day', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       prot,
+       COUNT(*)                    as flow_count,
+       SUM(dpkts)                  as total_packets,
+       SUM(doctets)                as total_bytes
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr, prot
+WITH NO DATA;
+
+-- Top talkers by bytes - useful for traffic analysis
+CREATE MATERIALIZED VIEW flows_top_talkers_hourly
+    WITH (timescaledb.continuous) AS
+SELECT time_bucket('1 hour', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       SUM(doctets)                 as total_bytes_sent,
+       COUNT(*)                     as flow_count
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr
+WITH NO DATA;
+
+-- 5. REFRESH POLICIES for continuous aggregates
+-- Refresh hourly view every 15 minutes for recent data
+SELECT add_continuous_aggregate_policy('flows_hourly',
+                                       start_offset => INTERVAL '3 hours',
+                                       end_offset => INTERVAL '5 minutes',
+                                       schedule_interval => INTERVAL '15 minutes');
+
+-- Refresh daily view once per hour
+SELECT add_continuous_aggregate_policy('flows_daily',
+                                       start_offset => INTERVAL '7 days',
+                                       end_offset => INTERVAL '1 hour',
+                                       schedule_interval => INTERVAL '1 hour');
+
+-- Refresh top talkers every 10 minutes
+SELECT add_continuous_aggregate_policy('flows_top_talkers_hourly',
+                                       start_offset => INTERVAL '2 hours',
+                                       end_offset => INTERVAL '5 minutes',
+                                       schedule_interval => INTERVAL '10 minutes');
+
+-- 6. COMPRESSION POLICY for continuous aggregates
+SELECT add_compression_policy('flows_hourly', INTERVAL '7 days');
+SELECT add_compression_policy('flows_daily', INTERVAL '30 days');
+SELECT add_compression_policy('flows_top_talkers_hourly', INTERVAL '7 days');
+
+-- 7. RETENTION POLICY for continuous aggregates (optional)
+-- Keep hourly data for 30 days
+SELECT add_retention_policy('flows_hourly', INTERVAL '30 days');
+-- Keep daily data for 1 year
+SELECT add_retention_policy('flows_daily', INTERVAL '365 days');
+-- Keep top talkers for 30 days
+SELECT add_retention_policy('flows_top_talkers_hourly', INTERVAL '30 days');
+
+-- ============================================================
+-- OPTIMIZATION FOR flows_agg_5min TABLE
+-- ============================================================
+
+-- Add compression policy for 5-minute aggregates
+--SELECT add_compression_policy('flows_agg_5min', INTERVAL '1 day');
+
+-- Add retention policy (adjust as needed)
+--SELECT add_retention_policy('flows_agg_5min', INTERVAL '30 days');
 
 CREATE TABLE IF NOT EXISTS exporters
 (
@@ -168,6 +281,9 @@ CREATE TABLE IF NOT EXISTS interfaces
     bandwidth   bigint  not null default 0,
     PRIMARY KEY (id, snmp_index, exporter)
 );
+
+ALTER TABLE interfaces
+    ADD CONSTRAINT interfaces_exporter_snmp_index_unique UNIQUE (exporter, snmp_index);
 alter table public.interfaces
     owner to cnetflow;
 
