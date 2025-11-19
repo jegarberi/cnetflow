@@ -1,3 +1,133 @@
+-- ============================================================
+-- TIMESCALEDB OPTIMIZATION POLICIES FOR FLOWS TABLE
+-- ============================================================
+
+-- 1. COMPRESSION POLICY: Automatically compress chunks older than 1 day
+-- This significantly reduces storage while maintaining query performance
+--SELECT add_compression_policy('flows', INTERVAL '10 minute');
+
+-- 2. RETENTION POLICY: Automatically drop chunks older than 90 days
+-- Adjust the retention period based on your requirements
+SELECT add_retention_policy('flows', INTERVAL '30 days');
+
+-- 3. Add useful indexes for common query patterns
+CREATE INDEX idx_flows_first_exporter ON flows (first DESC, exporter);
+CREATE INDEX idx_flows_srcaddr ON flows (srcaddr) WHERE srcaddr IS NOT NULL;
+CREATE INDEX idx_flows_dstaddr ON flows (dstaddr) WHERE dstaddr IS NOT NULL;
+CREATE INDEX idx_flows_prot ON flows (prot) WHERE prot IS NOT NULL;
+CREATE INDEX idx_flows_srcport ON flows (srcport) WHERE srcport IS NOT NULL;
+CREATE INDEX idx_flows_dstport ON flows (dstport) WHERE dstport IS NOT NULL;
+
+-- 4. CONTINUOUS AGGREGATES for faster analytics queries
+-- Hourly aggregation for recent data analysis
+CREATE MATERIALIZED VIEW flows_hourly
+            WITH (
+            timescaledb.continuous = true
+            )
+AS
+SELECT time_bucket('1 hour', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       srcport,
+       dstport,
+       prot,
+       input,
+       output,
+       COUNT(*)                     as flow_count,
+       SUM(dpkts)                   as total_packets,
+       SUM(doctets)                 as total_bytes,
+       MIN(first)                   as earliest_flow,
+       MAX(last)                    as latest_flow
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr, srcport, dstport, prot, input, output
+WITH NO DATA;
+ALTER MATERIALIZED VIEW flows_hourly SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW flows_hourly SET ( timescaledb.enable_columnstore = true,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
+
+-- Daily aggregation for long-term trends
+CREATE MATERIALIZED VIEW flows_daily
+            WITH (
+            timescaledb.continuous = true
+            )
+AS
+SELECT time_bucket('1 day', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       prot,
+       input,
+       output,
+       COUNT(*)                    as flow_count,
+       SUM(dpkts)                  as total_packets,
+       SUM(doctets)                as total_bytes
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr, prot, input, output
+WITH NO DATA;
+ALTER MATERIALIZED VIEW flows_daily SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW flows_daily SET ( timescaledb.enable_columnstore = true,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
+-- Top talkers by bytes - useful for traffic analysis
+CREATE MATERIALIZED VIEW flows_top_talkers_hourly
+            WITH (
+            timescaledb.continuous = true
+            )
+AS
+SELECT time_bucket('1 hour', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       input,
+       output,
+       SUM(doctets)                 as total_bytes_sent,
+       COUNT(*)                     as flow_count
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr, input, output
+WITH NO DATA;
+ALTER MATERIALIZED VIEW flows_top_talkers_hourly SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW flows_top_talkers_hourly SET ( timescaledb.enable_columnstore = true,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
+-- 5. REFRESH POLICIES for continuous aggregates
+-- Refresh hourly view every 15 minutes for recent data
+SELECT add_continuous_aggregate_policy('flows_hourly',
+                                       start_offset => INTERVAL '3 hours',
+                                       end_offset => INTERVAL '5 minutes',
+                                       schedule_interval => INTERVAL '15 minutes');
+SELECT add_compression_policy('flows_hourly', INTERVAL '7 days');
+-- Refresh daily view once per hour
+SELECT add_continuous_aggregate_policy('flows_daily',
+                                       start_offset => INTERVAL '7 days',
+                                       end_offset => INTERVAL '1 hour',
+                                       schedule_interval => INTERVAL '1 hour');
+
+-- Refresh top talkers every 10 minutes
+SELECT add_continuous_aggregate_policy('flows_top_talkers_hourly',
+                                       start_offset => INTERVAL '5 hours',
+                                       end_offset => INTERVAL '5 minutes',
+                                       schedule_interval => INTERVAL '30 minutes');
+
+-- 6. COMPRESSION POLICY for continuous aggregates
+--SELECT add_compression_policy('flows_hourly', INTERVAL '7 days');
+--SELECT add_compression_policy('flows_daily', INTERVAL '30 days');
+--SELECT add_compression_policy('flows_top_talkers_hourly', INTERVAL '7 days');
+
+-- 7. RETENTION POLICY for continuous aggregates (optional)
+-- Keep hourly data for 30 days
+SELECT add_retention_policy('flows_hourly', INTERVAL '30 days');
+-- Keep daily data for 1 year
+SELECT add_retention_policy('flows_daily', INTERVAL '365 days');
+-- Keep top talkers for 30 days
+SELECT add_retention_policy('flows_top_talkers_hourly', INTERVAL '30 days');
+
+-- ============================================================
+-- OPTIMIZATION FOR flows_agg_5min TABLE
+-- ============================================================
+
+-- Add compression policy for 5-minute aggregates
+--SELECT add_compression_policy('flows_agg_5min', INTERVAL '1 day');
+
+-- Add retention policy (adjust as needed)
+--SELECT add_retention_policy('flows_agg_5min', INTERVAL '30 days');
+
+
 create function int2inet(integer) returns inet
     immutable
     strict
@@ -68,103 +198,6 @@ end
 $$;
 
 
-create function get_flows() returns record
-    language plpgsql
-as
-$$
-BEGIN
-    select int2inet(srcaddr)                                                                              as srcaddr,
-           int2port(srcport)                                                                              as srcport,
-           int2inet(dstaddr)                                                                              as dstaddr,
-           int2port(dstport)                                                                              as dstport,
-           ascii(prot),
-           input,
-           output,
-           sum(doctets)                                                                                   as octets,
-           sum(dpkts)                                                                                     as dpkts,
-           (CASE when first < 0 then (cast(first as bigint) + (4294967296::bigint)) / 100 else first end) as first,
-           (CASE when last < 0 then (cast(last as bigint) + (4294967296::bigint)) / 100 else last end)    as last
-    from flows
-    group by srcaddr, srcport, dstaddr, dstport, prot, first, last, input, output
-    order by first desc, dstaddr, dstport, prot;
-END;
-$$;
-
-create function get_flow() returns record
-    language plpgsql
-as
-$$
-DECLARE
-    ret RECORD;
-BEGIN
-    select int2inet(srcaddr)                                                                              as srcaddr,
-           int2port(srcport)                                                                              as srcport,
-           int2inet(dstaddr)                                                                              as dstaddr,
-           int2port(dstport)                                                                              as dstport,
-           ascii(prot)                                                                                    as prot,
-           input,
-           output,
-           sum(doctets)                                                                                   as octets,
-           sum(dpkts)                                                                                     as dpkts,
-           (CASE when first < 0 then (cast(first as bigint) + (4294967296::bigint)) / 100 else first end) as first,
-           (CASE when last < 0 then (cast(last as bigint) + (4294967296::bigint)) / 100 else last end)    as last
-    from flows
-    group by srcaddr, srcport, dstaddr, dstport, prot, first, last, input, output
-    order by first desc, dstaddr, dstport, prot
-    limit 1
-    into ret;
-    RETURN ret;
-END;
-$$;
-
-
-
-CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_5min()
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    iface_record RECORD;
-    exporter_id  BIGINT;
-BEGIN
-    -- For each unique exporter::input
-    FOR iface_record IN
-        SELECT DISTINCT e.id    AS exporter_id,
-                        f.input AS snmp_index
-        FROM flows_agg_5min f
-                 JOIN exporters e ON e.ip_inet = f.exporter
-        WHERE f.input IS NOT NULL
-          AND f.input > 0
-        LOOP
-            -- Insert if it doesn't exist
-            INSERT INTO interfaces (created_at, exporter, snmp_index)
-            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
-            WHERE NOT EXISTS (SELECT 1
-                              FROM interfaces
-                              WHERE exporter = iface_record.exporter_id
-                                AND snmp_index = iface_record.snmp_index);
-        END LOOP;
-
-    -- For each unique exporter::output
-    FOR iface_record IN
-        SELECT DISTINCT e.id     AS exporter_id,
-                        f.output AS snmp_index
-        FROM flows_agg_5min f
-                 JOIN exporters e ON e.ip_inet = f.exporter
-        WHERE f.output IS NOT NULL
-          AND f.output > 0
-        LOOP
-            -- Insert if it doesn't exist
-            INSERT INTO interfaces (created_at, exporter, snmp_index)
-            SELECT now(), iface_record.exporter_id, iface_record.snmp_index
-            WHERE NOT EXISTS (SELECT 1
-                              FROM interfaces
-                              WHERE exporter = iface_record.exporter_id
-                                AND snmp_index = iface_record.snmp_index);
-        END LOOP;
-END;
-$$;
-
 
 CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces()
     LANGUAGE plpgsql
@@ -191,322 +224,6 @@ END;
 $$;
 
 
-
-CREATE OR REPLACE PROCEDURE import_flows_agg_5min()
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    min_first_time  timestamp;
-    v_error_state   TEXT;
-    v_error_msg     TEXT;
-    v_error_detail  TEXT;
-    v_error_hint    TEXT;
-    v_error_context TEXT;
-BEGIN
-    -- Get the oldest timestamp to process (limit scope to avoid full table scan)
-    SELECT MIN(first)
-    INTO min_first_time
-    FROM flows
-    -- WHERE first < NOW() - INTERVAL '5 days'
-    LIMIT 1;
-
-    -- Exit early if nothing to process
-    IF min_first_time IS NULL THEN
-        RETURN;
-    END IF;
-
-    -- Process in small batches: aggregate only the oldest 5-minute bucket
-    WITH to_process AS (SELECT *
-                        FROM flows
-                        WHERE first >= min_first_time
-                          AND first < min_first_time + INTERVAL '30 minutes'
-                          AND (last - first) <= INTERVAL '5 minutes'),
-         aggregated AS (SELECT time_bucket('5 minutes', first) AS bucket_5min,
-                               exporter,
-                               srcaddr,
-                               dstaddr,
-                               srcport,
-                               dstport,
-                               prot,
-                               src_as,
-                               dst_as,
-                               input,
-                               output,
-                               SUM(dpkts)::bigint              AS total_packets,
-                               SUM(doctets)::bigint            AS total_octets,
-                               ip_version,
-                               tos,
-                               ENCODE(
-                                       SHA256(
-                                               (
-                                                   time_bucket('5 minutes', first)::TEXT || '|' ||
-                                                   COALESCE(exporter::TEXT, '~~NULL_EXP~~') || '|' ||
-                                                   COALESCE(srcaddr::TEXT, '~~NULL_SRC_ADDR~~') || '|' ||
-                                                   COALESCE(dstaddr::TEXT, '~~NULL_DST_ADDR~~') || '|' ||
-                                                   COALESCE(srcport::TEXT, '~~NULL_SRCPORT~~') || '|' ||
-                                                   COALESCE(dstport::TEXT, '~~NULL_DSTPORT~~') || '|' ||
-                                                   COALESCE(prot::TEXT, '~~NULL_PROT~~') || '|' ||
-                                                   COALESCE(src_as::TEXT, '~~NULL_SRC_AS~~') || '|' ||
-                                                   COALESCE(dst_as::TEXT, '~~NULL_DST_AS~~') || '|' ||
-                                                   COALESCE(input::TEXT, '~~NULL_INPUT~~') || '|' ||
-                                                   COALESCE(output::TEXT, '~~NULL_OUTPUT~~') || '|' ||
-                                                   COALESCE(ip_version::TEXT, '~~NULL_IPVER~~') || '|' ||
-                                                   COALESCE(tos::TEXT, '~~NULL_TOS~~')
-                                                   )::BYTEA
-                                       ),
-                                       'hex'
-                               )                               AS flow_hash,
-                               array_agg(id)                   AS ids
-                        FROM to_process
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot,
-                                 src_as, dst_as, input, output, ip_version, tos),
-         inserted AS (
-             INSERT INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                                         srcport, dstport, prot, src_as, dst_as, input, output,
-                                         ip_version, total_packets, total_octets, tos, flow_hash)
-                 SELECT bucket_5min,
-                        exporter,
-                        srcaddr,
-                        dstaddr,
-                        srcport,
-                        dstport,
-                        prot,
-                        src_as,
-                        dst_as,
-                        input,
-                        output,
-                        ip_version,
-                        total_packets,
-                        total_octets,
-                        tos,
-                        flow_hash
-                 FROM aggregated
-                 ON CONFLICT (bucket_5min, exporter,flow_hash)
-                     DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
-                         total_octets = flows_agg_5min.total_octets + EXCLUDED.total_octets
-                 RETURNING 1),
-         ids_to_delete AS (SELECT DISTINCT unnest(ids) AS id
-                           FROM aggregated)
-    DELETE
-    FROM flows
-    WHERE id IN (SELECT id FROM ids_to_delete);
-
-EXCEPTION
-    WHEN OTHERS THEN
-        GET STACKED DIAGNOSTICS
-            v_error_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT,
-            v_error_detail = PG_EXCEPTION_DETAIL,
-            v_error_hint = PG_EXCEPTION_HINT,
-            v_error_context = PG_EXCEPTION_CONTEXT;
-
-        RAISE WARNING 'ROLLBACK in import_flows_agg_5min() - SQLSTATE: %, Message: %, Detail: %, Hint: %, Context: %',
-            v_error_state, v_error_msg, v_error_detail, v_error_hint, v_error_context;
-
-        RAISE;
-END;
-$$;
-
-CREATE OR REPLACE PROCEDURE import_flows_agg_5min_segmented()
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    min_first_time  timestamp;
-    v_error_state   TEXT;
-    v_error_msg     TEXT;
-    v_error_detail  TEXT;
-    v_error_hint    TEXT;
-    v_error_context TEXT;
-BEGIN
-    -- Get the oldest timestamp to process (limit scope to avoid full table scan)
-    SELECT MIN(first)
-    INTO min_first_time
-    FROM flows
-    WHERE (last - first) > INTERVAL '5 minutes'
-    LIMIT 1;
-
-    -- Exit early if nothing to process
-    IF min_first_time IS NULL THEN
-        RETURN;
-    END IF;
-
-    -- Process flows that span multiple 5-minute buckets
-    WITH to_process AS (SELECT *
-                        FROM flows
-                        WHERE first >= min_first_time
-                          AND first < min_first_time + INTERVAL '30 minutes'
-                          AND (last - first) > INTERVAL '5 minutes'),
-         -- Generate all 5-minute buckets that each flow spans
-         flow_buckets AS (SELECT f.*,
-                                 time_bucket('5 minutes', bucket_start)                                 AS bucket_5min,
-                                 -- Calculate the overlap between this bucket and the flow
-                                 GREATEST(bucket_start, f.first)                                        AS segment_start,
-                                 LEAST(bucket_end, f.last)                                              AS segment_end,
-                                 -- Calculate the total flow duration in seconds
-                                 EXTRACT(EPOCH FROM (f.last - f.first))                                 AS total_duration_sec,
-                                 -- Calculate this segment's duration in seconds
-                                 EXTRACT(EPOCH FROM
-                                         (LEAST(bucket_end, f.last) - GREATEST(bucket_start, f.first))) AS segment_duration_sec
-                          FROM to_process f
-                                   CROSS JOIN LATERAL (
-                              SELECT generate_series(
-                                             time_bucket('5 minutes', f.first),
-                                             time_bucket('5 minutes', f.last),
-                                             INTERVAL '5 minutes'
-                                     ) AS bucket_start
-                              ) buckets
-                                   CROSS JOIN LATERAL (
-                              SELECT bucket_start + INTERVAL '5 minutes' AS bucket_end
-                              ) bucket_bounds
-                          WHERE GREATEST(bucket_start, f.first) < LEAST(bucket_end, f.last)),
-         -- Distribute octets and packets proportionally across segments
-         segmented AS (SELECT bucket_5min,
-                              exporter,
-                              srcaddr,
-                              dstaddr,
-                              srcport,
-                              dstport,
-                              prot,
-                              src_as,
-                              dst_as,
-                              input,
-                              output,
-                              ip_version,
-                              tos,
-                              -- Proportionally allocate packets (ensure sum equals original)
-                              CASE
-                                  WHEN total_duration_sec > 0 THEN
-                                      ROUND((dpkts * segment_duration_sec / total_duration_sec)::numeric, 0)::bigint
-                                  ELSE dpkts
-                                  END                                                       AS allocated_packets,
-                              -- Proportionally allocate octets (ensure sum equals original)
-                              CASE
-                                  WHEN total_duration_sec > 0 THEN
-                                      ROUND((doctets * segment_duration_sec / total_duration_sec)::numeric, 0)::bigint
-                                  ELSE doctets
-                                  END                                                       AS allocated_octets,
-                              id,
-                              ROW_NUMBER() OVER (PARTITION BY id ORDER BY bucket_5min DESC) as segment_num,
-                              COUNT(*) OVER (PARTITION BY id)                               as total_segments,
-                              dpkts                                                         as original_packets,
-                              doctets                                                       as original_octets
-                       FROM flow_buckets),
-         -- Adjust the first segment to account for rounding errors
-         adjusted_segments AS (SELECT bucket_5min,
-                                      exporter,
-                                      srcaddr,
-                                      dstaddr,
-                                      srcport,
-                                      dstport,
-                                      prot,
-                                      src_as,
-                                      dst_as,
-                                      input,
-                                      output,
-                                      ip_version,
-                                      tos,
-                                      -- Adjust last segment to ensure exact sum
-                                      CASE
-                                          WHEN segment_num = 1 THEN
-                                              original_packets -
-                                              (SUM(allocated_packets) OVER (PARTITION BY id) - allocated_packets)
-                                          ELSE allocated_packets
-                                          END AS final_packets,
-                                      CASE
-                                          WHEN segment_num = 1 THEN
-                                              original_octets -
-                                              (SUM(allocated_octets) OVER (PARTITION BY id) - allocated_octets)
-                                          ELSE allocated_octets
-                                          END AS final_octets,
-                                      id
-                               FROM segmented),
-         aggregated AS (SELECT bucket_5min,
-                               exporter,
-                               srcaddr,
-                               dstaddr,
-                               srcport,
-                               dstport,
-                               prot,
-                               src_as,
-                               dst_as,
-                               input,
-                               output,
-                               ip_version,
-                               tos,
-                               SUM(final_packets)::bigint AS total_packets,
-                               SUM(final_octets)::bigint  AS total_octets,
-                               ENCODE(
-                                       SHA256(
-                                               (
-                                                   bucket_5min::TEXT || '|' ||
-                                                   COALESCE(exporter::TEXT, '~~NULL_EXP~~') || '|' ||
-                                                   COALESCE(srcaddr::TEXT, '~~NULL_SRC_ADDR~~') || '|' ||
-                                                   COALESCE(dstaddr::TEXT, '~~NULL_DST_ADDR~~') || '|' ||
-                                                   COALESCE(srcport::TEXT, '~~NULL_SRCPORT~~') || '|' ||
-                                                   COALESCE(dstport::TEXT, '~~NULL_DSTPORT~~') || '|' ||
-                                                   COALESCE(prot::TEXT, '~~NULL_PROT~~') || '|' ||
-                                                   COALESCE(src_as::TEXT, '~~NULL_SRC_AS~~') || '|' ||
-                                                   COALESCE(dst_as::TEXT, '~~NULL_DST_AS~~') || '|' ||
-                                                   COALESCE(input::TEXT, '~~NULL_INPUT~~') || '|' ||
-                                                   COALESCE(output::TEXT, '~~NULL_OUTPUT~~') || '|' ||
-                                                   COALESCE(ip_version::TEXT, '~~NULL_IPVER~~') || '|' ||
-                                                   COALESCE(tos::TEXT, '~~NULL_TOS~~')
-                                                   )::BYTEA
-                                       ),
-                                       'hex'
-                               )                          AS flow_hash,
-                               array_agg(id)              AS ids
-                        FROM adjusted_segments
-                        GROUP BY bucket_5min, exporter, srcaddr, dstaddr, srcport, dstport, prot,
-                                 src_as, dst_as, input, output, ip_version, tos),
-         inserted AS (
-             INSERT INTO flows_agg_5min (bucket_5min, exporter, srcaddr, dstaddr,
-                                         srcport, dstport, prot, src_as, dst_as, input, output,
-                                         ip_version, total_packets, total_octets, tos, flow_hash)
-                 SELECT bucket_5min,
-                        exporter,
-                        srcaddr,
-                        dstaddr,
-                        srcport,
-                        dstport,
-                        prot,
-                        src_as,
-                        dst_as,
-                        input,
-                        output,
-                        ip_version,
-                        total_packets,
-                        total_octets,
-                        tos,
-                        flow_hash
-                 FROM aggregated
-                 ON CONFLICT (bucket_5min, exporter, flow_hash)
-                     DO UPDATE SET total_packets = flows_agg_5min.total_packets + EXCLUDED.total_packets,
-                         total_octets = flows_agg_5min.total_octets + EXCLUDED.total_octets
-                 RETURNING 1),
-         ids_to_delete AS (SELECT DISTINCT unnest(ids) AS id
-                           FROM aggregated)
-    DELETE
-    FROM flows
-    WHERE id IN (SELECT id FROM ids_to_delete);
-
-EXCEPTION
-    WHEN OTHERS THEN
-        GET STACKED DIAGNOSTICS
-            v_error_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT,
-            v_error_detail = PG_EXCEPTION_DETAIL,
-            v_error_hint = PG_EXCEPTION_HINT,
-            v_error_context = PG_EXCEPTION_CONTEXT;
-
-        RAISE WARNING 'ROLLBACK in import_flows_agg_5min_segmented() - SQLSTATE: %, Message: %, Detail: %, Hint: %, Context: %',
-            v_error_state, v_error_msg, v_error_detail, v_error_hint, v_error_context;
-
-        RAISE;
-END;
-$$;
 
 create procedure import_exporters()
     language plpgsql
