@@ -1,0 +1,746 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_CNETFLOW",
+      "label": "cnetflow",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "12.2.1"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "PostgreSQL",
+      "version": "12.2.1"
+    },
+    {
+      "type": "panel",
+      "id": "piechart",
+      "name": "Pie chart",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_CNETFLOW}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "log": 2,
+              "type": "log"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval'::interval, bucket::TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'GMT-3') AS time ,\n       sum(total_bytes) as input_octets\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND input =  $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY time\nORDER BY time DESC ;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval'::interval, bucket::TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'GMT-3') AS time ,\n       sum(total_bytes) as output_octets\nFROM flows_hourly \nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY time\nORDER BY time DESC ;",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Input",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_CNETFLOW}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "octets",
+                  "192.168.100.78 190.55.24.83",
+                  "fe80::7a9a:18ff:fed9:ff2 fe80::3af8:fdd5:eed2:a40d",
+                  "192.168.100.1 192.168.100.63"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(doctets) as octets,\n       srcaddr,\n       dstaddr\nFROM flows\nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(first + INTERVAL '3 HOUR')\nGROUP BY srcaddr,dstaddr\nORDER by octets DESC\n\nlimit $N;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT sum(doctets) as octets,\n       srcaddr,\n       dstaddr\nFROM flows\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(first + INTERVAL '3 HOUR')\nGROUP BY srcaddr,dstaddr\nORDER by octets DESC\nlimit $N;",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Input",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_CNETFLOW}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*octets.*/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "frameIndex": 1,
+        "showHeader": true
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(total_bytes) as octets_in,\n       dstport as dstport,\n       prot as protocol\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstport,protocol\nORDER BY octets_in DESC \nLIMIT $N;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT sum(total_bytes) as octets_out,\n       dstport as dstport,\n       prot as protocol\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstport,protocol\nORDER BY octets_out DESC \nLIMIT $N;",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Top Port Protocol",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_CNETFLOW}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*octets.*/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "frameIndex": 0,
+        "showHeader": true
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT sum(total_bytes) as octets_in,\n       srcaddr as src_addr\nFROM flows_hourly \nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY srcaddr\norder by octets_in desc\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "\nSELECT sum(total_bytes) as octets_out,\n       srcaddr as src_addr\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY src_addr\norder by octets_out desc",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "\nSELECT sum(total_bytes) as octets_in,\n       dstaddr as dst_addr\nFROM flows_hourly \nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstaddr\norder by octets_in desc",
+          "refId": "C",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "cnetflow",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_CNETFLOW}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "\nSELECT sum(total_bytes) as octets_out,\n       dstaddr as dst_addr\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstaddr\norder by octets_out desc",
+          "refId": "D",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Output - Top SrcAddr",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_CNETFLOW}"
+        },
+        "definition": "select distinct(exporter) from flows where first > now() - interval '7 day' group by exporter ;",
+        "description": "Exporter",
+        "includeAll": false,
+        "label": "Exporter",
+        "name": "Exporter",
+        "options": [],
+        "query": "select distinct(exporter) from flows where first > now() - interval '7 day' group by exporter ;",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_CNETFLOW}"
+        },
+        "definition": "select interface from (select input as interface from flows where first > now() - interval '7 day' AND exporter = '$Exporter' group by input UNION select output as interface from flows where first > now() - interval '7 day'  AND exporter = '$Exporter' group by output) group by interface;",
+        "description": "Interface",
+        "label": "Interface",
+        "name": "Interface",
+        "options": [],
+        "query": "select interface from (select input as interface from flows where first > now() - interval '7 day' AND exporter = '$Exporter' group by input UNION select output as interface from flows where first > now() - interval '7 day'  AND exporter = '$Exporter' group by output) group by interface;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "20",
+          "value": "20"
+        },
+        "description": "TOP N",
+        "label": "N",
+        "name": "N",
+        "options": [
+          {
+            "selected": true,
+            "text": "20",
+            "value": "20"
+          }
+        ],
+        "query": "20",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "cnetflow - time_bucket",
+  "uid": "ad6jqhn",
+  "version": 112,
+  "weekStart": "",
+  "id": null
+}
