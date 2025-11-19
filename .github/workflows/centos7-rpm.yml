@@ -2,11 +2,9 @@ name: Build RPM (CentOS 7)
 
 on:
   push:
-    branches: [ main, master ]
-    paths-ignore:
-      - '**.md'
-  pull_request:
-    branches: [ main, master ]
+    tags:
+      - 'v*'
+      - '*.*.*'
 
 jobs:
   build-rpm-centos7:
