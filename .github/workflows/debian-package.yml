@@ -6,6 +6,9 @@ on:
       - 'v*'
       - '*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
   build-deb:
     name: Build .deb on Ubuntu
@@ -36,7 +39,7 @@ jobs:
           # Also explicitly run cpack for DEB to be safe
           (cd build && cpack -G DEB)
 
-      - name: Upload Debian package
+      - name: Upload Debian package (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: cnetflow-debian-packages
@@ -44,3 +47,13 @@ jobs:
             build/*.deb
             build/*.tar.gz
           if-no-files-found: warn
+
+      - name: Upload Debian package to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/*.deb
+            build/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

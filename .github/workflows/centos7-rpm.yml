@@ -6,6 +6,9 @@ on:
       - 'v*'
       - '*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
   build-rpm-centos7:
     name: Build .rpm using CentOS 7
@@ -26,7 +29,7 @@ jobs:
           docker cp "$id":/build/build/. artifacts/
           docker rm "$id"
 
-      - name: Upload RPM package
+      - name: Upload RPM package (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: cnetflow-centos7-rpm
@@ -34,3 +37,13 @@ jobs:
             artifacts/*.rpm
             artifacts/*.tar.gz
           if-no-files-found: warn
+
+      - name: Upload RPM package to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.rpm
+            artifacts/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
