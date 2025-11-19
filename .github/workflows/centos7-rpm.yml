@@ -1,0 +1,38 @@
+name: Build RPM (CentOS 7)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-rpm-centos7:
+    name: Build .rpm using CentOS 7
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image (CentOS 7 toolchain)
+        run: |
+          docker build -f Dockerfile.rhel7 -t cnetflow-rhel7-builder .
+
+      - name: Extract RPM from container
+        run: |
+          id=$(docker create cnetflow-rhel7-builder)
+          mkdir -p artifacts
+          docker cp "$id":/build/build/. artifacts/
+          docker rm "$id"
+
+      - name: Upload RPM package
+        uses: actions/upload-artifact@v4
+        with:
+          name: cnetflow-centos7-rpm
+          path: |
+            artifacts/*.rpm
+            artifacts/*.tar.gz
+          if-no-files-found: warn

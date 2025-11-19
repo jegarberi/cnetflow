@@ -1,0 +1,48 @@
+name: Build Debian Package
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-deb:
+    name: Build .deb on Ubuntu
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            libpq-dev libuv1-dev
+
+      - name: Configure (Release)
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Package (.deb)
+        run: |
+          cmake --build build --target package
+          # Also explicitly run cpack for DEB to be safe
+          (cd build && cpack -G DEB)
+
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: cnetflow-debian-packages
+          path: |
+            build/*.deb
+            build/*.tar.gz
+          if-no-files-found: warn
