@@ -18,9 +18,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Derive package version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "PKG_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Build Docker image (CentOS 7 toolchain)
         run: |
-          docker build -f Dockerfile.rhel7 -t cnetflow-rhel7-builder .
+          docker build -f Dockerfile.rhel7 --build-arg PKG_VERSION=${PKG_VERSION:-1.0.0} -t cnetflow-rhel7-builder .
 
       - name: Extract RPM from container
         run: |

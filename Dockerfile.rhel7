@@ -25,9 +25,12 @@ WORKDIR /build
 # Copy source code
 COPY . .
 
+# Package version passed from GitHub Actions as --build-arg PKG_VERSION
+ARG PKG_VERSION=1.0.0
+
 # Create build directory and configure with SCL GCC
 # Use devtoolset-7 which provides GCC 7.3.1 with C11 support
-RUN scl enable devtoolset-7 "bash -lc 'set -ex && export CC=/opt/rh/devtoolset-7/root/usr/bin/gcc && export CXX=/opt/rh/devtoolset-7/root/usr/bin/g++ && mkdir -p build && cd build && cmake3 -DCMAKE_BUILD_TYPE=Release -DBUILD_FOR_RHEL7=ON .. && cmake3 --build . && cpack3 -G RPM'"
+RUN scl enable devtoolset-7 "bash -lc 'set -ex && export CC=/opt/rh/devtoolset-7/root/usr/bin/gcc && export CXX=/opt/rh/devtoolset-7/root/usr/bin/g++ && mkdir -p build && cd build && cmake3 -DCMAKE_BUILD_TYPE=Release -DBUILD_FOR_RHEL7=ON -DCPACK_PACKAGE_VERSION=${PKG_VERSION} .. && cmake3 --build . && cpack3 -G RPM'"
 
 # The RPM will be in /build/build/
 # To extract it, run:

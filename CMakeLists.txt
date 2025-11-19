@@ -138,7 +138,10 @@ exit 0
 
 # CPack Configuration
 set(CPACK_PACKAGE_NAME "cnetflow")
-set(CPACK_PACKAGE_VERSION "1.0.0")
+# Allow overriding version from the environment/CLI (e.g., Git tag)
+if (NOT DEFINED CPACK_PACKAGE_VERSION)
+    set(CPACK_PACKAGE_VERSION "1.0.0")
+endif ()
 set(CPACK_PACKAGE_CONTACT "jgarberi@arca.gob.ar")
 set(CPACK_PACKAGE_DESCRIPTION "Cnetflow is a netflow collector and analyzer tool")
 set(CPACK_PACKAGE_VENDOR "No.ORG.SA")
