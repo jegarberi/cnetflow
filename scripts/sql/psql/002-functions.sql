@@ -248,3 +248,59 @@ $$;
 --SELECT cron.schedule('*/1 * * * *', $$call import_flows_agg_5min_segmented()$$);
 --SELECT cron.schedule('*/5 * * * *', $$call extract_and_insert_unique_interfaces_5min()$$);
 
+
+
+-- Extract exporters seen in the last 10 minutes from flows and insert missing ones into exporters table
+CREATE OR REPLACE PROCEDURE import_exporters_last_10min()
+    LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    -- Insert distinct exporters observed in the last 10 minutes
+    INSERT INTO exporters (name, ip_bin, ip_inet)
+    SELECT exporter::text, 0, exporter
+    FROM (
+        SELECT DISTINCT exporter
+        FROM flows
+        WHERE inserted_at > NOW() - INTERVAL '3 hour' - INTERVAL '10 minutes'
+          AND exporter IS NOT NULL
+    ) AS recent
+    WHERE NOT EXISTS (
+        SELECT 1 FROM exporters e WHERE e.ip_inet = recent.exporter
+    );
+END;
+$$;
+
+-- Example pg_cron schedule (every 5 minutes). Uncomment if scheduling is desired.
+SELECT cron.schedule('*/5 * * * *', $$CALL import_exporters_last_10min()$$);
+
+
+
+
+-- Extract interfaces seen in the last 10 minutes from flows and insert missing ones into interfaces table
+CREATE OR REPLACE PROCEDURE extract_and_insert_unique_interfaces_last_10min()
+    LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    -- Insert distinct input interfaces observed in the last 10 minutes
+    INSERT INTO interfaces (created_at, exporter, snmp_index)
+    SELECT DISTINCT now(), e.id, f.input
+    FROM flows f
+    JOIN exporters e ON e.ip_inet = f.exporter
+    WHERE f.input IS NOT NULL
+      AND f.inserted_at > NOW() - INTERVAL '3 hour' - INTERVAL '10 minutes'
+    UNION
+    -- Insert distinct output interfaces observed in the last 10 minutes
+    SELECT DISTINCT now(), e.id, f.output
+    FROM flows f
+    JOIN exporters e ON e.ip_inet = f.exporter
+    WHERE f.output IS NOT NULL
+      AND f.inserted_at > NOW() - INTERVAL '3 hour' - INTERVAL '10 minutes'
+    ON CONFLICT (exporter, snmp_index) DO NOTHING;
+END;
+$$;
+
+-- Example pg_cron schedule (every 5 minutes). Uncomment if scheduling is desired.
+SELECT cron.schedule('*/5 * * * *', $$CALL extract_and_insert_unique_interfaces_last_10min()$$);
+
