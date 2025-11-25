@@ -8,7 +8,7 @@
 
 -- 2. RETENTION POLICY: Automatically drop chunks older than 90 days
 -- Adjust the retention period based on your requirements
-SELECT add_retention_policy('flows', INTERVAL '30 days');
+SELECT add_retention_policy('flows', INTERVAL '7 days');
 
 -- 3. Add useful indexes for common query patterns
 CREATE INDEX idx_flows_first_exporter ON flows (first DESC, exporter);
@@ -20,6 +20,40 @@ CREATE INDEX idx_flows_dstport ON flows (dstport) WHERE dstport IS NOT NULL;
 
 -- 4. CONTINUOUS AGGREGATES for faster analytics queries
 -- Hourly aggregation for recent data analysis
+
+CREATE MATERIALIZED VIEW flows_5minute
+            WITH (
+            timescaledb.continuous = true
+            )
+AS
+SELECT time_bucket('5 minute', first) AS bucket,
+       exporter,
+       srcaddr,
+       dstaddr,
+       srcport,
+       dstport,
+       prot,
+       input,
+       output,
+       COUNT(*)                     as flow_count,
+       SUM(dpkts)                   as total_packets,
+       SUM(doctets)                 as total_bytes,
+       MIN(first)                   as earliest_flow,
+       MAX(last)                    as latest_flow
+FROM flows
+GROUP BY bucket, exporter, srcaddr, dstaddr, srcport, dstport, prot, input, output
+WITH NO DATA;
+ALTER MATERIALIZED VIEW flows_5minute SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW flows_5minute SET ( timescaledb.enable_columnstore = true,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
+
+SELECT add_continuous_aggregate_policy('flows_5minute',
+                                       start_offset => INTERVAL '3 hours',
+                                       end_offset => INTERVAL '5 minutes',
+                                       schedule_interval => INTERVAL '15 minutes');
+SELECT add_compression_policy('flows_5minute', INTERVAL '7 days');
+
+
+
 CREATE MATERIALIZED VIEW flows_hourly
             WITH (
             timescaledb.continuous = true
