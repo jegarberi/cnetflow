@@ -1,4 +1,4 @@
-# CNetflow
+# Monitor de Análisis de Redes y Control Estadístico (MARCE)
 
 A high-performance NetFlow collector and analyzer tool written in C, designed to capture, process, and store network
 flow data for network monitoring and analysis.
