@@ -79,3 +79,20 @@ sudo dpkg -i cnetflow-1.0.0-Linux.deb
 
 # Install RPM package (Red Hat/CentOS/Fedora)
 sudo rpm -i cnetflow-1.0.0-Linux.rpm
+```
+
+
+
+### Lists
+
+- [Abuse.ch URLhaus](https://urlhaus.abuse.ch/downloads/hostfile/)
+- [Emerging Threats](https://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt)
+- [IPsum Threat Intelligence Feed](https://raw.githubusercontent.com/stamparm/ipsum/master/ipsum.txt)
+- [NoCoin Filter List](https://raw.githubusercontent.com/hoshsadiq/adblock-nocoin-list/master/hosts.txt)
+- [Stratosphere Lab](https://mcfp.felk.cvut.cz/publicDatasets/CTU-AIPP-BlackList/Todays-Blacklists/AIP_historical_blacklist_prioritized_by_newest_attackers.csv)
+- [ThreatFox](https://threatfox.abuse.ch/downloads/hostfile/)
+- [dshield 7 days](https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/dshield_7d.netset)
+
+
+https://github.com/firehol/blocklist-ipsets/
+
