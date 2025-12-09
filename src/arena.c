@@ -78,7 +78,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   const size_t padding = (8 - ((size_t) current_addr % 8)) % 8;
 
   // Check if there's enough space in the arena
-  if (arena->offset + padding + bytes + sizeof(overhead) > arena->size) {
+  if (arena->offset + padding + bytes + overhead > arena->size) {
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
