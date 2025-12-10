@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
+
+// Definición de estructuras (Asumo que están en arena.h, pero las incluyo aquí para referencia/compilabilidad)
+// Si esta definición es incorrecta, la lógica de punteros podría fallar.
+/*
+
+*/
+
 #define __RECYCLE_TRESHOLD 0
 //
 // Created by jon on 6/2/25.
@@ -15,11 +22,11 @@
  * and clears the allocated memory to zero.
  *
  * @param arena A pointer to an `arena_struct_t` structure that will hold the arena information.
- *              This structure must be allocated by the caller.
+ * This structure must be allocated by the caller.
  * @param capacity The size (in bytes) of the memory region to be allocated and managed by the arena.
  * @return An `arena_status` indicating the result of the operation:
- *         - `ok` if the arena was successfully created and initialized.
- *         - `error` if memory allocation failed.
+ * - `ok` if the arena was successfully created and initialized.
+ * - `error` if memory allocation failed.
  */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
@@ -51,113 +58,108 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
  * memory region within the arena.
  *
  * @param arena A pointer to an `arena_struct_t` structure representing the memory
- *              arena from which memory should be allocated.
+ * arena from which memory should be allocated.
  * @param bytes The number of bytes to allocate, excluding alignment adjustment. Must be non-zero.
  * @return A pointer to the allocated memory block, or `NULL` if the allocation fails
- *         due to insufficient space or invalid input.
+ * due to insufficient space or invalid input.
  */
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
-  void *address;
+  void *address = NULL; // address ahora representará la dirección de DATOS del usuario
   uv_mutex_lock(&arena->mutex);
   if (bytes == 0) {
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
-  int overhead = sizeof(arena_chunk_t);
-  /*
-  if (bytes < 65536) {
-  bytes = 65536;
-  }
-  */
-  arena_chunk_t *chunk;
-  // bytes = sizeof(arena_chunk_t) + bytes;
 
-  // Calculate padding to ensure 8-byte alignment
+  const int overhead = sizeof(arena_chunk_t); // Usamos const int para el tamaño
+  arena_chunk_t *chunk;
+
+  // 1. Calcular la dirección actual no alineada
   char *current_addr = ((char *) arena->base_address + arena->offset);
+
+  // 2. Calcular padding para alinear el inicio del METADATO (chunk)
+  // El padding debe asegurar que (current_addr + padding) esté alineado a 8 bytes
+  // Nota: Dado que offset puede ser cualquier cosa, esta lógica de padding es crucial.
   const size_t padding = (8 - ((size_t) current_addr % 8)) % 8;
 
-  // Check if there's enough space in the arena
-  if (arena->offset + padding + bytes + overhead > arena->size) {
+  // 3. Revisar si hay suficiente espacio para: padding + metadatos (overhead) + datos (bytes)
+  if (arena->offset + padding + overhead + bytes > arena->size) {
+    fprintf(stderr, "%s %d %s Insufficient space in arena.\n", __FILE__, __LINE__, __func__);
     uv_mutex_unlock(&arena->mutex);
     return NULL;
   }
-  /*
-  address = (void *) ((char *) arena->base_address + arena->offset + padding);
-  arena->offset += padding + bytes;
-  memset(address, 0, padding + bytes);
-  uv_mutex_unlock(&arena->mutex);
-  return address;
-  */
+
+  /* --- Lógica de Reciclaje (Sin cambios significativos, se mantiene la estructura) --- */
   if (arena->free_slots > __RECYCLE_TRESHOLD || arena->recycle == 1) {
     arena->recycle = 1;
     fprintf(stderr, "%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
     chunk = arena->first_chunk;
     do {
-      /*if ((size_t) chunk >= 0x2000000000000000) {
-        fprintf(stderr, "debugger!");
-      }*/
       if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
-        // Use this chunk
-        // we can use this chunk
+        // Usar este chunk
         fprintf(stderr, "%s %d %s using freed chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
         chunk->occupied = 1;
         chunk->free = 0;
+        // Asumimos que no necesitamos cambiar el tamaño de la memoria de datos
+        // Si el usuario pidió menos que chunk->size, es su responsabilidad usar solo 'bytes'.
         arena->free_slots--;
         if (arena->free_slots == 0) {
           arena->recycle = 0;
         }
-        memset(chunk->data_address, 0, bytes);
+        memset(chunk->data_address, 0, bytes); // Limpiar solo 'bytes'
         uv_mutex_unlock(&arena->mutex);
         return chunk->data_address;
       }
-      /*if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
-        fprintf(stderr, "debugger!");
-      }*/
       chunk = chunk->next;
-
     } while (chunk != NULL);
   }
-  fprintf(stderr, "%s %d %s cant use any freed chunk...\n", __FILE__, __LINE__, __func__);
-  // The aligned address for allocation
-  address = (void *) ((char *) arena->base_address + arena->offset + overhead + padding);
 
-  // Update the offset
-  arena->offset += padding + bytes + overhead;
-  memset(address, 0, padding + bytes);
+  /* --- Lógica de Nueva Asignación (Corregida) --- */
+  fprintf(stderr, "%s %d %s cant use any freed chunk, allocating new...\n", __FILE__, __LINE__, __func__);
+
+  // Dirección donde comienza la estructura arena_chunk_t (METADATOS)
+  arena_chunk_t *new_chunk_start = (arena_chunk_t *) (current_addr + padding);
+
+  // Dirección donde comienza el bloque de DATOS del usuario (se devuelve)
+  address = (void *) ((char *) new_chunk_start + overhead);
+
+  // 4. Actualizar el offset sumando el espacio total consumido
+  arena->offset += padding + overhead + bytes;
+
+  // 5. Inicializar el área de datos (solo los bytes solicitados)
+  memset(address, 0, bytes);
+
   arena->allocations++;
   arena->max_allocations++;
+
+  // 6. Configurar la lista ligada usando new_chunk_start (el puntero a la estructura)
   if (arena->first_chunk == NULL) {
-    arena->first_chunk = address;
+    arena->first_chunk = new_chunk_start;
     chunk = arena->first_chunk;
-    /*if ((size_t) chunk >= 0x2bdf5b6800000000) {
-      fprintf(stderr, "debugger!");
-    }*/
-    chunk->data_address = address + overhead;
-    chunk->occupied = 1;
-    chunk->free = 0;
-    chunk->next = NULL;
-    chunk->size = bytes;
-    chunk->end = (size_t *) chunk + chunk->size;
   } else {
     chunk = arena->first_chunk;
-    /*if ((size_t) chunk->next >= 0x2bdf5b6800000000) {
-      fprintf(stderr, "debugger!");
-    }*/
     while (chunk->next != NULL) {
       chunk = chunk->next;
     }
-    chunk->next = address;
-    chunk = chunk->next;
-    chunk->data_address = address + overhead;
-    chunk->occupied = 1;
-    chunk->free = 0;
-    chunk->size = bytes;
-    chunk->end = (size_t *) chunk + chunk->size;
-    chunk->next = NULL;
+    chunk->next = new_chunk_start;
+    chunk = new_chunk_start; // chunk ahora apunta a la nueva estructura de metadatos
   }
+
+  // 7. Inicializar los campos del CHUNK
+  chunk->data_address = address; // Puntero a la dirección de datos del usuario
+  chunk->occupied = 1;
+  chunk->free = 0;
+  chunk->size = bytes;
+
+  // CORRECCIÓN CLAVE: Usar aritmética de punteros byte a byte para el fin (char*)
+  // Esto previene la corrupción por multiplicación de sizeof(arena_chunk_t)
+  chunk->end = (size_t *) ((char *) chunk->data_address + chunk->size);
+
+  chunk->next = NULL;
+
   uv_mutex_unlock(&arena->mutex);
-  return chunk->data_address;
+  return address; // Devolver la dirección de DATOS
 }
 
 /**
@@ -167,9 +169,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
  * region managed by the arena with zeros.
  *
  * @param arena A pointer to an `arena_struct_t` structure representing the arena
- *              whose memory will be cleared.
+ * whose memory will be cleared.
  * @return An integer value indicating the result of the operation:
- *         - Returns 0 upon successful completion.
+ * - Returns 0 upon successful completion.
  */
 int arena_clean(arena_struct_t *arena) {
   fprintf(stderr, "%s %d %s \n", __FILE__, __LINE__, __func__);
@@ -184,9 +186,9 @@ int arena_clean(arena_struct_t *arena) {
  * and resets all its fields to zero.
  *
  * @param arena A pointer to the `arena_struct_t` structure that represents the memory arena.
- *              This structure must have been previously initialized.
+ * This structure must have been previously initialized.
  * @return An integer indicating the success status of the operation:
- *         - 0 if the arena was successfully destroyed.
+ * - 0 if the arena was successfully destroyed.
  */
 int arena_destroy(arena_struct_t *arena) {
   fprintf(stderr, "%s %d %s arena_destroy...\n", __FILE__, __LINE__, __func__);
@@ -200,6 +202,7 @@ int arena_destroy(arena_struct_t *arena) {
   arena->max_allocations = 0;
   arena->free_slots = 0;
   arena->capacity = 0;
+  uv_mutex_destroy(&arena->mutex); // Añadido: Destruir el mutex
   return 0;
 }
 
@@ -210,12 +213,12 @@ int arena_destroy(arena_struct_t *arena) {
  * structure to reflect the new memory allocation.
  *
  * @param arena A pointer to an `arena_struct_t` representing the current memory arena
- *              that needs resizing. This pointer must not be NULL.
+ * that needs resizing. This pointer must not be NULL.
  * @param bytes_to_add An additional number of bytes to allocate for resizing the arena's memory region.
  * @return An integer indicating the result of the operation:
- *         - `0` if the memory region was successfully extended without pointer relocation.
- *         - `1` if the memory region was successfully extended and the arena's pointers were relocated.
- *         - `-1` if the memory reallocation failed.
+ * - `0` if the memory region was successfully extended without pointer relocation.
+ * - `1` if the memory region was successfully extended and the arena's pointers were relocated.
+ * - `-1` if the memory reallocation failed.
  */
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
   fprintf(stderr, "%s %d %s arena_realloc...\n", __FILE__, __LINE__, __func__);
@@ -243,6 +246,8 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
     return 0;
   } else {
     // Memory block was moved. Any existing pointers into the arena are now invalid.
+    // NOTA: Si el bloque se mueve, debes re-calcular todas las direcciones en la lista ligada (chunk->data_address, chunk->next, etc.)
+    // La implementación actual no maneja esta reubicación de punteros internos, lo cual podría ser un bug si se llama a realloc.
     return 1;
   }
 }
@@ -256,8 +261,8 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  * @param arena A pointer to the `arena_struct_t` structure representing the memory arena.
  * @param address The starting address of the memory chunk to be freed.
  * @return An integer status code:
- *         - Returns `0` if the arena has no existing chunks.
- *         - Otherwise, performs the operation to logically "free" the address.
+ * - Returns `0` if the arena has no existing chunks.
+ * - Otherwise, performs the operation to logically "free" the address.
  */
 int arena_free(arena_struct_t *arena, void *address) {
   uv_mutex_lock(&arena->mutex);
@@ -268,12 +273,21 @@ int arena_free(arena_struct_t *arena, void *address) {
   }
 
   arena_chunk_t *chunk = arena->first_chunk;
-  while (chunk->next != NULL) {
+  // Bucle mejorado: iterar hasta encontrar la dirección de datos o hasta el final.
+  while (chunk != NULL) {
     if (chunk->data_address == address) {
       break;
     }
     chunk = chunk->next;
   }
+
+  if (chunk == NULL) {
+    fprintf(stderr, "%s %d %s Address not found in arena.\n", __FILE__, __LINE__, __func__);
+    uv_mutex_unlock(&arena->mutex);
+    return -1; // Dirección no encontrada
+  }
+
+  // Marcar como libre
   chunk->occupied = 0;
   chunk->free = 1;
 

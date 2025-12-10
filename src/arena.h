@@ -12,32 +12,28 @@
 
 typedef enum { ok = 0, error = -1 } arena_status;
 
-
-typedef struct chunk {
-  uint8_t occupied;
-  uint8_t free;
-  uint8_t writing;
-  size_t padding;
+typedef struct arena_chunk_s {
+  void *data_address;
   size_t size;
-  size_t *end;
-  struct chunk *next;
-  size_t *data_address;
+  size_t *end; // Puntero al final de la región de datos
+  int occupied;
+  int free;
+  struct arena_chunk_s *next;
 } arena_chunk_t;
 
-typedef struct arena {
-  size_t offset;
+typedef struct {
+  void *base_address;
   size_t size;
+  size_t offset;
   size_t end;
+  size_t capacity;
+  uv_mutex_t mutex;
   size_t allocations;
   size_t max_allocations;
   size_t free_slots;
-  uint8_t recycle;
-  size_t capacity;
-  uv_mutex_t mutex;
+  int recycle;
   arena_chunk_t *first_chunk;
-  void *base_address;
 } arena_struct_t;
-
 
 typedef struct {
   arena_struct_t *arena;
