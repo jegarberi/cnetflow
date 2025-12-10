@@ -96,6 +96,11 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
     fprintf(stderr, "%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
     chunk = arena->first_chunk;
     do {
+      if (chunk == NULL) {
+        fprintf(stderr, "ERROR: Recycled chunk pointer is NULL unexpectedly!\n");
+        break;
+      }
+      fprintf(stderr, "DEBUG: Checking chunk [%p], next [%p]\n", chunk, chunk->next);
       if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
         // Usar este chunk
         fprintf(stderr, "%s %d %s using freed chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
@@ -107,9 +112,17 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
         if (arena->free_slots == 0) {
           arena->recycle = 0;
         }
+
         memset(chunk->data_address, 0, bytes); // Limpiar solo 'bytes'
         uv_mutex_unlock(&arena->mutex);
         return chunk->data_address;
+      }
+      // Verificar la validez del puntero 'next' antes de usarlo
+      if (chunk->next != NULL && (size_t)chunk->next < (size_t)arena->base_address) {
+        fprintf(stderr, "FATAL ERROR: Corrupt chunk->next pointer: %p\n", chunk->next);
+        // Esto ayuda a atrapar punteros que apuntan fuera del arena
+        uv_mutex_unlock(&arena->mutex);
+        return NULL;
       }
       chunk = chunk->next;
     } while (chunk != NULL);
