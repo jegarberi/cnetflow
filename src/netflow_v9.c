@@ -663,7 +663,7 @@ unlock_mutex_parse_v9:
 
 
 void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6) {
-  fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
+  //fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
   out->header.unix_secs = in->header.unix_secs;
@@ -671,7 +671,7 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.flow_sequence = in->header.flow_sequence;
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
-    fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    //fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
     if (in->records[i].dOctets == 0) {
       fprintf(stderr, "%s %d %s dOctets is 0\n", __FILE__, __LINE__, __func__);
       continue;
@@ -728,5 +728,5 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
       out->records[i].ip_version = 4;
     }
   }
-  fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
+  //fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }

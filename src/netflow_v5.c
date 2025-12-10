@@ -141,7 +141,7 @@ void copy_v5_to_flow(netflow_v5_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.flow_sequence = in->header.flow_sequence;
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
-    fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    //fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
     swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
     swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
     swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));

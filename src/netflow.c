@@ -279,7 +279,7 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
     fprintf(stderr, "%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
             __func__, record->dstport > record->srcport);
     */
-    fprintf(stderr, "%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+    //fprintf(stderr, "%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
 
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
@@ -291,7 +291,7 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
     record->input = record->output;
     record->output = tmp_interface;
   } else {
-    fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
+    //fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
   }
 }
 
@@ -318,7 +318,7 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
     fprintf(stderr, "%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
             __func__, record->dstport > record->srcport);
     */
-    fprintf(stderr, "%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+    //fprintf(stderr, "%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
 
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
@@ -330,7 +330,7 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
     record->input = record->output;
     record->output = tmp_interface;
   } else {
-    fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
+    //fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
   }
 }
 

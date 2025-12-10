@@ -495,7 +495,7 @@ unlock_mutex_parse_ipfix:
 }
 
 void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6) {
-  fprintf(stderr, "%s %d %s: copy_ipfix_to_flow entry\n", __FILE__, __LINE__, __func__);
+  //fprintf(stderr, "%s %d %s: copy_ipfix_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
   out->header.unix_secs = in->header.unix_secs;
@@ -556,5 +556,5 @@ void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *
     }
   }
 
-  fprintf(stderr, "%s %d %s: copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
+  //fprintf(stderr, "%s %d %s: copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
 }
