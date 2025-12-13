@@ -116,7 +116,7 @@ void prepare_statement_insert_flows(PGconn *conn) {
 #define _N_PARAMS 19
   char query[] = "insert into public.flows "
                  "(exporter,srcaddr,srcport,dstaddr,dstport,first,last,dpkts,doctets,input,"
-                 "output,prot,tos,src_as,dst_"
+                 "output,protocol,tos,src_as,dst_"
                  "as,src_mask,dst_mask,tcp_flags,ip_version) values($1, $2, "
                  "$3,$4,$5,TO_TIMESTAMP($6),TO_TIMESTAMP($7),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)";
 
@@ -386,7 +386,7 @@ void fill_param_values(char (*values)[_N_PARAMS][_MAX_LEN], uint128_t exporter,
 #define _DOCTETS 8
 #define _INPUT 9
 #define _OUTPUT 10
-#define _PROT 11
+#define _PROTOCOL 11
 #define _TOS 12
 #define _SRC_AS 13
 #define _DST_AS 14
@@ -417,7 +417,7 @@ void fill_param_values(char (*values)[_N_PARAMS][_MAX_LEN], uint128_t exporter,
   snprintf(temp_values[_INPUT], _MAX_LEN, "%u", flow->input);
   snprintf(temp_values[_OUTPUT], _MAX_LEN, "%u", flow->output);
 
-  snprintf(temp_values[_PROT], _MAX_LEN, "%u", flow->prot);
+  snprintf(temp_values[_PROTOCOL], _MAX_LEN, "%u", flow->prot);
   snprintf(temp_values[_TOS], _MAX_LEN, "%u", flow->tos);
   snprintf(temp_values[_SRC_AS], _MAX_LEN, "%u", flow->src_as);
   snprintf(temp_values[_DST_AS], _MAX_LEN, "%u", flow->dst_as);
@@ -799,10 +799,10 @@ void db_connect(PGconn **conn) {
   return;
 db_connect_exit_nicely:
   if (*conn != NULL) {
-    fprintf(stderr, PQerrorMessage(*conn));
+    fprintf(stderr, "%s %d %s %s",__FILE__, __LINE__, __func__,PQerrorMessage(*conn));
     PQfinish(*conn);
   }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  fprintf(stderr, "%s %d %s exit -1", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 

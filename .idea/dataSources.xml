@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="supabase" uuid="bc7236ac-2eb2-4d7a-a03c-fea255d3a391">
-      <driver-ref>postgresql</driver-ref>
-      <synchronize>true</synchronize>
-      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://192.168.100.78:6543/postgres</jdbc-url>
-      <working-dir>$ProjectFileDir$</working-dir>
-    </data-source>
     <data-source source="LOCAL" name="cnetflow@192.168.100.78" uuid="0dbcb610-572b-4146-a1c2-113527605a7b">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
