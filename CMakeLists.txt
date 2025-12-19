@@ -18,6 +18,11 @@ set(CMAKE_C_STANDARD 99)
 
 # Database backend selection
 option(USE_CLICKHOUSE "Use ClickHouse instead of PostgreSQL" OFF)
+option(ENABLE_LOGGING "Enable logging" ON)
+
+if (ENABLE_LOGGING)
+    add_compile_definitions(ENABLE_LOGGING=1)
+endif()
 
 if (USE_CLICKHOUSE)
     message(STATUS "Building with ClickHouse support")

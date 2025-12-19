@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <uv.h>
+#include "log.h"
 #include "arena.h"
 #include "dyn_array.h"
 #include "netflow.h"
@@ -33,7 +34,6 @@
 
 #define true 1
 #define false 0
-#define STDERR stderr
 #define MALLOC(x, y) arena_alloc(x, y)
 // #define MALLOC(x, y) malloc(y)
 #define POOL_SIZE 10240
@@ -56,10 +56,10 @@ void print_rss_max_usage() {
   struct rusage usage;
   getrusage(RUSAGE_SELF, &usage);
   if ((float) usage.ru_maxrss / (1024 * 1024) > 8.0) {
-    printf("%s %d %s ru_maxrss reached... quitting...", __FILE__, __LINE__, __func__);
+    LOG_INFO("%s %d %s ru_maxrss reached... quitting...", __FILE__, __LINE__, __func__);
     signal_handler(SIGINT);
   }
-  fprintf(STDERR, "%s %d %s ru_maxrss: %f GB\n", __FILE__, __LINE__, __func__,
+  LOG_DEBUG("%s %d %s ru_maxrss: %f GB\n", __FILE__, __LINE__, __func__,
           (float) (usage.ru_maxrss) / (1024 * 1024));
 }
 
@@ -115,14 +115,14 @@ char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen) {
 }
 
 void signal_handler(const int signal) {
-  fprintf(STDERR, "signal handler called with signal %d\n", signal);
+  LOG_ERROR("signal handler called with signal %d\n", signal);
   switch (signal) {
     case SIGUSR1:
     case SIGINT:
     case SIGABRT:
-      fprintf(STDERR, "stopping loop_udp\n");
+      LOG_ERROR("stopping loop_udp\n");
       uv_stop(loop_udp);
-      fprintf(STDERR, "stopping loop_pool\n");
+      LOG_ERROR("stopping loop_pool\n");
       uv_stop(loop_pool);
       break;
     default:
@@ -153,7 +153,7 @@ int8_t collector_default(collector_t *col_conf) {
 }
 
 int8_t collector_setup(collector_t *collector) {
-  fprintf(STDERR, "%s %d %s %p\n", __FILE__, __LINE__, __func__, collector->alloc);
+  LOG_DEBUG("%s %d %s %p\n", __FILE__, __LINE__, __func__, collector->alloc);
   return 0;
 }
 
@@ -177,20 +177,20 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // return;
   static volatile int data_counter = 1;
   //suggested_size = 65536;
-  fprintf(stderr, "%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,
+  LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,
           __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);
   buf->len = suggested_size;
   if (buf->base == NULL) {
-    fprintf(STDERR,
+    LOG_ERROR(
             "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
             arena_udp_handle->offset);
-    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
 
-  fprintf(STDERR,
+  LOG_DEBUG(
           "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
           __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
           arena_udp_handle->offset);
@@ -224,35 +224,35 @@ int8_t collector_start(collector_t *collector) {
 
   arena_status err = arena_create(arena_collector, (size_t) 1 * 1024 * 1024 * 1024);
   if (err != ok) {
-    fprintf(STDERR, "arena_create failed: %d\n", err);
+    LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
   }
 
   err = arena_create(arena_udp_handle, (size_t) 3 * 1024 * 1024 * 1024);
   if (err != ok) {
-    fprintf(STDERR, "arena_create failed: %d\n", err);
+    LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
   }
   err = arena_create(arena_hashmap_nf9, (size_t) 1 * 1024 * 1024 * 1024);
   if (err != ok) {
-    fprintf(STDERR, "arena_create failed: %d\n", err);
+    LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
   }
 
 
   err = arena_create(arena_hashmap_ipfix, (size_t) 1 * 1024 * 1024 * 1024);
   if (err != ok) {
-    fprintf(STDERR, "arena_create failed: %d\n", err);
+    LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
   }
-  fprintf(stderr, "%s %d %s init_v9(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s init_v9(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_v9(arena_hashmap_nf9, 1000000);
-  fprintf(stderr, "%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_ipfix(arena_hashmap_ipfix, 1000000);
   dyn_array_t *dyn_arr;
-  fprintf(stderr, "%s %d %s dyn_array_create(arena_collector, 1024, sizeof(int8_t));\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s dyn_array_create(arena_collector, 1024, sizeof(int8_t));\n", __FILE__, __LINE__, __func__);
   dyn_array_create(arena_collector, 1024, sizeof(int8_t));
-  fprintf(stderr, "%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
   loop_timer_snmp = uv_default_loop();
   loop_udp = uv_default_loop();
@@ -263,30 +263,30 @@ int8_t collector_start(collector_t *collector) {
   // uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_init(loop_timer_rss, &timer_req_rss);
   uv_timer_start(&timer_req_rss, (void *) print_rss_max_usage, 1000, 1000);
-  fprintf(stderr, "%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n",
+  LOG_DEBUG("%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n",
           __FILE__, __LINE__, __func__);
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
   if (udp_server == NULL) {
-    fprintf(stderr, "%s %d %s could not allocate udp_server\n", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s could not allocate udp_server\n", __FILE__, __LINE__, __func__);
   }
   uv_udp_init(loop_udp, udp_server);
 
-  fprintf(stderr,
+  LOG_DEBUG(
           "%s %d %s struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct "
           "sockaddr));\n",
           __FILE__, __LINE__, __func__);
   struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct sockaddr));
   const struct sockaddr *addr_const = addr;
   uv_ip4_addr("0.0.0.0", 2055, (struct sockaddr_in *) addr);
-  fprintf(STDERR, "binding to udp port %d\n", 2055);
+  LOG_INFO("binding to udp port %d\n", 2055);
   const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
   if (bind_ret < 0) {
-    fprintf(stderr, "bind failed: %s\n", uv_strerror(bind_ret));
+    LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
     goto error_destroy_arena;
   }
   const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
   if (listen < 0) {
-    fprintf(STDERR, "listen failed: %s\n", uv_strerror(listen));
+    LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
     goto error_destroy_arena;
   }
 
@@ -297,8 +297,8 @@ ok:
   arena_destroy(arena_hashmap_nf9);
   arena_destroy(arena_udp_handle);
   arena_destroy(arena_collector);
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-  fprintf(STDERR, "exit collector_thread\n");
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_ERROR("exit collector_thread\n");
   return 0;
 
 error_destroy_arena:
@@ -307,17 +307,17 @@ error_destroy_arena:
   arena_destroy(arena_udp_handle);
   arena_destroy(arena_collector);
 error_no_arena:
-  fprintf(stderr, "%s %d %s: exit collector_thread\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s: exit collector_thread\n", __FILE__, __LINE__, __func__);
   return -1;
 }
 
 void *after_work_cb(uv_work_t *req, int status) {
   parse_args_t *func_args = req->data;
-  fprintf(stderr, "%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
+  LOG_ERROR("%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
   arena_free(arena_udp_handle, func_args->data);
-  fprintf(stderr, "%s %d %s: release func_args: %p\n", __FILE__, __LINE__, __func__, func_args);
+  LOG_ERROR("%s %d %s: release func_args: %p\n", __FILE__, __LINE__, __func__, func_args);
   arena_free(arena_collector, func_args);
-  fprintf(stderr, "%s %d %s: release req: %p\n", __FILE__, __LINE__, __func__, req);
+  LOG_ERROR("%s %d %s: release req: %p\n", __FILE__, __LINE__, __func__, req);
   arena_free(arena_collector, req);
   // free(req);
 }
@@ -333,30 +333,26 @@ void *after_work_cb(uv_work_t *req, int status) {
  * @param flags Flags associated with the received packet (e.g., status or additional information).
  */
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
-  fprintf(STDERR, "%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
+  LOG_DEBUG("%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
           (void *) handle, flags, nread);
   if (nread > 65536 || nread == 0) {
-#ifdef CNETFLOW_DEBUG_BUILD
-    fprintf(STDERR, "nread > 65536\n");
-#endif
+    LOG_DEBUG("nread > 65536\n");
     goto udp_handle_free_and_return;
   }
   if (buf->base == NULL) {
-    fprintf(STDERR, "%s %d %s: got buf->base == NULL\n", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s: got buf->base == NULL\n", __FILE__, __LINE__, __func__);
     exit(-1);
   }
 
   if (addr == NULL) {
-#ifdef CNETFLOW_DEBUG_BUILD
-    fprintf(STDERR, "%s %d %s got udp packet! handle: %p ip: NULL flags: %d\n", __FILE__, __LINE__, __func__,
+    LOG_DEBUG("%s %d %s got udp packet! handle: %p ip: NULL flags: %d\n", __FILE__, __LINE__, __func__,
             (void *) handle, flags);
-#endif
     goto udp_handle_free_and_return;
   }
   char address_str[INET6_ADDRSTRLEN + 8]; // Enough space for IPv6 + port
   get_ip_str(addr, address_str, sizeof(address_str));
   // printf("Address: %s\n", address_str);
-  fprintf(STDERR, "%s %d %s got udp packet! handle: %p ip: %s flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
+  LOG_DEBUG("%s %d %s got udp packet! handle: %p ip: %s flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
           (void *) handle, address_str, flags, nread);
 
   NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);
@@ -394,7 +390,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->status = collector_data_status_init;
   func_args->index = data_counter;
   work_req->data = (parse_args_t *) func_args;
-  fprintf(STDERR, "%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__,
+  LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__,
           data_counter, work_req, buf->base);
   switch (nf_version) {
     case NETFLOW_V5:
@@ -410,9 +406,9 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       // work_cb = NULL;
       break;
     default:
-      fprintf(STDERR, "unsupported nf version %d\n", nf_version);
-      fprintf(stderr, "this should not happen at all...\n");
-      fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+      LOG_ERROR("unsupported nf version %d\n", nf_version);
+      LOG_ERROR("this should not happen at all...\n");
+      LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
       assert(false);
   }
   if (work_cb) {

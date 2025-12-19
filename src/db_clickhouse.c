@@ -3,6 +3,7 @@
 //
 
 #include "db_clickhouse.h"
+#include "log.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -25,6 +26,10 @@
 #define THREAD_LOCAL thread_local
 #endif
 
+// Compatibility macros for old logging names
+#define CH_LOG_ERROR LOG_ERROR
+#define CH_LOG_INFO LOG_INFO
+
 // External arena from collector
 extern arena_struct_t *arena_collector;
 
@@ -40,7 +45,7 @@ static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, 
 
     char *ptr = realloc(mem->data, mem->size + realsize + 1);
     if (!ptr) {
-        fprintf(stderr, "Not enough memory for CURL response\n");
+        CH_LOG_ERROR("Not enough memory for CURL response\n");
         return 0;
     }
 
@@ -78,8 +83,8 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database,
                       const char *user, const char *password) {
     ch_conn_t *conn = (ch_conn_t *)calloc(1, sizeof(ch_conn_t));
     if (!conn) {
-        fprintf(stderr, "%s %d %s: Failed to allocate connection structure\n",
-                __FILE__, __LINE__, __func__);
+        CH_LOG_ERROR("%s %d %s: Failed to allocate connection structure\n",
+                     __FILE__, __LINE__, __func__);
         return NULL;
     }
 
@@ -93,8 +98,8 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database,
     // Initialize CURL
     conn->curl = curl_easy_init();
     if (!conn->curl) {
-        fprintf(stderr, "%s %d %s: Failed to initialize CURL\n",
-                __FILE__, __LINE__, __func__);
+        CH_LOG_ERROR("%s %d %s: Failed to initialize CURL\n",
+                     __FILE__, __LINE__, __func__);
         goto error;
     }
 
@@ -123,21 +128,21 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database,
     }
 
     if (res != CURLE_OK) {
-        fprintf(stderr, "%s %d %s: Connection to ClickHouse HTTP interface failed: %s\n",
-                __FILE__, __LINE__, __func__, curl_easy_strerror(res));
+        CH_LOG_ERROR("%s %d %s: Connection to ClickHouse HTTP interface failed: %s\n",
+                     __FILE__, __LINE__, __func__, curl_easy_strerror(res));
         goto error;
     }
 
     long http_code = 0;
     curl_easy_getinfo(conn->curl, CURLINFO_RESPONSE_CODE, &http_code);
     if (http_code != 200) {
-        fprintf(stderr, "%s %d %s: ClickHouse returned HTTP %ld\n",
-                __FILE__, __LINE__, __func__, http_code);
+        CH_LOG_ERROR("%s %d %s: ClickHouse returned HTTP %ld\n",
+                     __FILE__, __LINE__, __func__, http_code);
         goto error;
     }
 
     conn->connected = true;
-    fprintf(stderr, "Connected to ClickHouse HTTP interface at %s:%d\n", host, port);
+    CH_LOG_INFO("Connected to ClickHouse HTTP interface at %s:%d\n", host, port);
     return conn;
 
 error:
@@ -157,9 +162,9 @@ void ch_db_connect(ch_conn_t **conn) {
 
     const char *conn_string = getenv("CH_CONN_STRING");
     if (!conn_string) {
-        fprintf(stderr, "Environment variable CH_CONN_STRING is not set.\n");
-        fprintf(stderr, "Format: host:port:database:user:password\n");
-        fprintf(stderr, "%s %d %s\n", __FILE__, __LINE__, __func__);
+        CH_LOG_ERROR("Environment variable CH_CONN_STRING is not set.\n");
+        CH_LOG_ERROR("Format: host:port:database:user:password\n");
+        CH_LOG_ERROR("%s %d %s\n", __FILE__, __LINE__, __func__);
         exit(EXIT_FAILURE);
     }
 
@@ -172,7 +177,7 @@ void ch_db_connect(ch_conn_t **conn) {
     char *password = strtok(NULL, "?");
 
     if (!host || !port_str) {
-        fprintf(stderr, "Invalid CH_CONN_STRING format\n");
+        CH_LOG_ERROR("Invalid CH_CONN_STRING format\n");
         free(conn_str_copy);
         exit(EXIT_FAILURE);
     }
@@ -182,7 +187,7 @@ void ch_db_connect(ch_conn_t **conn) {
     free(conn_str_copy);
 
     if (!*conn) {
-        fprintf(stderr, "Failed to connect to ClickHouse\n");
+        CH_LOG_ERROR("Failed to connect to ClickHouse\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -224,8 +229,8 @@ int ch_execute(ch_conn_t *conn, const char *query) {
     CURLcode res = curl_easy_perform(conn->curl);
 
     if (res != CURLE_OK) {
-        fprintf(stderr, "%s %d %s: Query failed: %s\n",
-                __FILE__, __LINE__, __func__, curl_easy_strerror(res));
+        CH_LOG_ERROR("%s %d %s: Query failed: %s\n",
+                     __FILE__, __LINE__, __func__, curl_easy_strerror(res));
         if (response.data) free(response.data);
         return -1;
     }
@@ -234,9 +239,9 @@ int ch_execute(ch_conn_t *conn, const char *query) {
     curl_easy_getinfo(conn->curl, CURLINFO_RESPONSE_CODE, &http_code);
 
     if (http_code != 200) {
-        fprintf(stderr, "%s %d %s: Query failed with HTTP %ld: %s\n",
-                __FILE__, __LINE__, __func__, http_code,
-                response.data ? response.data : "no response");
+        CH_LOG_ERROR("%s %d %s: Query failed with HTTP %ld: %s\n",
+                     __FILE__, __LINE__, __func__, http_code,
+                     response.data ? response.data : "no response");
         if (response.data) free(response.data);
         return -1;
     }
@@ -283,8 +288,8 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
     ch_db_connect(&conn);
     if (!conn || !conn->connected) {
-        fprintf(stderr, "%s %d %s: Failed to connect\n",
-                __FILE__, __LINE__, __func__);
+        CH_LOG_ERROR("%s %d %s: Failed to connect\n",
+                     __FILE__, __LINE__, __func__);
         return -1;
     }
 
@@ -296,8 +301,8 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     size_t query_size = 65536; // Start with 64KB
     char *query = malloc(query_size);
     if (!query) {
-        fprintf(stderr, "%s %d %s: Failed to allocate query buffer\n",
-                __FILE__, __LINE__, __func__);
+        CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n",
+                     __FILE__, __LINE__, __func__);
         return -1;
     }
 
@@ -358,8 +363,8 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
             query_size *= 2;
             char *new_query = realloc(query, query_size);
             if (!new_query) {
-                fprintf(stderr, "%s %d %s: Failed to reallocate query buffer\n",
-                        __FILE__, __LINE__, __func__);
+                CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n",
+                             __FILE__, __LINE__, __func__);
                 free(query);
                 return -1;
             }
@@ -382,13 +387,13 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     free(query);
 
     if (result < 0) {
-        fprintf(stderr, "%s %d %s: Failed to insert flows\n",
-                __FILE__, __LINE__, __func__);
+        CH_LOG_ERROR("%s %d %s: Failed to insert flows\n",
+                     __FILE__, __LINE__, __func__);
         return -1;
     }
 
-    fprintf(stderr, "%s %d %s: Successfully inserted %d of %d flows\n",
-            __FILE__, __LINE__, __func__, inserted, flows->header.count);
+    CH_LOG_INFO("%s %d %s: Successfully inserted %d of %d flows\n",
+                __FILE__, __LINE__, __func__, inserted, flows->header.count);
 
     return 0;
 }

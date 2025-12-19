@@ -8,12 +8,13 @@
 #include <stdio.h>
 #include "netflow_v5.h"
 #include "db.h"
+#include "log.h"
 static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
 
 void init_v9(arena_struct_t *arena, const size_t cap) {
-  fprintf(stderr, "%s %d %s: Initializing v9 [templates_nfv9_hashmap]...\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s: Initializing v9 [templates_nfv9_hashmap]...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
 }
 
@@ -31,14 +32,14 @@ void *parse_v9(uv_work_t *req) {
   }
   swap_endianness((void *) &(header->count), sizeof(header->count));
   if (header->count > 30000) {
-    fprintf(stderr, "%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
     goto unlock_mutex_parse_v9;
   }
   size_t flowsets = header->count;
-  fprintf(stderr, "%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
+  LOG_ERROR("%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
   if (header->SysUptime == 1384148828) {
-    fprintf(stderr, "%s %d %s: SysUptime == 1384148828\n", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s: SysUptime == 1384148828\n", __FILE__, __LINE__, __func__);
   }
   swap_endianness((void *) &(header->unix_secs), sizeof(header->unix_secs));
   swap_endianness((void *) &(header->package_sequence), sizeof(header->package_sequence));
@@ -57,7 +58,7 @@ void *parse_v9(uv_work_t *req) {
   size_t total_flowsets = 0;
   uint16_t len = 0;
   size_t total_packet_length = args->len;
-  fprintf(stderr, "%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
+  LOG_ERROR("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
 
   for (flowset_counter = 0; flowset_counter < flowsets; ++flowset_counter) {
     if (flowset_counter == 0) {
@@ -75,11 +76,11 @@ void *parse_v9(uv_work_t *req) {
       swap_endianness(&len, sizeof(len));
       flowset_end = flowset_base + len;
       if (flowset_end > total_packet_length) {
-        fprintf(stderr, "%s %d %s: read all packet\n", __FILE__, __LINE__, __func__);
+        LOG_ERROR("%s %d %s: read all packet\n", __FILE__, __LINE__, __func__);
         break;
       }
       if (flowset_base == flowset_end) {
-        fprintf(stderr, "%s %d %s: flowset_base == flowset_end\n", __FILE__, __LINE__, __func__);
+        LOG_ERROR("%s %d %s: flowset_base == flowset_end\n", __FILE__, __LINE__, __func__);
         break;
       }
       // swap_endianness(&flowset_base,sizeof(flowset_base));
@@ -91,12 +92,12 @@ void *parse_v9(uv_work_t *req) {
     uint16_t flowset_id = flowset->template.flowset_id;
     uint16_t flowset_length = flowset->template.length;
     // uint16_t *template = NULL;
-    fprintf(stderr, "%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
-    fprintf(stderr, "%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
+    LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
+    LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
 
     if (0 == flowset_id) {
       // this is a template flowset
-      fprintf(stderr, "%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
       size_t has_more_templates = 1;
       size_t pos = 0;
       // end = flowset_base + length;
@@ -115,8 +116,8 @@ void *parse_v9(uv_work_t *req) {
         if (template_id == 0) {
           goto unlock_mutex_parse_v9;
         }
-        fprintf(stderr, "%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
-        fprintf(stderr, "%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
+        LOG_ERROR("%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
+        LOG_ERROR("%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
         // size_t start_fields = template->templates[0].fields;
         //  size_t end_fields = start_fields + field_count * 4;
         for (size_t field = 0; field < field_count; field++) {
@@ -128,41 +129,39 @@ void *parse_v9(uv_work_t *req) {
             goto unlock_mutex_parse_v9;
           }
           if (t < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
-#ifdef CNETFLOW_DEBUG_BUILD
-            fprintf(stderr, "%s %d %s field: %d type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field, t, l,
+            LOG_ERROR("%s %d %s field: %d type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field, t, l,
                     ipfix_field_types[t].name);
-#endif
           } else {
-            fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+            LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
             assert(-1);
           }
         }
         pos += (field_count * 4) + 4;
         char key[255];
         snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
-        fprintf(stderr, "%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, key);
+        LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, key);
         uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
         uint16_t *temp;
         size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
         if (template_hashmap == NULL) {
-          fprintf(stderr, "%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
+          LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
-          fprintf(stderr, "%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
+          LOG_ERROR("%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
                   template_init, template_end);
           temp = arena_alloc(arena_hashmap_nf9, sizeof(uint16_t) * (field_count + 1) * 4);
           memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count + 1) * 4);
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
-            fprintf(stderr, "%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
+            LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
-            fprintf(stderr, "%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
+            LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
         } else {
           memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2),
                  sizeof(uint16_t) * (field_count + 1) * 2);
         }
-        fprintf(stderr, "%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
+        LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
         if (pos >= flowset_length - 4) {
@@ -171,7 +170,7 @@ void *parse_v9(uv_work_t *req) {
       }
     } else if (flowset_id >= 256) {
       // this a record flowset
-      fprintf(stderr, "%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
 
       size_t has_more_records = 1;
       size_t pos = 0;
@@ -179,10 +178,10 @@ void *parse_v9(uv_work_t *req) {
       uint16_t template_id = flowset_id;
       char key[255];
       snprintf(key, 255, "%s-%u\0", ip_int_to_str(args->exporter), template_id);
-      fprintf(stderr, "%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
+      LOG_ERROR("%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
       uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
       if (template_hashmap == NULL) {
-        fprintf(stderr, "%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
+        LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                 ip_int_to_str(args->exporter));
         pos = flowset_length;
         has_more_records = 0;

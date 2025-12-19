@@ -3,6 +3,7 @@
 //
 
 #include "db_psql.h"
+#include "log.h"
 #include <stdlib.h>
 #include <string.h>
 #if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
@@ -21,7 +22,7 @@
 char *read_snmp_config(PGconn *conn, arena_struct_t *arena) {
   char *config;
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
-    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    LOG_ERROR("Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
     goto read_snmp_config_exit_nicely;
   }
   config = (char *) arena_alloc(arena, BUFFLEN + 1);
@@ -30,10 +31,10 @@ char *read_snmp_config(PGconn *conn, arena_struct_t *arena) {
   return config;
 read_snmp_config_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 
@@ -47,7 +48,7 @@ read_snmp_config_exit_nicely:
 /*
  void prepare_statement_v5(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
-    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    LOG_ERROR("Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
     goto prepare_statement_v5_exit_nicely;
   }
 
@@ -84,7 +85,7 @@ read_snmp_config_exit_nicely:
   res = PQprepare(conn, stmtName, query, nParams, paramTypes);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
-    fprintf(stderr, "%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows_v5\" already exists\n";
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
@@ -96,17 +97,17 @@ read_snmp_config_exit_nicely:
   return;
 prepare_statement_v5_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 */
 
 void prepare_statement_insert_flows(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
-    fprintf(stderr, "%s %d %s: Connection to database failed: %s\n", __FILE__, __LINE__, __func__,
+    LOG_ERROR("%s %d %s: Connection to database failed: %s\n", __FILE__, __LINE__, __func__,
             conn ? PQerrorMessage(conn) : "NULL connection");
     goto prepare_statement_insert_flows_exit_nicely;
   }
@@ -146,7 +147,7 @@ void prepare_statement_insert_flows(PGconn *conn) {
   res = PQprepare(conn, stmtName, query, _N_PARAMS, NULL);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
-    fprintf(stderr, "%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows\" already exists\n";
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
@@ -158,10 +159,10 @@ void prepare_statement_insert_flows(PGconn *conn) {
   return;
 prepare_statement_insert_flows_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   // exit(-1);
 #undef _N_PARAMS
 }
@@ -169,7 +170,7 @@ prepare_statement_insert_flows_exit_nicely:
 
 void prepare_statement_v9(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
-    fprintf(stderr, "Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
+    LOG_ERROR("Connection to database failed: %s\n", conn ? PQerrorMessage(conn) : "NULL connection");
     goto prepare_statement_v9_exit_nicely;
   }
 
@@ -207,7 +208,7 @@ void prepare_statement_v9(PGconn *conn) {
   res = PQprepare(conn, stmtName, query, nParams, paramTypes);
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
 
-    fprintf(stderr, "%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQprepare failed: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     char *prepare_failed_stmtName = "ERROR:  prepared statement \"insert_flows_v9\" already exists\n";
     char *err_msg = PQerrorMessage(conn);
     if (strcmp(prepare_failed_stmtName, err_msg) != 0) {
@@ -219,10 +220,10 @@ void prepare_statement_v9(PGconn *conn) {
   return;
 prepare_statement_v9_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   // exit(-1);
 }
 */
@@ -247,7 +248,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
 
   res = PQexec(conn, "BEGIN");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
+    LOG_ERROR("BEGIN command failed: %s", PQerrorMessage(conn));
     PQclear(res);
     goto insert_v5_exit_nicely;
   }
@@ -322,7 +323,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
 /*
 res = PQexec(conn, "END");
 if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-  fprintf(stderr, "%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+  LOG_ERROR("%s[%d]: PQexec failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
   PQclear(res);
   goto insert_v5_exit_nicely;
 }
@@ -473,7 +474,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   res = PQexec(conn, "BEGIN");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "%s[%d] %s: BEGIN failed: %s\n", __FILE__, __LINE__, __func__, PQresultErrorMessage(res));
+    LOG_ERROR("%s[%d] %s: BEGIN failed: %s\n", __FILE__, __LINE__, __func__, PQresultErrorMessage(res));
     PQclear(res);
     goto insert_flows_exit_nicely;
   }
@@ -550,7 +551,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   res = PQexec(conn, "END");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "%s[%d]: END failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
+    LOG_ERROR("%s[%d] %s: END failed: %s\n", __FILE__, __LINE__, __func__, PQresultErrorMessage(res));
     PQclear(res);
     goto insert_flows_exit_nicely;
   }
@@ -561,10 +562,10 @@ insert_flows_return:
   return;
 insert_flows_exit_nicely:
   if (conn != NULL) {
-    fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+    LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
     PQfinish(conn);
   }
-  fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   exit(-1);
 #undef _N_PARAMS
 #undef _MAX_LEN
@@ -705,8 +706,8 @@ void db_connect(PGconn **conn) {
       "postgresql://postgres.your-tenant-id:your-super-secret-and-long-postgres-password@192.168.100.78:5432/postgres";*/
   const char *static_conn_string = getenv("PG_CONN_STRING");
   if (static_conn_string == NULL) {
-    fprintf(stderr, "Environment variable PG_CONN_STRING is not set.\n");
-    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+    LOG_ERROR("Environment variable PG_CONN_STRING is not set.\n");
+    LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
     exit(EXIT_FAILURE);
   }
 
@@ -716,7 +717,7 @@ void db_connect(PGconn **conn) {
   *conn = conn_ptr;
   /* Check to see that the backend connection was successfully made */
   if (PQstatus(*conn) != CONNECTION_OK) {
-    fprintf(stderr, "%s", PQerrorMessage(*conn));
+    LOG_ERROR("%s", PQerrorMessage(*conn));
     goto db_connect_exit_nicely;
   }
   /* Set always-secure search path, so malicious users can't take control. */
@@ -725,22 +726,22 @@ void db_connect(PGconn **conn) {
 
   res = PQexec(*conn, "SELECT pg_catalog.set_config('search_path', '', false)");
   if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-    fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) failed: %s\n", PQerrorMessage(*conn));
+    LOG_ERROR("SELECT pg_catalog.set_config('search_path', '', false) failed: %s\n", PQerrorMessage(*conn));
     PQclear(res);
     goto db_connect_exit_nicely;
   }
   PQclear(res);
-  fprintf(stderr, "SELECT pg_catalog.set_config('search_path', '', false) succesfull: %s\n", PQerrorMessage(*conn));
+  LOG_DEBUG("SELECT pg_catalog.set_config('search_path', '', false) succesfull: %s\n", PQerrorMessage(*conn));
 
   /*
   res = PQexec(*conn, "DEALLOCATE ALL");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "DEALLOCATE ALL UNsuccessfull: %s\n", PQerrorMessage(*conn));
+    LOG_ERROR("DEALLOCATE ALL UNsuccessfull: %s\n", PQerrorMessage(*conn));
     PQclear(res);
     exit_nicely(*conn);
   }
   PQclear(res);
-  fprintf(stderr, "DEALLOCATE ALL successfull\n");
+  LOG_DEBUG("DEALLOCATE ALL successfull\n");
   */
 
   // return conn;
@@ -799,10 +800,10 @@ void db_connect(PGconn **conn) {
   return;
 db_connect_exit_nicely:
   if (*conn != NULL) {
-    fprintf(stderr, "%s %d %s %s",__FILE__, __LINE__, __func__,PQerrorMessage(*conn));
+    LOG_ERROR("%s %d %s %s",__FILE__, __LINE__, __func__,PQerrorMessage(*conn));
     PQfinish(*conn);
   }
-  fprintf(stderr, "%s %d %s exit -1", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s exit -1", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 

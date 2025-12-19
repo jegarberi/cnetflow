@@ -6,6 +6,7 @@
 #include "netflow_ipfix.h"
 #include <assert.h>
 #include <stdio.h>
+#include "log.h"
 #include "netflow_v5.h"
 #include "db.h"
 static hashmap_t *templates_ipfix_hashmap;
@@ -13,7 +14,7 @@ extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;
 
 void init_ipfix(arena_struct_t *arena, const size_t cap) {
-  fprintf(stderr, "%s %d %s: Initializing ipfix [templates_ipfix_hashmap]...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s: Initializing ipfix [templates_ipfix_hashmap]...\n", __FILE__, __LINE__, __func__);
   templates_ipfix_hashmap = hashmap_create(arena, cap);
 }
 
@@ -25,7 +26,7 @@ void *parse_ipfix(uv_work_t *req) {
 
   swap_endianness((void *) &(header->version), sizeof(header->version));
   if (header->version != 10) {
-    fprintf(stderr, "%s %d %s: Invalid IPFIX version: %d\n", __FILE__, __LINE__, __func__, header->version);
+    LOG_ERROR("%s %d %s: Invalid IPFIX version: %d\n", __FILE__, __LINE__, __func__, header->version);
     goto unlock_mutex_parse_ipfix;
   }
 
@@ -35,7 +36,7 @@ void *parse_ipfix(uv_work_t *req) {
   swap_endianness((void *) &(header->ObsDomainId), sizeof(header->ObsDomainId));
   uint32_t now = (uint32_t) time(NULL);
   uint32_t diff = now - (uint32_t) (header->ExportTime);
-  fprintf(stderr, "%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u Now: %u Diff: %u\n",
+  LOG_DEBUG("%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u Now: %u Diff: %u\n",
           __FILE__, __LINE__, __func__, header->length, header->ExportTime, header->SequenceNumber, header->ObsDomainId,
           now, diff);
 
@@ -49,7 +50,7 @@ void *parse_ipfix(uv_work_t *req) {
   uint16_t len = 0;
   size_t total_packet_length = args->len;
 
-  fprintf(stderr, "%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
+  LOG_DEBUG("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
 
   // Process all sets in the IPFIX message
   flowset_base = sizeof(netflow_ipfix_header_t);
@@ -60,7 +61,7 @@ void *parse_ipfix(uv_work_t *req) {
     swap_endianness(&len, sizeof(len));
 
     if (len < 4 || flowset_base + len > total_packet_length) {
-      fprintf(stderr, "%s %d %s: Invalid set length: %d at offset %lu\n", __FILE__, __LINE__, __func__, len,
+      LOG_ERROR("%s %d %s: Invalid set length: %d at offset %lu\n", __FILE__, __LINE__, __func__, len,
               flowset_base);
       break;
     }
@@ -72,11 +73,11 @@ void *parse_ipfix(uv_work_t *req) {
     uint16_t flowset_id = flowset->template.flowset_id;
     uint16_t flowset_length = flowset->template.length;
 
-    fprintf(stderr, "%s %d %s: flowset_id: %d length: %d\n", __FILE__, __LINE__, __func__, flowset_id, flowset_length);
+    LOG_DEBUG("%s %d %s: flowset_id: %d length: %d\n", __FILE__, __LINE__, __func__, flowset_id, flowset_length);
 
     if (flowset_id == IPFIX_TEMPLATE_SET) {
       // Template Set (ID = 2)
-      fprintf(stderr, "%s %d %s: Processing IPFIX template set\n", __FILE__, __LINE__, __func__);
+      LOG_DEBUG("%s %d %s: Processing IPFIX template set\n", __FILE__, __LINE__, __func__);
       size_t pos = 0; // Skip set header (flowset_id + length)
 
       while (pos + 4 <= flowset_length) {
