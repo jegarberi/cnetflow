@@ -23,7 +23,7 @@
       <jdbc-url>jdbc:postgresql://127.0.0.1:5432/cnetflow</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="netflow@localhost" uuid="965762e0-a94e-431d-8364-8f8ffe2cb9d2">
+    <data-source source="LOCAL" name="clickhouse" uuid="8fd7dbc7-e38b-4620-b7b0-13a759b57c8b">
       <driver-ref>clickhouse</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.clickhouse.jdbc.ClickHouseDriver</jdbc-driver>

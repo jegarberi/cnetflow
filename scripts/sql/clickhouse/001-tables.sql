@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS flows
     inserted_at DateTime DEFAULT now(),
 
     -- Flow identifiers
-    exporter    UInt32,
+    exporter    String,
     srcaddr     String,
     dstaddr     String,
     srcport     UInt16,
