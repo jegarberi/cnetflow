@@ -320,11 +320,14 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
             snprintf(exporter_str, sizeof(exporter_str), "unknown");
         }
 
-        char *srcaddr = ch_ip_uint128_to_string(flows->records[i].srcaddr,
+        char srcaddr[250];
+        char dstaddr[250];
+        char *nfaddr = ch_ip_uint128_to_string(flows->records[i].srcaddr,
                                                 flows->records[i].ip_version);
-        char *dstaddr = ch_ip_uint128_to_string(flows->records[i].dstaddr,
+        memccpy(srcaddr, nfaddr, '\0', 250);
+        nfaddr = ch_ip_uint128_to_string(flows->records[i].dstaddr,
                                                 flows->records[i].ip_version);
-
+        memccpy(dstaddr, nfaddr, '\0', 250);
         char value_str[1024];
         int written = snprintf(value_str, sizeof(value_str),
             "%s('%s','%s','%s',%u,%u,%u,%u,%u,%lu,%lu,toDateTime(%u),toDateTime(%u),%u,%u,%u,%u,%u,%u,%u)",

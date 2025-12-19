@@ -19,10 +19,9 @@
 
 CREATE TABLE IF NOT EXISTS flows
 (
-    -- Metadata
+
     inserted_at DateTime DEFAULT now(),
 
-    -- Flow identifiers
     exporter    String,
     srcaddr     String,
     dstaddr     String,
@@ -30,7 +29,7 @@ CREATE TABLE IF NOT EXISTS flows
     dstport     UInt16,
     protocol    UInt8,
 
-    -- Interface information
+
     input       UInt16,
     output      UInt16,
 
