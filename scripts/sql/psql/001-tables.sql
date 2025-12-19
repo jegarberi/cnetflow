@@ -18869,7 +18869,7 @@ VALUES ('35.71.108.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
 
 -- 2. RETENTION POLICY: Automatically drop chunks older than 90 days
 -- Adjust the retention period based on your requirements
-SELECT add_retention_policy('flows', INTERVAL '7 days');
+SELECT add_retention_policy('flows', INTERVAL '1 hour');
 
 -- 3. Add useful indexes for common query patterns
 CREATE INDEX idx_flows_first_exporter ON flows (first DESC, exporter);
@@ -18879,11 +18879,10 @@ CREATE INDEX idx_flows_protocol ON flows (protocol) WHERE protocol IS NOT NULL;
 CREATE INDEX idx_flows_srcport ON flows (srcport) WHERE srcport IS NOT NULL;
 CREATE INDEX idx_flows_dstport ON flows (dstport) WHERE dstport IS NOT NULL;
 
--- 4. CONTINUOUS AGGREGATES for faster analytics queries
--- Hourly aggregation for recent data analysis
+-- 4. MATERIALIZED VIEWS for faster analytics queries
+-- 5-minute aggregation for recent data analysis
 
 CREATE MATERIALIZED VIEW flows_5minute
-            WITH (timescaledb.continuous)
 AS
 SELECT time_bucket('5 minute', first) AS bucket,
        exporter,
@@ -18904,20 +18903,10 @@ GROUP BY bucket, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, 
 WITH NO DATA;
 
 
---create extension if not exists timescaledb;
-
-ALTER MATERIALIZED VIEW flows_5minute SET ( timescaledb.enable_columnstore = true,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
-
-SELECT add_continuous_aggregate_policy('flows_5minute',
-                                       start_offset => INTERVAL '1 hours',
-                                       end_offset => INTERVAL '5 minutes',
-                                       schedule_interval => INTERVAL '10 minutes');
-SELECT add_compression_policy('flows_5minute', INTERVAL '7 days');
 
 
 
 CREATE MATERIALIZED VIEW flows_hourly
-            WITH (timescaledb.continuous)
 AS
 SELECT time_bucket('1 hour', first) AS bucket,
        exporter,
@@ -18938,12 +18927,8 @@ GROUP BY bucket, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, 
 WITH NO DATA;
 
 
-ALTER MATERIALIZED VIEW flows_hourly SET (timescaledb.materialized_only);
-ALTER MATERIALIZED VIEW flows_hourly SET ( timescaledb.enable_columnstore,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
-
 -- Daily aggregation for long-term trends
 CREATE MATERIALIZED VIEW flows_daily
-            WITH (timescaledb.continuous)
 AS
 SELECT time_bucket('1 day', first) AS bucket,
        exporter,
@@ -18958,8 +18943,6 @@ SELECT time_bucket('1 day', first) AS bucket,
 FROM flows
 GROUP BY bucket, exporter, srcaddr, dstaddr, protocol, input, output
 WITH NO DATA;
-ALTER MATERIALIZED VIEW flows_daily SET (timescaledb.materialized_only = false);
-ALTER MATERIALIZED VIEW flows_daily SET ( timescaledb.enable_columnstore = true,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
 -- Top talkers by bytes - useful for traffic analysis
 CREATE MATERIALIZED VIEW flows_top_talkers_hourly
 
@@ -18975,42 +18958,29 @@ SELECT time_bucket('1 hour', first) AS bucket,
 FROM flows
 GROUP BY bucket, exporter, srcaddr, dstaddr, input, output
 WITH NO DATA;
-ALTER MATERIALIZED VIEW flows_top_talkers_hourly SET (timescaledb.materialized_only);
-ALTER MATERIALIZED VIEW flows_top_talkers_hourly SET ( timescaledb.enable_columnstore,timescaledb.compress_orderby = 'bucket DESC, flow_count DESC');
--- 5. REFRESH POLICIES for continuous aggregates
--- Refresh hourly view every 15 minutes for recent data
-SELECT add_continuous_aggregate_policy('flows_hourly',
-                                       start_offset => INTERVAL '3 hours',
-                                       end_offset => INTERVAL '5 minutes',
-                                       schedule_interval => INTERVAL '15 minutes');
-SELECT add_compression_policy('flows_hourly', INTERVAL '7 days');
--- Refresh daily view once per hour
-SELECT add_continuous_aggregate_policy('flows_daily',
-                                       start_offset => INTERVAL '48 hour',
-                                       end_offset => INTERVAL '1 hour',
-                                       schedule_interval => INTERVAL '1 hour');
 
--- Refresh top talkers every 10 minutes
-SELECT add_continuous_aggregate_policy('flows_top_talkers_hourly',
-                                       start_offset => INTERVAL '5 hours',
-                                       end_offset => INTERVAL '5 minutes',
-                                       schedule_interval => INTERVAL '30 minutes');
 
--- 6. COMPRESSION POLICY for continuous aggregates
---SELECT add_compression_policy('flows_hourly', INTERVAL '7 days');
---SELECT add_compression_policy('flows_daily', INTERVAL '30 days');
---SELECT add_compression_policy('flows_top_talkers_hourly', INTERVAL '7 days');
-
--- 7. RETENTION POLICY for continuous aggregates (optional)
--- Keep hourly data for 30 days
+-- 7. RETENTION POLICY (optional)
 SELECT add_retention_policy('flows', INTERVAL '1 days');
-SELECT add_retention_policy('flows_5minute', INTERVAL '7 days');
 
-SELECT add_retention_policy('flows_hourly', INTERVAL '30 days');
--- Keep daily data for 1 year
-SELECT add_retention_policy('flows_daily', INTERVAL '365 days');
--- Keep top talkers for 30 days
-SELECT add_retention_policy('flows_top_talkers_hourly', INTERVAL '30 days');
+-- ============================================================
+-- PG_CRON JOBS for refreshing materialized views
+-- ============================================================
+
+-- Enable pg_cron extension
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Refresh flows_5minute every 5 minutes
+SELECT cron.schedule('refresh-flows-5minute', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_5minute');
+
+-- Refresh flows_hourly every 5 minutes
+SELECT cron.schedule('refresh-flows-hourly', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_hourly');
+
+-- Refresh flows_daily every 5 minutes
+SELECT cron.schedule('refresh-flows-daily', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_daily');
+
+-- Refresh flows_top_talkers_hourly every 5 minutes
+SELECT cron.schedule('refresh-flows-top-talkers-hourly', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_top_talkers_hourly');
 
 -- ============================================================
 -- OPTIMIZATION FOR flows_agg_5min TABLE
@@ -19198,7 +19168,16 @@ $$;
 
 -- Example pg_cron schedule (every 5 minutes). Uncomment if scheduling is desired.
 SELECT cron.schedule('*/5 * * * *', $$CALL extract_and_insert_unique_interfaces_last_10min()$$);
+SELECT cron.schedule('*/5 * * * *', $$REFRESH MATERIALIZED VIEW flows_5minute$$);
+SELECT cron.schedule('*/5 * * * *', $$REFRESH MATERIALIZED VIEW flows_hourly$$);
+SELECT cron.schedule('*/5 * * * *', $$REFRESH MATERIALIZED VIEW flows_daily$$);
+SELECT cron.schedule('*/5 * * * *', $$REFRESH MATERIALIZED VIEW flows_top_talkers_hourly$$);
 
+
+REFRESH MATERIALIZED VIEW flows_5minute;
+REFRESH MATERIALIZED VIEW flows_hourly;
+$REFRESH MATERIALIZED VIEW flows_daily;
+$REFRESH MATERIALIZED VIEW flows_top_talkers_hourly;
 
 create role web_anon nologin;
 grant usage on schema public to web_anon;
@@ -19210,3 +19189,6 @@ grant select on public.interface_metrics to web_anon;
 grant select on public.services to web_anon;
 grant select on public.interfaces to web_anon;
 ALTER DATABASE postgres SET timezone TO 'America/Argentina/Buenos_Aires';
+
+
+select * from flows_5minute;
