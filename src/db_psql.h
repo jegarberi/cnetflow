@@ -2,8 +2,8 @@
 // Created by jon on 6/6/25.
 //
 
-#ifndef DB_H
-#define DB_H
+#ifndef DB_PSQL_H
+#define DB_PSQL_H
 #ifdef __has_include
 #  if __has_include(<postgresql/libpq-fe.h>)
 #    include <postgresql/libpq-fe.h>
@@ -51,4 +51,4 @@ void prepare_statement_insert_flows(PGconn *conn);
 void insert_flows(uint32_t, netflow_v9_uint128_flowset_t *);
 char *ip_uint128_to_string(uint128_t value, uint8_t ip_version);
 void swap_src_dst(netflow_v9_uint128_flowset_t *);
-#endif // DB_H
+#endif // DB_PSQL_H

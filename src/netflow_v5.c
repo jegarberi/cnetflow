@@ -7,6 +7,7 @@
 
 #include "arena.h"
 #include "collector.h"
+#include "db.h"
 
 arena_struct_t *arena_collector;
 

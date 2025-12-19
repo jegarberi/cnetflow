@@ -17,6 +17,20 @@
 #include "netflow_ipfix.h"
 #include "netflow_v5.h"
 #include "netflow_v9.h"
+
+// Include PostgreSQL headers only when using PostgreSQL backend
+#ifndef USE_CLICKHOUSE
+#ifdef __has_include
+#  if __has_include(<postgresql/libpq-fe.h>)
+#    include <postgresql/libpq-fe.h>
+#  else
+#    include <libpq-fe.h>
+#  endif
+#else
+#  include <libpq-fe.h>
+#endif
+#endif
+
 #define true 1
 #define false 0
 #define STDERR stderr
@@ -193,7 +207,10 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
  *         Specific error messages are logged to standard error.
  */
 int8_t collector_start(collector_t *collector) {
+#ifndef USE_CLICKHOUSE
+  // Initialize PostgreSQL OpenSSL (only needed for PostgreSQL backend)
   PQinitOpenSSL(1, 1);
+#endif
 
   thread_counter = 0;
   signal(SIGINT, signal_handler);

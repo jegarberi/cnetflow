@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "netflow_v5.h"
+#include "db.h"
 static hashmap_t *templates_ipfix_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;

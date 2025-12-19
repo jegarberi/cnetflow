@@ -100,7 +100,7 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
         fprintf(stderr, "ERROR: Recycled chunk pointer is NULL unexpectedly!\n");
         break;
       }
-      fprintf(stderr, "DEBUG: Checking chunk [%p], next [%p]\n", chunk, chunk->next);
+      //fprintf(stderr, "DEBUG: Checking chunk [%p], next [%p]\n", chunk, chunk->next);
       if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
         // Usar este chunk
         fprintf(stderr, "%s %d %s using freed chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);

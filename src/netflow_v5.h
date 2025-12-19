@@ -8,11 +8,7 @@
 #include <stdint.h>
 #include <time.h>
 #include "collector.h"
-#include "db_psql.h"
 #include "netflow.h"
-
-
-static void exit_nicely(PGconn *);
 
 void *parse_v5(uv_work_t *);
 

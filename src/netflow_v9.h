@@ -13,7 +13,6 @@
 
 #include "arena.h"
 #include "collector.h"
-#include "db_psql.h"
 #include "fields.h"
 #include "hashmap.h"
 #include "netflow.h"

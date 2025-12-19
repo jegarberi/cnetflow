@@ -15,6 +15,17 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_INCLUDE_PATH "/usr/include/postgresql/17/server/libpq/")
 option(BUILD__LIBS "Build shared libraries" ON)
 set(CMAKE_C_STANDARD 99)
+
+# Database backend selection
+option(USE_CLICKHOUSE "Use ClickHouse instead of PostgreSQL" OFF)
+
+if (USE_CLICKHOUSE)
+    message(STATUS "Building with ClickHouse support")
+    add_compile_definitions(USE_CLICKHOUSE=1)
+else()
+    message(STATUS "Building with PostgreSQL support")
+endif()
+
 # Define a preprocessor macro depending on the build type
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(CNETFLOW_DEBUG_BUILD=1)
@@ -30,16 +41,27 @@ add_executable(cnetflow src/main.c)
 add_library(collector SHARED src/collector.c)
 add_library(arena SHARED src/arena.c)
 add_library(dyn_array SHARED src/dyn_array.c)
-add_library(db_psql SHARED src/db_psql.c)
 add_library(netflow SHARED src/netflow.c)
 add_library(netflow_v5 SHARED src/netflow_v5.c)
 add_library(netflow_v9 SHARED src/netflow_v9.c)
 add_library(netflow_ipfix SHARED src/netflow_ipfix.c)
 add_library(hashmap SHARED src/hashmap.c)
-target_link_libraries(db_psql pq)
+
+# Database backend libraries
+if (USE_CLICKHOUSE)
+    add_library(db_clickhouse SHARED src/db_clickhouse.c)
+    set(DB_LIBRARY db_clickhouse)
+    set(DB_LINK_LIBRARIES "")  # ClickHouse native protocol uses standard sockets
+else()
+    add_library(db_psql SHARED src/db_psql.c)
+    target_link_libraries(db_psql pq)
+    set(DB_LIBRARY db_psql)
+    set(DB_LINK_LIBRARIES pq)
+endif()
+
 target_link_libraries(netflow_v9 arena netflow netflow_v5)
-target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq dyn_array)
-target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 db_psql pq dyn_array)
+target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
+target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
 
 if (EXISTS ${CMAKE_SOURCE_DIR}/cnetflow.service)
     install(FILES ${CMAKE_SOURCE_DIR}/cnetflow.service DESTINATION /lib/systemd/system/)
@@ -48,7 +70,11 @@ if (EXISTS ${CMAKE_SOURCE_DIR}/local.conf)
     install(FILES ${CMAKE_SOURCE_DIR}/local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
 endif ()
 install(TARGETS cnetflow RUNTIME DESTINATION /usr/local/cnetflow/)
-install(TARGETS collector arena dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
+if (USE_CLICKHOUSE)
+    install(TARGETS collector arena dyn_array db_clickhouse netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
+else()
+    install(TARGETS collector arena dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
+endif()
 
 # Create directories for logs and data
 install(DIRECTORY DESTINATION /var/log/cnetflow DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
@@ -151,7 +177,11 @@ set(CPACK_GENERATOR "DEB;RPM;TGZ")
 
 # DEB-specific settings
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Juan Garberi <jgarberi@arca.gob.ar>")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libpq-dev, libuv1-dev")
+if (USE_CLICKHOUSE)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libuv1-dev")
+else()
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libpq-dev, libuv1-dev")
+endif()
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
@@ -162,7 +192,11 @@ set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/preinst;${CMAKE_BINA
 # RPM-specific settings
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_RPM_PACKAGE_GROUP "Applications/Internet")
-set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel, libuv-devel")
+if (USE_CLICKHOUSE)
+    set(CPACK_RPM_PACKAGE_REQUIRES "libuv-devel")
+else()
+    set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel, libuv-devel")
+endif()
 set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
 
 # RHEL7/CentOS7 specific settings
@@ -170,7 +204,11 @@ set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
 # Enable RHEL7 build with: cmake -DBUILD_FOR_RHEL7=ON ..
 option(BUILD_FOR_RHEL7 "Build for RHEL7/CentOS7 compatibility" OFF)
 if (BUILD_FOR_RHEL7)
-    set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel >= 9.2, libuv >= 1.0")
+    if (USE_CLICKHOUSE)
+        set(CPACK_RPM_PACKAGE_REQUIRES "libuv >= 1.0")
+    else()
+        set(CPACK_RPM_PACKAGE_REQUIRES "postgresql-devel >= 9.2, libuv >= 1.0")
+    endif()
     # RHEL7 uses dist tag
     set(CPACK_RPM_PACKAGE_RELEASE "1.el7")
     set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-1.el7.${CPACK_RPM_PACKAGE_ARCHITECTURE}")
@@ -225,6 +263,8 @@ if (CRITERION_FOUND)
             dyn_array
             netflow
             netflow_v5
+            ${DB_LIBRARY}
+            ${DB_LINK_LIBRARIES}
             uv
             ${CRITERION_LDFLAGS}
     )

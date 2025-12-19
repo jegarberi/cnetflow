@@ -18975,13 +18975,13 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 SELECT cron.schedule('refresh-flows-5minute', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_5minute');
 
 -- Refresh flows_hourly every 5 minutes
-SELECT cron.schedule('refresh-flows-hourly', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_hourly');
+SELECT cron.schedule('refresh-flows-hourly', '0 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_hourly');
 
 -- Refresh flows_daily every 5 minutes
-SELECT cron.schedule('refresh-flows-daily', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_daily');
+SELECT cron.schedule('refresh-flows-daily', '15 0 * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_daily');
 
 -- Refresh flows_top_talkers_hourly every 5 minutes
-SELECT cron.schedule('refresh-flows-top-talkers-hourly', '*/5 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_top_talkers_hourly');
+SELECT cron.schedule('refresh-flows-top-talkers-hourly', '30 0 * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY flows_top_talkers_hourly');
 
 -- ============================================================
 -- OPTIMIZATION FOR flows_agg_5min TABLE
