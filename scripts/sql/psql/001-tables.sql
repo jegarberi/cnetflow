@@ -18869,7 +18869,7 @@ VALUES ('35.71.108.0/24', 443, 6, 'aws-dynamodb-ap-south-2');
 
 -- 2. RETENTION POLICY: Automatically drop chunks older than 90 days
 -- Adjust the retention period based on your requirements
-SELECT add_retention_policy('flows', INTERVAL '1 hour');
+
 
 -- 3. Add useful indexes for common query patterns
 CREATE INDEX idx_flows_first_exporter ON flows (first DESC, exporter);
@@ -18961,8 +18961,9 @@ WITH NO DATA;
 
 
 -- 7. RETENTION POLICY (optional)
-SELECT add_retention_policy('flows', INTERVAL '1 days');
 
+
+SELECT add_retention_policy('flows', INTERVAL '1 hour');
 -- ============================================================
 -- PG_CRON JOBS for refreshing materialized views
 -- ============================================================
