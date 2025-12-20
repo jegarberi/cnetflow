@@ -34,8 +34,7 @@ void *parse_v5(uv_work_t *req) {
 
   swap_endianness((void *) &(netflow_packet_ptr->header.version), sizeof(netflow_packet_ptr->header.version));
   if (netflow_packet_ptr->header.version != 5) {
-    fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
-    exit(-1);
+    EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
     goto unlock_mutex_parse_v5;
   }
   swap_endianness((void *) &(netflow_packet_ptr->header.count), sizeof(netflow_packet_ptr->header.count));

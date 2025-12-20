@@ -14,4 +14,11 @@
     #define LOG_DEBUG(...) do {} while(0)
 #endif
 
+#define EXIT_WITH_MSG(code, ...) \
+    do { \
+        fprintf(stdout, "EXIT: " __VA_ARGS__); \
+        fprintf(stderr, "EXIT: " __VA_ARGS__); \
+        exit(code); \
+    } while(0)
+
 #endif // CNETFLOW_LOG_H

@@ -192,7 +192,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #endif
     );
     LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-    exit(-1);
+    EXIT_WITH_MSG(-1, "alloc_cb failed to allocate memory\n");
   }
 
   LOG_DEBUG(
@@ -383,7 +383,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   if (buf->base == NULL) {
     LOG_ERROR("%s %d %s: got buf->base == NULL\n", __FILE__, __LINE__, __func__);
-    exit(-1);
+    EXIT_WITH_MSG(-1, "udp_handle: got buf->base == NULL\n");
   }
 
   if (addr == NULL) {

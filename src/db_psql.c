@@ -35,8 +35,7 @@ read_snmp_config_exit_nicely:
     PQfinish(conn);
   }
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-  fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
-  exit(-1);
+  EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
 }
 
 /**
@@ -102,7 +101,7 @@ prepare_statement_v5_exit_nicely:
     PQfinish(conn);
   }
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-  exit(-1);
+  EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
 }
 */
 
@@ -241,8 +240,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
   static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
-    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-    exit(-1);
+    EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
   }
   PGresult *res;
   prepare_statement_v5(conn);
@@ -335,8 +333,8 @@ insert_v5_exit_nicely : if (conn != NULL) {
   LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
   PQfinish(conn);
 }
-LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-exit(-1);
+  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
+  EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
 }
 */
 char *ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
@@ -468,8 +466,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
     LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-    fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
-    exit(-1);
+    EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
   }
   PGresult *res;
   prepare_statement_insert_flows(conn);
@@ -568,8 +565,7 @@ insert_flows_exit_nicely:
     PQfinish(conn);
   }
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-  fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
-  exit(-1);
+  EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
 #undef _N_PARAMS
 #undef _MAX_LEN
 }
@@ -589,8 +585,7 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
   static THREAD_LOCAL PGconn *conn = NULL;
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
-    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-    exit(-1);
+    EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
   }
   PGresult *res;
   prepare_statement_v9(conn);
@@ -686,8 +681,7 @@ if (conn != NULL) {
   fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
   PQfinish(conn);
 }
-fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
-exit(-1);
+EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
 }
 */
 
@@ -710,8 +704,7 @@ void db_connect(PGconn **conn) {
   const char *static_conn_string = getenv("PG_CONN_STRING");
   if (static_conn_string == NULL) {
     LOG_ERROR("Environment variable PG_CONN_STRING is not set.\n");
-    LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-    exit(EXIT_FAILURE);
+    EXIT_WITH_MSG(EXIT_FAILURE, "%s %d %s", __FILE__, __LINE__, __func__);
   }
 
   /* Make a connection to the database */
@@ -806,8 +799,7 @@ db_connect_exit_nicely:
     LOG_ERROR("%s %d %s %s",__FILE__, __LINE__, __func__,PQerrorMessage(*conn));
     PQfinish(*conn);
   }
-  LOG_ERROR("%s %d %s exit -1", __FILE__, __LINE__, __func__);
-  exit(-1);
+  EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
 }
 
 

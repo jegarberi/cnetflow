@@ -9,3 +9,6 @@ bin
 tmp
 data
 tests
+CMakeFiles
+cmake-build-*
+*.so
