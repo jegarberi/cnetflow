@@ -29,6 +29,7 @@
 // Compatibility macros for old logging names
 #define CH_LOG_ERROR LOG_ERROR
 #define CH_LOG_INFO LOG_INFO
+#define CH_LOG_DEBUG LOG_DEBUG
 
 // External arena from collector
 extern arena_struct_t *arena_collector;
@@ -128,7 +129,7 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database,
     }
 
     if (res != CURLE_OK) {
-        CH_LOG_ERROR("%s %d %s: Connection to ClickHouse HTTP interface failed: %s\n",
+        CH_LOG_ERROR("%s %d %s: ClickHouse connection test failed: %s\n",
                      __FILE__, __LINE__, __func__, curl_easy_strerror(res));
         goto error;
     }

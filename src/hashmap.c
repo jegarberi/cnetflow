@@ -3,6 +3,7 @@
 //
 #include "hashmap.h"
 #include <string.h>
+#include "log.h"
 
 
 /**
@@ -18,10 +19,31 @@
  * @return Pointer to the newly created hashmap structure.
  */
 hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
+  if (arena == NULL || bucket_count == 0) {
+    LOG_ERROR("%s %d %s: Invalid parameters (arena=%p, bucket_count=%lu)\n",
+              __FILE__, __LINE__, __func__, arena, bucket_count);
+    return NULL;
+  }
+
   hashmap_t *hashmap = arena_alloc(arena, sizeof(hashmap_t));
+  if (hashmap == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate hashmap\n", __FILE__, __LINE__, __func__);
+    return NULL;
+  }
+
   hashmap->buckets = arena_alloc(arena, sizeof(bucket_t) * bucket_count);
+  if (hashmap->buckets == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate buckets\n", __FILE__, __LINE__, __func__);
+    return NULL;
+  }
+
   hashmap->bucket_count = bucket_count;
   hashmap->mutex = arena_alloc(arena, sizeof(uv_mutex_t));
+  if (hashmap->mutex == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate mutex\n", __FILE__, __LINE__, __func__);
+    return NULL;
+  }
+
   uv_mutex_init(hashmap->mutex);
   bucket_t *buckets = (bucket_t *) hashmap->buckets;
   for (size_t i = 0; i < bucket_count; i++) {
@@ -64,7 +86,7 @@ size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
 
   // Ensure hash is within bucket range
   size_t index = hash % hashmap->bucket_count;
-  fprintf(stderr, "%s %d %s: hashmap_hash key: %s =>  index: %lu\n", __FILE__, __LINE__, __func__, (char *) key, index);
+  LOG_ERROR("%s %d %s: hashmap_hash key: %s =>  index: %lu\n", __FILE__, __LINE__, __func__, (char *) key, index);
   return index;
 }
 
@@ -86,9 +108,17 @@ size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
  *         operation failed (e.g., due to invalid parameters or lack of space in the hashmap).
  */
 int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key_len, void *value) {
+  if (!hashmap || !arena || !key || !value || key_len == 0) {
+    LOG_ERROR("%s %d %s: Invalid parameters\n", __FILE__, __LINE__, __func__);
+    return -1;
+  }
+
   uv_mutex_lock(hashmap->mutex);
-  if (!hashmap || !key || !value) {
-    goto hashmap_set_error; // Invalid parameters
+
+  // Validate hashmap structure
+  if (hashmap->buckets == NULL || hashmap->bucket_count == 0) {
+    LOG_ERROR("%s %d %s: Hashmap not properly initialized\n", __FILE__, __LINE__, __func__);
+    goto hashmap_set_error;
   }
 
   // Calculate hash to find bucket index
@@ -111,7 +141,8 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       if (!buckets[index].occupied) {
         break;
       }
-    } else if (buckets[index].occupied && strlen(buckets[index].key) == key_len &&
+    } else if (buckets[index].occupied && buckets[index].key != NULL &&
+               strlen(buckets[index].key) == key_len &&
                memcmp(buckets[index].key, key, key_len) == 0) {
       // Found existing key, update value
       buckets[index].value = value;
@@ -129,11 +160,16 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
 
   // If we couldn't find an empty bucket, the hashmap is full
   if (buckets[index].occupied && !buckets[index].deleted) {
+    LOG_ERROR("%s %d %s: Hashmap is full\n", __FILE__, __LINE__, __func__);
     goto hashmap_set_error; // Hashmap is full
   }
 
   // Create a copy of the key in the arena
   char *key_copy = arena_alloc(arena, key_len + 1); // +1 for null terminator
+  if (key_copy == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate key copy\n", __FILE__, __LINE__, __func__);
+    goto hashmap_set_error;
+  }
   memcpy(key_copy, key, key_len);
   key_copy[key_len] = '\0';
 
@@ -168,7 +204,13 @@ hashmap_set_error:
  *         is not found or the input arguments are invalid.
  */
 void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
-  if (!hashmap || !key) {
+  if (!hashmap || !key || key_len == 0) {
+    return NULL;
+  }
+
+  // Validate hashmap structure
+  if (hashmap->buckets == NULL || hashmap->bucket_count == 0) {
+    LOG_ERROR("%s %d %s: Hashmap not properly initialized\n", __FILE__, __LINE__, __func__);
     return NULL;
   }
 
@@ -189,6 +231,12 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     if (buckets[index].deleted) {
       index = (index + 1) % hashmap->bucket_count;
       continue;
+    }
+
+    // CRITICAL FIX: Validate key pointer before strlen
+    if (buckets[index].key == NULL) {
+      LOG_ERROR("%s %d %s: Corrupt bucket key at index %lu\n", __FILE__, __LINE__, __func__, index);
+      return NULL;
     }
 
     // Check if this is the key we're looking for

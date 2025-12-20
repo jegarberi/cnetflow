@@ -248,7 +248,7 @@ void insert_v5(uint32_t exporter, netflow_v5_flowset_t *flows) {
 
   res = PQexec(conn, "BEGIN");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    LOG_ERROR("BEGIN command failed: %s", PQerrorMessage(conn));
+    LOG_ERROR("%s[%d]: PQexecPrepared failed: %s\n", __FILE__, __LINE__, PQresultErrorMessage(res));
     PQclear(res);
     goto insert_v5_exit_nicely;
   }
@@ -331,10 +331,10 @@ PQclear(res);
 
 insert_v5_return : return;
 insert_v5_exit_nicely : if (conn != NULL) {
-  fprintf(stderr, "%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
+  LOG_ERROR("%s %d %s PQerrorMessage: %s", __FILE__, __LINE__, __func__, PQerrorMessage(conn));
   PQfinish(conn);
 }
-fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
 exit(-1);
 }
 */
@@ -466,7 +466,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
-    fprintf(stderr, "%s %d %s", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
   PGresult *res;
@@ -526,17 +526,17 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     const char *const *ptr_values = (const char *const *) &paramValuesAsString;
     res = PQexecPrepared(conn, "insert_flows", nParams, (const char *const *) paramValues, NULL, NULL, resultFormat);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-      fprintf(stderr, "%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
+      LOG_ERROR("%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
               PQresultErrorMessage(res));
       for (int k = 0; k < _N_PARAMS; k++) {
-        fprintf(stderr, "%s[%d] %s: paramValues[%d] = %s\n", __FILE__, __LINE__, __func__, k, paramValuesAsString[k]);
+        LOG_ERROR("%s[%d] %s: paramValues[%d] = %s\n", __FILE__, __LINE__, __func__, k, paramValuesAsString[k]);
       }
       PQclear(res);
       prepare_statement_insert_flows(conn);
       res = PQexecPrepared(conn, "insert_flows", nParams, (const char *const *) paramValues, NULL, NULL, resultFormat);
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
-        fprintf(stderr, "%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
+        LOG_ERROR("%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
                 PQresultErrorMessage(res));
         goto insert_flows_exit_nicely;
       } else {
@@ -594,7 +594,7 @@ void insert_v9(uint32_t exporter, netflow_v9_flowset_t *flows) {
 
   res = PQexec(conn, "BEGIN");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "BEGIN command failed: %s", PQerrorMessage(conn));
+    LOG_ERROR("BEGIN command failed: %s", PQerrorMessage(conn));
     PQclear(res);
     goto insert_v9_exit_nicely;
   }
@@ -751,7 +751,7 @@ void db_connect(PGconn **conn) {
   /*
   res = PQexec(conn, "DECLARE myportal CURSOR FOR select * from pg_database");
   if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-    fprintf(stderr, "DECLARE CURSOR failed: %s", PQerrorMessage(conn));
+    LOG_ERROR("DECLARE CURSOR failed: %s", PQerrorMessage(conn));
     PQclear(res);
     exit_nicely(conn);
   }
@@ -759,7 +759,7 @@ void db_connect(PGconn **conn) {
 
   res = PQexec(conn, "FETCH ALL in myportal");
   if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-    fprintf(stderr, "FETCH ALL failed: %s", PQerrorMessage(conn));
+    LOG_ERROR("FETCH ALL failed: %s", PQerrorMessage(conn));
     PQclear(res);
     exit_nicely(conn);
   }

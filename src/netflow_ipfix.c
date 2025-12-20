@@ -14,7 +14,7 @@ extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;
 
 void init_ipfix(arena_struct_t *arena, const size_t cap) {
-  LOG_DEBUG("%s %d %s: Initializing ipfix [templates_ipfix_hashmap]...\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s: Initializing IPFIX [templates_ipfix_hashmap]...\n", __FILE__, __LINE__, __func__);
   templates_ipfix_hashmap = hashmap_create(arena, cap);
 }
 
@@ -92,19 +92,19 @@ void *parse_ipfix(uv_work_t *req) {
 
 
         if (template_id < 256) {
-          fprintf(stderr, "%s %d %s: Invalid template ID: %d\n", __FILE__, __LINE__, __func__, template_id);
+          LOG_ERROR("%s %d %s: Invalid template ID: %d\n", __FILE__, __LINE__, __func__, template_id);
           break;
         }
 
 
         // Template withdrawal (field_count = 0)
         if (field_count == 0) {
-          fprintf(stderr, "%s %d %s: Template withdrawal for ID: %d\n", __FILE__, __LINE__, __func__, template_id);
+          LOG_ERROR("%s %d %s: Template withdrawal for ID: %d\n", __FILE__, __LINE__, __func__, template_id);
           pos += 4;
           continue;
         }
 
-        fprintf(stderr, "%s %d %s: template_id: %d field_count: %d\n", __FILE__, __LINE__, __func__, template_id,
+        LOG_ERROR("%s %d %s: template_id: %d field_count: %d\n", __FILE__, __LINE__, __func__, template_id,
                 field_count);
 
         size_t template_size = 4; // template_id + field_count
@@ -121,17 +121,15 @@ void *parse_ipfix(uv_work_t *req) {
 
           if (is_enterprise) {
             template_size += 8; // field_type + field_length + enterprise_number
-            fprintf(stderr, "%s %d %s: field: %lu type: %u (enterprise) len: %u\n", __FILE__, __LINE__, __func__, field,
+            LOG_ERROR("%s %d %s: field: %lu type: %u (enterprise) len: %u\n", __FILE__, __LINE__, __func__, field,
                     field_type, l);
           } else {
             template_size += 4; // field_type + field_length
             if (field_type < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
-#ifdef CNETFLOW_DEBUG_BUILD
-              fprintf(stderr, "%s %d %s: field: %lu type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field,
+              LOG_ERROR("%s %d %s: field: %lu type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field,
                       field_type, l, ipfix_field_types[field_type].name);
-#endif
             } else {
-              fprintf(stderr, "%s %d %s: Unknown field type: %u\n", __FILE__, __LINE__, __func__, field_type);
+              LOG_ERROR("%s %d %s: Unknown field type: %u\n", __FILE__, __LINE__, __func__, field_type);
             }
           }
         }
@@ -139,7 +137,7 @@ void *parse_ipfix(uv_work_t *req) {
         // Store template in hashmap
         char key[255];
         snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
-        fprintf(stderr, "%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, key);
+        LOG_ERROR("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, key);
 
         uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
         uint16_t *temp;
@@ -150,9 +148,9 @@ void *parse_ipfix(uv_work_t *req) {
           memcpy(temp, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
 
           if (hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp)) {
-            fprintf(stderr, "%s %d %s: Error saving IPFIX template [%s]\n", __FILE__, __LINE__, __func__, key);
+            LOG_ERROR("%s %d %s: Error saving IPFIX template [%s]\n", __FILE__, __LINE__, __func__, key);
           } else {
-            fprintf(stderr, "%s %d %s: IPFIX template saved [%s]\n", __FILE__, __LINE__, __func__, key);
+            LOG_ERROR("%s %d %s: IPFIX template saved [%s]\n", __FILE__, __LINE__, __func__, key);
           }
         } else {
           memcpy(template_hashmap, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
@@ -166,21 +164,21 @@ void *parse_ipfix(uv_work_t *req) {
 
 
       // Data Set
-      fprintf(stderr, "%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
 
       uint16_t template_id = flowset_id;
       char key[255];
       snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
-      fprintf(stderr, "%s %d %s: Looking up template key: %s\n", __FILE__, __LINE__, __func__, key);
+      LOG_ERROR("%s %d %s: Looking up template key: %s\n", __FILE__, __LINE__, __func__, key);
 
       uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
 
       if (template_hashmap == NULL) {
-        fprintf(stderr, "%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
+        LOG_ERROR("%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                 ip_int_to_str(args->exporter));
       } else {
         if (args->exporter == 1090654892) {
-          fprintf(stderr, "%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
+          LOG_ERROR("%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
                   args->exporter);
         }
         void *pointer = args->data + flowset_base + 4; // Skip set header
@@ -473,14 +471,14 @@ void *parse_ipfix(uv_work_t *req) {
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
-        fprintf(stderr, "%s %d %s: Inserting %d IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
+        LOG_ERROR("%s %d %s: Inserting %d IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
                 is_ipv6 ? "IPv6" : "IPv4");
         insert_flows(exporter_host, &flows_to_insert);
       }
 
     } else if (flowset_id == IPFIX_OPTION_SET) {
       // Options Template Set (ID = 3)
-      fprintf(stderr, "%s %d %s: IPFIX options template set (not implemented)\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s: IPFIX options template set (not implemented)\n", __FILE__, __LINE__, __func__);
     }
 
     flowset_base = flowset_end;
@@ -488,7 +486,7 @@ void *parse_ipfix(uv_work_t *req) {
     record_counter = 0;
   }
 
-  fprintf(stderr, "%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,
+  LOG_ERROR("%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,
           flowset_counter, template_counter, record_counter);
 
 unlock_mutex_parse_ipfix:
@@ -558,5 +556,5 @@ void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *
     }
   }
 
-  //fprintf(stderr, "%s %d %s: copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
+  //LOG_ERROR("%s %d %s: copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
 }

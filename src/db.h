@@ -7,6 +7,7 @@
 #define DB_H
 
 #include "netflow.h"
+#include "log.h"
 
 // Compile-time database backend selection
 // Use -DUSE_CLICKHOUSE to enable ClickHouse, otherwise defaults to PostgreSQL
@@ -82,13 +83,13 @@ static inline const char* db_get_backend_name(void) {
  * Print database backend information
  */
 static inline void db_print_info(void) {
-    fprintf(stderr, "Database Backend: %s\n", DB_BACKEND_NAME);
+    LOG_ERROR("Database Backend: %s\n", DB_BACKEND_NAME);
 #ifdef USE_CLICKHOUSE
-    fprintf(stderr, "Connection String Variable: CH_CONN_STRING\n");
-    fprintf(stderr, "Format: host:port:database:user:password\n");
+    LOG_ERROR("Connection String Variable: CH_CONN_STRING\n");
+    LOG_ERROR("Format: host:port:database:user:password\n");
 #else
-    fprintf(stderr, "Connection String Variable: PG_CONN_STRING\n");
-    fprintf(stderr, "Format: postgresql://user:password@host:port/database\n");
+    LOG_ERROR("Connection String Variable: PG_CONN_STRING\n");
+    LOG_ERROR("Format: postgresql://user:password@host:port/database\n");
 #endif
 }
 

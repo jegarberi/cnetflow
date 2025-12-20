@@ -8,6 +8,7 @@
 #include "arena.h"
 #include "collector.h"
 #include "db.h"
+#include "log.h"
 
 arena_struct_t *arena_collector;
 
@@ -33,13 +34,13 @@ void *parse_v5(uv_work_t *req) {
 
   swap_endianness((void *) &(netflow_packet_ptr->header.version), sizeof(netflow_packet_ptr->header.version));
   if (netflow_packet_ptr->header.version != 5) {
-    fprintf(stderr, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
+    LOG_ERROR("%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
     exit(-1);
     goto unlock_mutex_parse_v5;
   }
   swap_endianness((void *) &(netflow_packet_ptr->header.count), sizeof(netflow_packet_ptr->header.count));
   if (netflow_packet_ptr->header.count > 30) {
-    fprintf(stderr, "Too many flows...\n");
+    LOG_ERROR("Too many flows...\n");
     goto unlock_mutex_parse_v5;
   }
   swap_endianness((void *) &(netflow_packet_ptr->header.SysUptime), sizeof(netflow_packet_ptr->header.SysUptime));
@@ -142,7 +143,7 @@ void copy_v5_to_flow(netflow_v5_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.flow_sequence = in->header.flow_sequence;
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
-    //fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    //LOG_ERROR("%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
     swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
     swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
     swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));

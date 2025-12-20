@@ -277,8 +277,8 @@ int8_t collector_start(collector_t *collector) {
           __FILE__, __LINE__, __func__);
   struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct sockaddr));
   const struct sockaddr *addr_const = addr;
-  uv_ip4_addr("0.0.0.0", 2055, (struct sockaddr_in *) addr);
-  LOG_INFO("binding to udp port %d\n", 2055);
+  uv_ip4_addr("0.0.0.0", 9995, (struct sockaddr_in *) addr);
+  LOG_INFO("binding to udp port %d\n", 9995);
   const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
   if (bind_ret < 0) {
     LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
@@ -312,14 +312,44 @@ error_no_arena:
 }
 
 void *after_work_cb(uv_work_t *req, int status) {
+  if (req == NULL) {
+    LOG_ERROR("%s %d %s: req is NULL\n", __FILE__, __LINE__, __func__);
+    return NULL;
+  }
+
   parse_args_t *func_args = req->data;
-  LOG_ERROR("%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
-  arena_free(arena_udp_handle, func_args->data);
+  if (func_args == NULL) {
+    LOG_ERROR("%s %d %s: func_args is NULL\n", __FILE__, __LINE__, __func__);
+    // Still try to free req
+    arena_free(arena_collector, req);
+    return NULL;
+  }
+
+  // CRITICAL FIX: Validate pointers before freeing to prevent double-free
+  if (func_args->data != NULL) {
+    LOG_ERROR("%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
+    int ret = arena_free(arena_udp_handle, func_args->data);
+    if (ret != 0) {
+      LOG_ERROR("%s %d %s: Failed to free func_args->data %p (ret=%d)\n",
+                __FILE__, __LINE__, __func__, func_args->data, ret);
+    }
+  }
+
   LOG_ERROR("%s %d %s: release func_args: %p\n", __FILE__, __LINE__, __func__, func_args);
-  arena_free(arena_collector, func_args);
+  int ret = arena_free(arena_collector, func_args);
+  if (ret != 0) {
+    LOG_ERROR("%s %d %s: Failed to free func_args %p (ret=%d)\n",
+              __FILE__, __LINE__, __func__, func_args, ret);
+  }
+
   LOG_ERROR("%s %d %s: release req: %p\n", __FILE__, __LINE__, __func__, req);
-  arena_free(arena_collector, req);
-  // free(req);
+  ret = arena_free(arena_collector, req);
+  if (ret != 0) {
+    LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n",
+              __FILE__, __LINE__, __func__, req, ret);
+  }
+
+  return NULL;
 }
 /**
  * Handles incoming UDP packets, parses the data, and processes it according
@@ -366,19 +396,28 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
 
   parse_args_t *func_args = NULL;
-  fprintf(stderr, "%s %d %s func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));\n", __FILE__,
+  LOG_ERROR("%s %d %s func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));\n", __FILE__,
           __LINE__, __func__);
 
   func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));
+  if (func_args == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate func_args\n", __FILE__, __LINE__, __func__);
+    goto udp_handle_free_and_return;
+  }
   // func_args = malloc(sizeof(parse_args_t));
   func_args->exporter = 0;
   func_args->len = 0;
   func_args->data = NULL;
   func_args->status = collector_data_status_init;
 
-  fprintf(stderr, "%s %d %s work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));\n", __FILE__,
+  LOG_ERROR("%s %d %s work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));\n", __FILE__,
           __LINE__, __func__);
   uv_work_t *work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));
+  if (work_req == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate work_req\n", __FILE__, __LINE__, __func__);
+    arena_free(arena_collector, func_args);
+    goto udp_handle_free_and_return;
+  }
   // work_req = malloc(sizeof(uv_work_t));
   uv_work_cb work_cb;
   static size_t data_counter = 1;

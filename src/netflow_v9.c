@@ -149,8 +149,25 @@ void *parse_v9(uv_work_t *req) {
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
           LOG_ERROR("%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
                   template_init, template_end);
-          temp = arena_alloc(arena_hashmap_nf9, sizeof(uint16_t) * (field_count + 1) * 4);
-          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), sizeof(uint16_t) * (field_count + 1) * 4);
+
+          // CRITICAL FIX: Validate arena allocation before memcpy
+          size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 4;
+          temp = arena_alloc(arena_hashmap_nf9, alloc_size);
+          if (temp == NULL) {
+            LOG_ERROR("%s %d %s Failed to allocate %lu bytes for template\n",
+                      __FILE__, __LINE__, __func__, alloc_size);
+            goto unlock_mutex_parse_v9;
+          }
+
+          // Validate source address is within packet bounds
+          size_t src_offset = template_init - sizeof(int16_t) * 2 - (size_t)args->data;
+          size_t copy_size = sizeof(uint16_t) * (field_count + 1) * 4;
+          if (src_offset + copy_size > total_packet_length) {
+            LOG_ERROR("%s %d %s Template copy would exceed packet bounds\n", __FILE__, __LINE__, __func__);
+            goto unlock_mutex_parse_v9;
+          }
+
+          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), copy_size);
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
@@ -172,8 +189,23 @@ void *parse_v9(uv_work_t *req) {
       // this a record flowset
       LOG_ERROR("%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
 
+      // Validate flowset_base is within packet bounds
+      if (flowset_base >= total_packet_length) {
+        LOG_ERROR("%s %d %s: flowset_base %lu exceeds packet length %lu\n",
+                  __FILE__, __LINE__, __func__, flowset_base, total_packet_length);
+        goto unlock_mutex_parse_v9;
+      }
+
       size_t has_more_records = 1;
       size_t pos = 0;
+
+      // Validate we have enough space for record header
+      if (flowset_base + pos + sizeof(netflow_v9_record_t) > total_packet_length) {
+        LOG_ERROR("%s %d %s: Insufficient space for record at offset %lu\n",
+                  __FILE__, __LINE__, __func__, flowset_base + pos);
+        goto unlock_mutex_parse_v9;
+      }
+
       netflow_v9_record_t *record = (netflow_v9_record_t *) (args->data + flowset_base + pos);
       uint16_t template_id = flowset_id;
       char key[255];
@@ -186,6 +218,11 @@ void *parse_v9(uv_work_t *req) {
         pos = flowset_length;
         has_more_records = 0;
       } else {
+        // CRITICAL FIX: Validate record pointer before accessing record_value
+        if (record == NULL) {
+          LOG_ERROR("%s %d %s: record is NULL\n", __FILE__, __LINE__, __func__);
+          goto unlock_mutex_parse_v9;
+        }
         void *pointer = &record->record_value;
         uint16_t record_length = 0;
         uint16_t template_id = template_hashmap[0];
@@ -209,6 +246,15 @@ void *parse_v9(uv_work_t *req) {
           size_t reading_field = 0;
           for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
             reading_field++;
+
+            // CRITICAL FIX: Validate pointer is within packet bounds before accessing
+            size_t pointer_offset = (size_t)pointer - (size_t)args->data;
+            if (pointer_offset >= total_packet_length) {
+              LOG_ERROR("%s %d %s: pointer offset %lu exceeds packet length %lu\n",
+                        __FILE__, __LINE__, __func__, pointer_offset, total_packet_length);
+              goto unlock_mutex_parse_v9;
+            }
+
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
             if (field_type > (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
@@ -218,6 +264,13 @@ void *parse_v9(uv_work_t *req) {
             }
             uint16_t field_length = template_hashmap[count + 1];
             swap_endianness(&field_length, sizeof(field_length));
+
+            // Validate we have enough space for this field
+            if (pointer_offset + field_length > total_packet_length) {
+              LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n",
+                        __FILE__, __LINE__, __func__, pointer_offset, field_length);
+              goto unlock_mutex_parse_v9;
+            }
 #ifdef CNETFLOW_DEBUG_BUILD
             fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field, ipfix_field_types[field_type].name, field_type,
                     field_length);
@@ -399,7 +452,7 @@ void *parse_v9(uv_work_t *req) {
                     break;
                 }
                 if (netflow_packet_ptr->records[record_counter].input > 3000) {
-                  fprintf(stderr, "%s %d %s: input: %d\n", __FILE__, __LINE__, __func__,
+                  LOG_ERROR("%s %d %s: input: %d\n", __FILE__, __LINE__, __func__,
                           netflow_packet_ptr->records[record_counter].input);
                 }
                 print_flow++;
@@ -412,8 +465,8 @@ void *parse_v9(uv_work_t *req) {
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].output = (uint16_t) ((*tmp32) >> 16);
-                    fprintf(stderr, "egress tmp32: %d\n", *tmp32);
-                    fprintf(stderr, "egress tmp32: %d\n", netflow_packet_ptr->records[record_counter].output);
+                    LOG_ERROR("egress tmp32: %d\n", *tmp32);
+                    LOG_ERROR("egress tmp32: %d\n", netflow_packet_ptr->records[record_counter].output);
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].output = 0;
@@ -602,7 +655,7 @@ void *parse_v9(uv_work_t *req) {
             printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif
           } else {
-            fprintf(stderr, "ipv6 not supported at the moment...\n");
+            LOG_ERROR("ipv6 not supported at the moment...\n");
           }
           record_counter++;
           if (pos >= flowset_length - 6) { // flowset_id + length + padding
@@ -624,20 +677,20 @@ void *parse_v9(uv_work_t *req) {
         */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
         if (netflow_packet_ptr->records[0].dOctets == 0) {
-          fprintf(stderr, "%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
+          LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
         if (netflow_packet_ptr->records[0].dPkts == 0) {
-          fprintf(stderr, "%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
+          LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
         if (is_ipv6) {
-          fprintf(stderr, "%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
+          LOG_ERROR("%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
           insert_flows(exporter_host, &flows_to_insert);
         } else {
-          fprintf(stderr, "%s %d %s this is ipv4\n", __FILE__, __LINE__, __func__);
+          LOG_ERROR("%s %d %s this is ipv4\n", __FILE__, __LINE__, __func__);
           insert_flows(exporter_host, &flows_to_insert);
         }
 
@@ -645,9 +698,9 @@ void *parse_v9(uv_work_t *req) {
       }
     } else if ((flowset_id < 256)) {
       // this is an option flowset
-      fprintf(stderr, "%s %d %s this is an option flowset\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s this is an option flowset\n", __FILE__, __LINE__, __func__);
     } else {
-      fprintf(stderr, "%s %d %s this should not happen\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s this should not happen\n", __FILE__, __LINE__, __func__);
       goto unlock_mutex_parse_v9;
     }
     record_counter = 0;
@@ -671,13 +724,13 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.flow_sequence = in->header.flow_sequence;
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
-    //fprintf(stderr, "%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    //LOG_ERROR("%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
     if (in->records[i].dOctets == 0) {
-      fprintf(stderr, "%s %d %s dOctets is 0\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s dOctets is 0\n", __FILE__, __LINE__, __func__);
       continue;
     }
     if (in->records[i].dPkts == 0) {
-      fprintf(stderr, "%s %d %s dPkts is 0\n", __FILE__, __LINE__, __func__);
+      LOG_ERROR("%s %d %s dPkts is 0\n", __FILE__, __LINE__, __func__);
       continue;
     }
     swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));

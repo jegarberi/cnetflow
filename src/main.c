@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include "collector.h"
+#include "log.h"
 
 
 /**
@@ -14,12 +15,12 @@
  * @return Returns 0 if the program completes successfully.
  */
 int main(void) {
-  fprintf(stdout, "%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
-  fprintf(stderr, "%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
-  fprintf(stderr, "%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
+  LOG_INFO("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
   collector_t col_config;
   collector_default(&col_config);
   collector_start(&col_config);
-  fprintf(stderr, "%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
-  fprintf(stdout, "%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
+  LOG_ERROR("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
+  LOG_INFO("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
 }
