@@ -2,7 +2,7 @@
 #define CNETFLOW_LOG_H
 
 #include <stdio.h>
-
+#include <stdlib.h>
 // Debug logging macros - controlled by ENABLE_LOGGING (selectable via CMake)
 #if defined(ENABLE_LOGGING)
     #define LOG_ERROR(...) fprintf(stderr, __VA_ARGS__)

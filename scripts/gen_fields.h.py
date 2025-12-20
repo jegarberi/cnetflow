@@ -187,6 +187,9 @@ class IPFIXFieldType(IntEnum):
     POSTMPLSTOPLABELEXP = 237
     TCPWINDOWSCALE = 238
     BIFLOWDIRECTION = 239
+    IPV6_FLOW_LABEL = 243
+    BGP_COMMUNITY = 244
+    BGP_AS_PATH = 245
     OBSERVATIONPOINTID_PSAMP = 300
     SELECTIONSEQUENCEID = 301
     SELECTORID = 302
@@ -414,7 +417,10 @@ original_entries = [
      ""],
     [0, IPFIXFieldType.POSTMPLSTOPLABELEXP, 1, "IPFIX_CODING_UINT", "postMplsTopLabelExp", ""],
     [0, IPFIXFieldType.TCPWINDOWSCALE, 2, "IPFIX_CODING_UINT", "tcpWindowScale", ""],
-
+    [0, IPFIXFieldType.BIFLOWDIRECTION, 1, "IPFIX_CODING_UINT", "biFlowDirection", ""],
+    [0, IPFIXFieldType.IPV6_FLOW_LABEL, 4, "IPFIX_CODING_UINT", "ipv6FlowLabel", ""],
+    [0, IPFIXFieldType.BGP_COMMUNITY, 4, "IPFIX_CODING_UINT", "bgpCommunity", ""],
+    [0, IPFIXFieldType.BGP_AS_PATH, 4, "IPFIX_CODING_UINT", "bgpAsPath", ""],
     [0, IPFIXFieldType.OBSERVATIONPOINTID_PSAMP, 8, "IPFIX_CODING_UINT", "observationPointId_PSAMP", ""],
     [0, IPFIXFieldType.SELECTIONSEQUENCEID, 8, "IPFIX_CODING_UINT", "selectionSequenceId", ""],
     [0, IPFIXFieldType.SELECTORID, 2, "IPFIX_CODING_UINT", "selectorId", ""],
@@ -474,7 +480,7 @@ def format_entry(entry):
     except Exception as e:
         test_ipfix = False
     if test_ipfix is False:
-        ret = f"    {{0, {entry['ftype']}, 0, NULL, NULL, NULL}},"
+        ret = f"    {{0, {entry['ftype']}, 0, 0, NULL, NULL}},"
     else:
         ret = f"    {{{entry['eno']}, IPFIX_FT_{IPFIXFieldType(entry['ftype']).name}, {entry['length']},{entry['coding']},\"{entry['name']}\", \"{entry['documentation']}\"}},"
 

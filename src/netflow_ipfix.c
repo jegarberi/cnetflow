@@ -120,7 +120,7 @@ void *parse_ipfix(uv_work_t *req) {
           uint16_t field_type = t & 0x7FFF;
 
           if (is_enterprise) {
-            template_size += 8; // field_type + field_length + enterprise_number
+            template_size += 4; // field_type + field_length + enterprise_number
             LOG_ERROR("%s %d %s: field: %lu type: %u (enterprise) len: %u\n", __FILE__, __LINE__, __func__, field,
                     field_type, l);
           } else {
