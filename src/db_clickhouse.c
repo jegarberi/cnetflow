@@ -166,6 +166,7 @@ void ch_db_connect(ch_conn_t **conn) {
         CH_LOG_ERROR("Environment variable CH_CONN_STRING is not set.\n");
         CH_LOG_ERROR("Format: host:port:database:user:password\n");
         CH_LOG_ERROR("%s %d %s\n", __FILE__, __LINE__, __func__);
+      fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
         exit(EXIT_FAILURE);
     }
 
@@ -180,6 +181,7 @@ void ch_db_connect(ch_conn_t **conn) {
     if (!host || !port_str) {
         CH_LOG_ERROR("Invalid CH_CONN_STRING format\n");
         free(conn_str_copy);
+      fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
         exit(EXIT_FAILURE);
     }
 
@@ -189,6 +191,7 @@ void ch_db_connect(ch_conn_t **conn) {
 
     if (!*conn) {
         CH_LOG_ERROR("Failed to connect to ClickHouse\n");
+      fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
         exit(EXIT_FAILURE);
     }
 }

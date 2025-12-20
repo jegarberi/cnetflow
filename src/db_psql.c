@@ -35,6 +35,7 @@ read_snmp_config_exit_nicely:
     PQfinish(conn);
   }
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
+  fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
   exit(-1);
 }
 
@@ -467,6 +468,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   db_connect(&conn);
   if (conn == NULL || exporter == 0) {
     LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
+    fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
     exit(-1);
   }
   PGresult *res;
@@ -566,6 +568,7 @@ insert_flows_exit_nicely:
     PQfinish(conn);
   }
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
+  fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
   exit(-1);
 #undef _N_PARAMS
 #undef _MAX_LEN

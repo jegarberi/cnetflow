@@ -616,6 +616,7 @@ void *parse_v9(uv_work_t *req) {
                               *(tmp8 + 2), *(tmp8 + 1), *(tmp8 + 0));
                       break;
                     default:
+                      fprintf(stderr,"%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
                       exit(-1);
                   }
                   break;
