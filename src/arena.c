@@ -29,6 +29,7 @@
  * - `ok` if the arena was successfully created and initialized.
  * - `error` if memory allocation failed.
  */
+#ifdef USE_ARENA_ALLOCATOR
 arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
   arena->base_address = malloc(capacity);
@@ -48,6 +49,13 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   uv_mutex_init(&arena->mutex);
   return ok;
 }
+#else
+arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
+  (void)arena;
+  (void)capacity;
+  return ok;
+}
+#endif
 
 /**
  * Allocates a block of memory from the specified arena with the requested size.
@@ -64,6 +72,7 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
  * @return A pointer to the allocated memory block, or `NULL` if the allocation fails
  * due to insufficient space or invalid input.
  */
+#ifdef USE_ARENA_ALLOCATOR
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
   void *address = NULL; // address ahora representará la dirección de DATOS del usuario
@@ -199,6 +208,12 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   uv_mutex_unlock(&arena->mutex);
   return address; // Devolver la dirección de DATOS
 }
+#else
+void *arena_alloc(arena_struct_t *arena, size_t bytes) {
+  (void)arena;
+  return calloc(1, bytes);
+}
+#endif
 
 /**
  * Resets the offset of the arena and clears its memory region to zero.
@@ -211,12 +226,19 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
  * @return An integer value indicating the result of the operation:
  * - Returns 0 upon successful completion.
  */
+#ifdef USE_ARENA_ALLOCATOR
 int arena_clean(arena_struct_t *arena) {
   LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
   arena->offset = 0;
   memset(arena->base_address, 0, arena->size);
   return 0;
 }
+#else
+int arena_clean(arena_struct_t *arena) {
+  (void)arena;
+  return 0;
+}
+#endif
 
 /**
  * Destroys the memory arena and releases its allocated resources.
@@ -228,6 +250,7 @@ int arena_clean(arena_struct_t *arena) {
  * @return An integer indicating the success status of the operation:
  * - 0 if the arena was successfully destroyed.
  */
+#ifdef USE_ARENA_ALLOCATOR
 int arena_destroy(arena_struct_t *arena) {
   LOG_ERROR("%s %d %s arena_destroy...\n", __FILE__, __LINE__, __func__);
   arena_clean(arena);
@@ -243,6 +266,12 @@ int arena_destroy(arena_struct_t *arena) {
   uv_mutex_destroy(&arena->mutex); // Añadido: Destruir el mutex
   return 0;
 }
+#else
+int arena_destroy(arena_struct_t *arena) {
+  (void)arena;
+  return 0;
+}
+#endif
 
 /**
  * Attempts to resize the memory region managed by the given arena by the specified number of bytes.
@@ -258,6 +287,7 @@ int arena_destroy(arena_struct_t *arena) {
  * - `1` if the memory region was successfully extended and the arena's pointers were relocated.
  * - `-1` if the memory reallocation failed.
  */
+#ifdef USE_ARENA_ALLOCATOR
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
   LOG_ERROR("%s %d %s arena_realloc...\n", __FILE__, __LINE__, __func__);
   if (arena == NULL) {
@@ -289,6 +319,13 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
     return 1;
   }
 }
+#else
+int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
+  (void)arena;
+  (void)bytes_to_add;
+  return 0;
+}
+#endif
 
 
 /**
@@ -302,6 +339,7 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  * - Returns `0` if the arena has no existing chunks.
  * - Otherwise, performs the operation to logically "free" the address.
  */
+#ifdef USE_ARENA_ALLOCATOR
 int arena_free(arena_struct_t *arena, void *address) {
   uv_mutex_lock(&arena->mutex);
   LOG_ERROR("%s %d %s arena_free...\n", __FILE__, __LINE__, __func__);
@@ -374,3 +412,10 @@ int arena_free(arena_struct_t *arena, void *address) {
   uv_mutex_unlock(&arena->mutex);
   return 0;
 }
+#else
+int arena_free(arena_struct_t *arena, void *address) {
+  (void)arena;
+  free(address);
+  return 0;
+}
+#endif

@@ -17,20 +17,28 @@ Test(arena, create_and_alloc) {
   cr_assert_neq(arena_test, NULL);
   arena_status err = arena_create(arena_test, (size_t) 1 * 1024);
   cr_assert_eq(err, ok);
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_neq(arena_test->base_address, NULL);
   cr_assert_eq(arena_test->capacity, 1024);
+#endif
 
   int int_array[20];
   int * tmp1 = (int*)arena_alloc(arena_test, sizeof(int_array));
   cr_expect_neq(tmp1, NULL);
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_test->allocations, 1);
+#endif
   int * tmp2 = (int*)arena_alloc(arena_test, sizeof(int_array));
   cr_expect_neq(tmp2, NULL);
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_test->allocations, 2);
+#endif
   cr_assert_neq(tmp1,tmp2);
 
   arena_destroy(arena_test);
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_test->base_address, NULL);
+#endif
   free(arena_test);
 }
 
@@ -60,9 +68,13 @@ Test(arena, clean_and_free_reuse) {
 Test(arena, realloc_grows) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
   cr_assert_eq(arena_create(arena_test, 1024), ok);
+#ifdef USE_ARENA_ALLOCATOR
   size_t old_size = arena_test->size;
   (void)arena_realloc(arena_test, 1024);
   cr_assert(old_size < arena_test->size);
+#else
+  (void)arena_realloc(arena_test, 1024);
+#endif
   arena_destroy(arena_test);
   free(arena_test);
 }

@@ -10,6 +10,7 @@
 
 #define MAX_ALLOCATIONS 102400
 
+#ifdef USE_ARENA_ALLOCATOR
 typedef enum { ok = 0, error = -1 } arena_status;
 
 typedef struct arena_chunk_s {
@@ -48,4 +49,20 @@ int arena_clean(arena_struct_t *arena);
 int arena_destroy(arena_struct_t *arena);
 int arena_realloc(arena_struct_t *arena, size_t bytes);
 int arena_free(arena_struct_t *arena, void *address);
+#else
+// Malloc/Free fallback
+typedef enum { ok = 0, error = -1 } arena_status;
+
+typedef struct {
+  // Empty or minimal structure for malloc/free mode
+  int dummy;
+} arena_struct_t;
+
+arena_status arena_create(arena_struct_t *arena, const size_t capacity);
+void *arena_alloc(arena_struct_t *arena, size_t bytes);
+int arena_clean(arena_struct_t *arena);
+int arena_destroy(arena_struct_t *arena);
+int arena_realloc(arena_struct_t *arena, size_t bytes);
+int arena_free(arena_struct_t *arena, void *address);
+#endif
 #endif // ARENA_H

@@ -185,7 +185,11 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     LOG_ERROR(
             "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
+#ifdef USE_ARENA_ALLOCATOR
             arena_udp_handle->offset);
+#else
+            0);
+#endif
     LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
@@ -193,7 +197,11 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   LOG_DEBUG(
           "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
           __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
+#ifdef USE_ARENA_ALLOCATOR
           arena_udp_handle->offset);
+#else
+          0);
+#endif
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
 /**

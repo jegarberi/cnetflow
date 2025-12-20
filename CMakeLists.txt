@@ -21,6 +21,7 @@ set(CMAKE_C_STANDARD 99)
 # Database backend selection
 option(USE_CLICKHOUSE "Use ClickHouse instead of PostgreSQL" OFF)
 option(ENABLE_LOGGING "Enable logging" ON)
+option(USE_ARENA "Use arena allocator" ON)
 
 if (ENABLE_LOGGING)
     add_compile_definitions(ENABLE_LOGGING=1)
@@ -31,6 +32,13 @@ if (USE_CLICKHOUSE)
     add_compile_definitions(USE_CLICKHOUSE=1)
 else()
     message(STATUS "Building with PostgreSQL support")
+endif()
+
+if (USE_ARENA)
+    message(STATUS "Building with arena allocator")
+    add_compile_definitions(USE_ARENA_ALLOCATOR=1)
+else()
+    message(STATUS "Building with malloc/free allocator")
 endif()
 
 # Define a preprocessor macro depending on the build type
