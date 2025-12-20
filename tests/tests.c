@@ -15,9 +15,9 @@
 Test(arena, create_and_alloc) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
   cr_assert_neq(arena_test, NULL);
+#ifdef USE_ARENA_ALLOCATOR
   arena_status err = arena_create(arena_test, (size_t) 1 * 1024);
   cr_assert_eq(err, ok);
-#ifdef USE_ARENA_ALLOCATOR
   cr_assert_neq(arena_test->base_address, NULL);
   cr_assert_eq(arena_test->capacity, 1024);
 #endif
@@ -45,7 +45,9 @@ Test(arena, create_and_alloc) {
 Test(arena, clean_and_free_reuse) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
   cr_assert_neq(arena_test, NULL);
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_create(arena_test, 4096), ok);
+#endif
 
   // allocate two blocks and then free the first one
   void *a = arena_alloc(arena_test, 128);
@@ -67,8 +69,8 @@ Test(arena, clean_and_free_reuse) {
 
 Test(arena, realloc_grows) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
-  cr_assert_eq(arena_create(arena_test, 1024), ok);
 #ifdef USE_ARENA_ALLOCATOR
+  cr_assert_eq(arena_create(arena_test, 1024), ok);
   size_t old_size = arena_test->size;
   (void)arena_realloc(arena_test, 1024);
   cr_assert(old_size < arena_test->size);
@@ -81,7 +83,9 @@ Test(arena, realloc_grows) {
 
 Test(hashmap, set_get_delete) {
   arena_struct_t *arena_hashmap = malloc(sizeof(arena_struct_t));
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_create(arena_hashmap, 1024*1024), ok);
+#endif
   hashmap_t *hashmap = hashmap_create(arena_hashmap, 1024);
   cr_assert_neq(hashmap, NULL);
 
@@ -106,7 +110,9 @@ Test(hashmap, set_get_delete) {
 
 Test(dyn_array, create_returns_null_on_zero_elem) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_create(arena_test, 4096), ok);
+#endif
   dyn_array_t *arr = dyn_array_create(arena_test, 10, 0);
   cr_assert_eq(arr, NULL);
   arena_destroy(arena_test);
@@ -115,7 +121,9 @@ Test(dyn_array, create_returns_null_on_zero_elem) {
 
 Test(dyn_array, create_nonnull_on_valid) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
+#ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_create(arena_test, 4096), ok);
+#endif
   dyn_array_t *arr = dyn_array_create(arena_test, 4, sizeof(int));
   cr_assert_neq(arr, NULL);
   arena_destroy(arena_test);

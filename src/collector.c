@@ -186,10 +186,11 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
             "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
 #ifdef USE_ARENA_ALLOCATOR
-            arena_udp_handle->offset);
+            arena_udp_handle->offset
 #else
-            0);
+            0
 #endif
+    );
     LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
     exit(-1);
   }
@@ -198,10 +199,11 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
           "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
           __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
 #ifdef USE_ARENA_ALLOCATOR
-          arena_udp_handle->offset);
+          arena_udp_handle->offset
 #else
-          0);
+          0
 #endif
+  );
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
 /**
@@ -230,6 +232,7 @@ int8_t collector_start(collector_t *collector) {
   arena_hashmap_nf9 = malloc(sizeof(arena_struct_t));
   arena_hashmap_ipfix = malloc(sizeof(arena_struct_t));
 
+#ifdef USE_ARENA_ALLOCATOR
   arena_status err = arena_create(arena_collector, (size_t) 1 * 1024 * 1024 * 1024);
   if (err != ok) {
     LOG_ERROR("arena_create failed: %d\n", err);
@@ -253,6 +256,7 @@ int8_t collector_start(collector_t *collector) {
     LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
   }
+#endif
   LOG_ERROR("%s %d %s init_v9(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_v9(arena_hashmap_nf9, 1000000);
   LOG_ERROR("%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
