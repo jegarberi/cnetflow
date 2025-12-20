@@ -23,4 +23,5 @@ int main(void) {
   collector_start(&col_config);
   LOG_ERROR("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
   LOG_INFO("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
+  EXIT_WITH_MSG(0, "Exiting...\n");
 }
