@@ -245,7 +245,7 @@ int8_t collector_start(collector_t *collector) {
     goto error_no_arena;
   }
 
-  err = arena_create(arena_udp_handle, (size_t) 3 * 1024 * 1024 * 1024);
+  err = arena_create(arena_udp_handle, (size_t) 5 * 1024 * 1024 * 1024);
   if (err != ok) {
     LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
