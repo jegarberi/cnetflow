@@ -31,7 +31,7 @@
 #  include <libpq-fe.h>
 #endif
 #endif
-
+#define _MAX_ALLOWED_RAM 12.0
 #define true 1
 #define false 0
 #define MALLOC(x, y) arena_alloc(x, y)
@@ -55,7 +55,7 @@ size_t thread_counter;
 void print_rss_max_usage() {
   struct rusage usage;
   getrusage(RUSAGE_SELF, &usage);
-  if ((float) usage.ru_maxrss / (1024 * 1024) > 8.0) {
+  if ((float) usage.ru_maxrss / (1024 * 1024) > _MAX_ALLOWED_RAM) {
     LOG_INFO("%s %d %s ru_maxrss reached... quitting...", __FILE__, __LINE__, __func__);
     signal_handler(SIGINT);
   }

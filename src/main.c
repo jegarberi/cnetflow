@@ -17,8 +17,8 @@
 int main(void) {
   fprintf(stderr, "Starting main...\n");
   fprintf(stdout, "Starting main...\n");
-  fflush(stderr);
-  fflush(stdout);
+  //fflush(stderr);
+  //fflush(stdout);
   LOG_INFO("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
   LOG_ERROR("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
   LOG_ERROR("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
@@ -29,8 +29,8 @@ int main(void) {
   LOG_INFO("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
   fprintf(stderr, "Exiting main...\n");
   fprintf(stdout, "Exiting main...\n");
-  fflush(stderr);
-  fflush(stdout);
+  //fflush(stderr);
+  //fflush(stdout);
   EXIT_WITH_MSG(0, "Exiting...\n");
 
 }
