@@ -34,7 +34,7 @@
 #define _MAX_ALLOWED_RAM 12.0
 #define true 1
 #define false 0
-#define MALLOC(x, y) arena_alloc(x, y)
+//#define MALLOC(x, y) arena_alloc(x, y)
 // #define MALLOC(x, y) malloc(y)
 #define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
