@@ -20,6 +20,7 @@ typedef struct {
     char *user;
     char *password;
     bool connected;
+    char userpwd[256];
 } ch_conn_t;
 
 // Function declarations

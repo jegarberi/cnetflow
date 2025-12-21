@@ -216,9 +216,9 @@ int ch_execute(ch_conn_t *conn, const char *query) {
     curl_easy_setopt(conn->curl, CURLOPT_TIMEOUT, 10L);
 
     if (conn->user && conn->user[0] != '\0') {
-        char userpwd[256];
-        snprintf(userpwd, sizeof(userpwd), "%s:%s", conn->user, conn->password ? conn->password : "");
-        curl_easy_setopt(conn->curl, CURLOPT_USERPWD, userpwd);
+        //char userpwd[256];
+        snprintf(conn->userpwd, sizeof(conn->userpwd), "%s:%s", conn->user, conn->password ? conn->password : "");
+        curl_easy_setopt(conn->curl, CURLOPT_USERPWD, conn->userpwd);
         curl_easy_setopt(conn->curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     }
 
