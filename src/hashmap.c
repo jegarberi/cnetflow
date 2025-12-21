@@ -147,10 +147,10 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       // Found existing key, update value
 #ifdef USE_ARENA_ALLOCATOR
 #else
-      free(buckets[index].value);
-      buckets[index].key = NULL;
+  free(buckets[index].key);  // FREE THE KEY!
+  free(buckets[index].value);
 #endif
-      buckets[index].value = value;
+buckets[index].value = value;
       goto hashmap_set_success;
     }
 
@@ -300,11 +300,13 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
     if (strlen(buckets[index].key) == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
       // Mark as deleted
       buckets[index].deleted = 1;
-      #ifdef USE_ARENA_ALLOCATOR
-      #else
-        free(buckets[index].value);
-        buckets[index].value = NULL;
-      #endif
+#ifdef USE_ARENA_ALLOCATOR
+#else
+  free(buckets[index].key);    // FREE THE KEY!
+  free(buckets[index].value);
+  buckets[index].key = NULL;
+  buckets[index].value = NULL;
+#endif
       hashmap->size--;
       goto hashmap_delete_success;
     }
