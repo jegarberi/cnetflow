@@ -116,13 +116,19 @@ char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen) {
 
 void signal_handler(const int signal) {
   LOG_ERROR("signal handler called with signal %d\n", signal);
+  fprintf(stderr, "%d %s %d signal handler called with signal %d\n", __FILE__, __LINE__, __func__,signal);
+  fprintf(stdout, "%d %s %d signal handler called with signal %d\n", __FILE__, __LINE__, __func__,signal);
   switch (signal) {
     case SIGUSR1:
     case SIGINT:
     case SIGABRT:
       LOG_ERROR("stopping loop_udp\n");
+      fprintf(stderr, "%d %s %d stopping loop_udp \n", __FILE__, __LINE__, __func__);
+      fprintf(stdout, "%d %s %d stopping loop_udp \n", __FILE__, __LINE__, __func__);
       uv_stop(loop_udp);
       LOG_ERROR("stopping loop_pool\n");
+      fprintf(stderr, "%d %s %d stopping loop_pool \n", __FILE__, __LINE__, __func__);
+      fprintf(stdout, "%d %s %d stopping loop_pool \n", __FILE__, __LINE__, __func__);
       uv_stop(loop_pool);
       break;
     default:
