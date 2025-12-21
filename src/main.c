@@ -15,6 +15,8 @@
  * @return Returns 0 if the program completes successfully.
  */
 int main(void) {
+  fprintf(stderr, "Starting main...\n");
+  fprintf(stdout, "Starting main...\n");
   LOG_INFO("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
   LOG_ERROR("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
   LOG_ERROR("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
@@ -23,5 +25,8 @@ int main(void) {
   collector_start(&col_config);
   LOG_ERROR("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
   LOG_INFO("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
+  fprintf(stderr, "Exiting main...\n");
+  fprintf(stdout, "Exiting main...\n");
   EXIT_WITH_MSG(0, "Exiting...\n");
+
 }
