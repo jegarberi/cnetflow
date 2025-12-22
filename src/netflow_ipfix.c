@@ -257,12 +257,12 @@ void *parse_ipfix(uv_work_t *req) {
             // Process field based on IPFIX field type (same as NetFlow v9)
             switch (field_type) {
               case IPFIX_FT_FLOWENDSYSUPTIME:
-                if (len == 4) {
+                if (record_length == 4) {
                   swap_endianness(tmp32, sizeof(*tmp32));
                   *tmp32 = *tmp32 / 1000 + diff;
                   swap_endianness(tmp32, sizeof(*tmp32));
                   netflow_packet_ptr->records[record_counter].Last = *tmp32;
-                } else if (len == 8) {
+                } else if (record_length == 8) {
                   swap_endianness(tmp64, sizeof(*tmp64));
                   *tmp64 = *tmp64 / 1000 + diff;
                   swap_endianness(tmp64, sizeof(*tmp64));
@@ -272,12 +272,12 @@ void *parse_ipfix(uv_work_t *req) {
                 }
                 break;
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
-                if (len == 4) {
+                if (record_length == 4) {
                   swap_endianness(tmp32, sizeof(*tmp32));
                   *tmp32 = *tmp32 / 1000 + diff;
                   swap_endianness(tmp32, sizeof(*tmp32));
                   netflow_packet_ptr->records[record_counter].First = *tmp32;
-                } else if (len == 8) {
+                } else if (record_length == 8) {
                   swap_endianness(tmp64, sizeof(*tmp64));
                   *tmp64 = *tmp64 / 1000 + diff;
                   swap_endianness(tmp64, sizeof(*tmp64));
