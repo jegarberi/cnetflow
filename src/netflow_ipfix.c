@@ -200,6 +200,7 @@ void *parse_ipfix(uv_work_t *req) {
 #endif
 
           size_t reading_field = 0;
+          uint64_t sysUptimeMillis = 0;
           for (size_t count = 2; count < field_count * 2 + 2; count += 2) {
             reading_field++;
             uint16_t field_type = template_hashmap[count];
@@ -256,6 +257,12 @@ void *parse_ipfix(uv_work_t *req) {
 
             // Process field based on IPFIX field type (same as NetFlow v9)
             switch (field_type) {
+              case IPFIX_FT_SYSTEMINITTIMEMILLISECONDS:
+                if (record_length == 8) {
+                  swap_endianness(tmp64, sizeof(*tmp64));
+                  sysUptimeMillis = *tmp64;
+                }
+                break;
               case IPFIX_FT_FLOWENDSYSUPTIME:
                 if (record_length == 4) {
                   swap_endianness(tmp32, sizeof(*tmp32));
@@ -463,7 +470,10 @@ void *parse_ipfix(uv_work_t *req) {
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-
+          if (sysUptimeMillis != 0 ) {
+            netflow_packet_ptr->records[record_counter].Last -= (sysUptimeMillis/1000);
+            netflow_packet_ptr->records[record_counter].First -= (sysUptimeMillis/1000);
+          }
           if (!is_ipv6) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
