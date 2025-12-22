@@ -473,8 +473,8 @@ void *parse_ipfix(uv_work_t *req) {
           if (sysUptimeMillis != 0 ) {
           //TODO FIX LOGIC
             LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
-            netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) - netflow_packet_ptr->records[record_counter].Last;
-            netflow_packet_ptr->records[record_counter].First += (sysUptimeMillis/1000) - netflow_packet_ptr->records[record_counter].First;
+            netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
+            netflow_packet_ptr->records[record_counter].First = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].First;
           }
           if (!is_ipv6) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
