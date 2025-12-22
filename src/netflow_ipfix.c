@@ -262,7 +262,12 @@ void *parse_ipfix(uv_work_t *req) {
                   *tmp32 = *tmp32 / 1000 + diff;
                   swap_endianness(tmp32, sizeof(*tmp32));
                   netflow_packet_ptr->records[record_counter].Last = *tmp32;
-                } else {
+                } else if (len == 8) {
+                  swap_endianness(tmp64, sizeof(*tmp64));
+                  *tmp64 = *tmp64 / 1000 + diff;
+                  swap_endianness(tmp64, sizeof(*tmp64));
+                  netflow_packet_ptr->records[record_counter].Last = (uint32_t) (*tmp64 >> 32);
+                }else {
                   netflow_packet_ptr->records[record_counter].Last = 0;
                 }
                 break;
@@ -272,7 +277,12 @@ void *parse_ipfix(uv_work_t *req) {
                   *tmp32 = *tmp32 / 1000 + diff;
                   swap_endianness(tmp32, sizeof(*tmp32));
                   netflow_packet_ptr->records[record_counter].First = *tmp32;
-                } else {
+                } else if (len == 8) {
+                  swap_endianness(tmp64, sizeof(*tmp64));
+                  *tmp64 = *tmp64 / 1000 + diff;
+                  swap_endianness(tmp64, sizeof(*tmp64));
+                  netflow_packet_ptr->records[record_counter].First = (uint32_t) (*tmp64 >> 32);
+                }else {
                   netflow_packet_ptr->records[record_counter].First = 0;
                 }
                 break;
