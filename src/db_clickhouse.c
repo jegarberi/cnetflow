@@ -384,7 +384,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     query[offset] = '\0';
 
     int result = ch_execute(conn, query);
-    CH_LOG_DEBUG("%s\n", query);
+    CH_LOG_INFO("%s\n", query);
     free(query);
 
     if (result < 0) {
