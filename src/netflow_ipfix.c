@@ -337,6 +337,13 @@ void *parse_ipfix(uv_work_t *req) {
                 }
                 break;
               case IPFIX_FT_DESTINATIONTRANSPORTPORT:
+                switch (record_length) {
+                  case 2:
+                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) *tmp16;
+                    break;
+                  case 4:
+                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((*tmp32) <<= 16);
+                }
                 netflow_packet_ptr->records[record_counter].dstport = *tmp16;
                 break;
               case IPFIX_FT_SOURCETRANSPORTPORT:
