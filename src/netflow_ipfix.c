@@ -205,7 +205,7 @@ void *parse_ipfix(uv_work_t *req) {
             reading_field++;
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
-
+            memset(&netflow_packet_ptr->records[record_counter], 0, sizeof(netflow_packet_ptr->records[record_counter]));
             // Mask off enterprise bit for now (skip enterprise fields)
             field_type = field_type & 0x7FFF;
 
