@@ -475,8 +475,12 @@ void *parse_ipfix(uv_work_t *req) {
             LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
             LOG_ERROR("%s %d %s: Last = %u\n", __FILE__, __LINE__, __func__, netflow_packet_ptr->records[record_counter].Last);
             LOG_ERROR("%s %d %s: First = %u\n", __FILE__, __LINE__, __func__, netflow_packet_ptr->records[record_counter].First);
+            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
             netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
             netflow_packet_ptr->records[record_counter].First = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].First;
+            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
           }
           if (!is_ipv6) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
