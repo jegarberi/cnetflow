@@ -473,6 +473,8 @@ void *parse_ipfix(uv_work_t *req) {
           if (sysUptimeMillis != 0 ) {
           //TODO FIX LOGIC
             LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
+            LOG_ERROR("%s %d %s: Last = %d\n", __FILE__, __LINE__, __func__, netflow_packet_ptr->records[record_counter].Last);
+            LOG_ERROR("%s %d %s: First = %d\n", __FILE__, __LINE__, __func__, netflow_packet_ptr->records[record_counter].First);
             netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
             netflow_packet_ptr->records[record_counter].First = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].First;
           }
