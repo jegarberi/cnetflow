@@ -471,8 +471,8 @@ void *parse_ipfix(uv_work_t *req) {
           fprintf(stdout, "\n");
 #endif
           if (sysUptimeMillis != 0 ) {
-            netflow_packet_ptr->records[record_counter].Last -= (sysUptimeMillis/1000);
-            netflow_packet_ptr->records[record_counter].First -= (sysUptimeMillis/1000);
+            netflow_packet_ptr->records[record_counter].Last += (sysUptimeMillis/1000);
+            netflow_packet_ptr->records[record_counter].First += (sysUptimeMillis/1000);
           }
           if (!is_ipv6) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
