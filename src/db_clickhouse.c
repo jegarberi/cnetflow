@@ -384,7 +384,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     query[offset] = '\0';
 
     int result = ch_execute(conn, query);
-
+    CH_LOG_DEBUG("%s\n", query);
     free(query);
 
     if (result < 0) {
@@ -395,6 +395,6 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
     CH_LOG_INFO("%s %d %s: Successfully inserted %d of %d flows\n",
                 __FILE__, __LINE__, __func__, inserted, flows->header.count);
-    CH_LOG_DEBUG("%s\n", query);
+
     return 0;
 }
