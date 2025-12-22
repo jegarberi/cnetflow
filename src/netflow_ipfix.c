@@ -257,12 +257,24 @@ void *parse_ipfix(uv_work_t *req) {
             // Process field based on IPFIX field type (same as NetFlow v9)
             switch (field_type) {
               case IPFIX_FT_FLOWENDSYSUPTIME:
-                swap_endianness(tmp32, sizeof(*tmp32));
-                netflow_packet_ptr->records[record_counter].Last = *tmp32;
+                if (len == 4) {
+                  swap_endianness(tmp32, sizeof(*tmp32));
+                  *tmp32 = *tmp32 / 1000 + diff;
+                  swap_endianness(tmp32, sizeof(*tmp32));
+                  netflow_packet_ptr->records[record_counter].Last = *tmp32;
+                } else {
+                  netflow_packet_ptr->records[record_counter].Last = 0;
+                }
                 break;
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
-                swap_endianness(tmp32, sizeof(*tmp32));
-                netflow_packet_ptr->records[record_counter].First = *tmp32;
+                if (len == 4) {
+                  swap_endianness(tmp32, sizeof(*tmp32));
+                  *tmp32 = *tmp32 / 1000 + diff;
+                  swap_endianness(tmp32, sizeof(*tmp32));
+                  netflow_packet_ptr->records[record_counter].First = *tmp32;
+                } else {
+                  netflow_packet_ptr->records[record_counter].First = 0;
+                }
                 break;
               case IPFIX_FT_FLOWSTARTMILLISECONDS:
                 swap_endianness(tmp64, sizeof(*tmp64));
