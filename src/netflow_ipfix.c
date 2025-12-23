@@ -510,7 +510,7 @@ void *parse_ipfix(uv_work_t *req) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
           }
           if (!is_ipv6) {
-            /*
+
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
@@ -530,7 +530,7 @@ void *parse_ipfix(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                             sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-                            */
+
           }
 
           record_counter++;
