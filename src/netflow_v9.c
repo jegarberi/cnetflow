@@ -257,7 +257,7 @@ void *parse_v9(uv_work_t *req) {
 
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
-            memset(&netflow_packet_ptr->records[record_counter], 0, sizeof(netflow_packet_ptr->records[record_counter]));
+            //memset(&netflow_packet_ptr->records[record_counter], 0, sizeof(netflow_packet_ptr->records[record_counter]));
             if (field_type > (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
               // assert(-1);
               // exit(-1);
@@ -427,12 +427,30 @@ void *parse_v9(uv_work_t *req) {
                 break;
               }
               case IPFIX_FT_DESTINATIONTRANSPORTPORT:
-                netflow_packet_ptr->records[record_counter].dstport = val_tmp16;
-                print_flow++;
+                switch (record_length) {
+                case 2:
+                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) val_tmp16;
+                    break;
+                case 4:
+                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((val_tmp32) <<= 16);
+                    break;
+                default:
+                    netflow_packet_ptr->records[record_counter].dstport = 0;
+                    break;
+                }
                 break;
               case IPFIX_FT_SOURCETRANSPORTPORT:
-                netflow_packet_ptr->records[record_counter].srcport = val_tmp16;
-                print_flow++;
+                switch (record_length) {
+                case 2:
+                    netflow_packet_ptr->records[record_counter].srcport = (uint16_t) val_tmp16;
+                    break;
+                case 4:
+                    netflow_packet_ptr->records[record_counter].srcport = (uint16_t) ((val_tmp32) <<= 16);
+                    break;
+                default:
+                    netflow_packet_ptr->records[record_counter].srcport = 0;
+                    break;
+                }
                 break;
               case IPFIX_FT_PROTOCOLIDENTIFIER:
                 netflow_packet_ptr->records[record_counter].prot = val_tmp8;
