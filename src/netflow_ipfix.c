@@ -201,11 +201,14 @@ void *parse_ipfix(uv_work_t *req) {
 
           size_t reading_field = 0;
           uint64_t sysUptimeMillis = 0;
+          netflow_v9_record_insert_t empty_record = {0};
+          memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
           for (size_t count = 2; count < field_count * 2 + 2; count += 2) {
             reading_field++;
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
-            memset(&netflow_packet_ptr->records[record_counter], 0, sizeof(netflow_packet_ptr->records[record_counter]));
+
+
             // Mask off enterprise bit for now (skip enterprise fields)
             field_type = field_type & 0x7FFF;
 
