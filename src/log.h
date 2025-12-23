@@ -18,6 +18,8 @@
     do { \
         fprintf(stdout, "EXIT: " __VA_ARGS__); \
         fprintf(stderr, "EXIT: " __VA_ARGS__); \
+        fflush(stdout); \
+        fflush(stderr); \
         exit(code); \
     } while(0)
 
