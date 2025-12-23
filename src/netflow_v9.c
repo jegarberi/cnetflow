@@ -244,7 +244,6 @@ void *parse_v9(uv_work_t *req) {
                   ip_int_to_str(args->exporter), template_id, flowsets + 1, record_counter + 1, field_count);
 #endif
           size_t reading_field = 0;
-          netflow_v9_record_insert_t empty_record = {0};
           for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
             reading_field++;
 
@@ -258,7 +257,7 @@ void *parse_v9(uv_work_t *req) {
 
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
-            memcpy(&netflow_packet_ptr->records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
+            //memset(&netflow_packet_ptr->records[record_counter], 0, sizeof(netflow_packet_ptr->records[record_counter]));
             if (field_type > (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
               // assert(-1);
               // exit(-1);
