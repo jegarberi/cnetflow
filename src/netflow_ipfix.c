@@ -355,7 +355,7 @@ void *parse_ipfix(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dOctets <<= 32;
                     break;
                   case 8:
-                    netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) val_tmp32;
+                    netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) val_tmp64;
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].dOctets = 0;
@@ -369,7 +369,7 @@ void *parse_ipfix(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dPkts <<= 32;
                     break;
                   case 8:
-                    netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) val_tmp32;
+                    netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) val_tmp64;
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].dPkts = 0;
