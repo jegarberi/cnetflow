@@ -678,7 +678,6 @@ void *parse_v9(uv_work_t *req) {
         }
         */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
-        memset(&flows_to_insert, 0, sizeof(flows_to_insert));
         if (netflow_packet_ptr->records[0].dOctets == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
