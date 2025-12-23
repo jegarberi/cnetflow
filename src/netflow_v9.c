@@ -610,7 +610,7 @@ void *parse_v9(uv_work_t *req) {
                       fprintf(stdout, "%u ", *tmp32);
                       break;
                     case 6:
-                      fprintf(stdout, "%lx ", tmp6);
+                      fprintf(stdout, "%lx ", tmp64);
                       break;
                     case 8:
                       fprintf(stdout, "%lu ", *tmp64);
