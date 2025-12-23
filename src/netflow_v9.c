@@ -655,6 +655,7 @@ void *parse_v9(uv_work_t *req) {
           }
 
           if (!is_ipv6) {
+            /*
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
@@ -674,6 +675,7 @@ void *parse_v9(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                             sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+              */
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif

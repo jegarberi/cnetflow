@@ -87,6 +87,9 @@ void *parse_v5(uv_work_t *req) {
     swap_endianness((void *) &(records[record_counter].src_mask), sizeof((records[record_counter].src_mask)));
     swap_endianness((void *) &(records[record_counter].dst_mask), sizeof((records[record_counter].dst_mask)));
     */
+
+
+    /*
     swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].srcport),
                     sizeof((netflow_packet_ptr->records[record_counter].srcport)));
     swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dstport),
@@ -111,7 +114,7 @@ void *parse_v5(uv_work_t *req) {
                     sizeof((netflow_packet_ptr->records[record_counter].dOctets)));
     swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dPkts),
                     sizeof((netflow_packet_ptr->records[record_counter].dPkts)));
-
+    */
 #ifdef CNETFLOW_DEBUG_BUILD
     printf_v5(stdout, netflow_packet_ptr, record_counter);
 #endif
