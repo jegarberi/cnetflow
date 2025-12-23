@@ -663,9 +663,14 @@ void *parse_v9(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                             sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-
+            if (netflow_packet_ptr->records[record_counter].prot == 1 && (netflow_packet_ptr->records[record_counter].srcport > 0 || netflow_packet_ptr->records[record_counter].srcport > 0)) {
+              EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+            }
 
             swap_src_dst_v9_ipv4(&netflow_packet_ptr->records[record_counter]);
+            if (netflow_packet_ptr->records[record_counter].prot == 1 && (netflow_packet_ptr->records[record_counter].srcport > 0 || netflow_packet_ptr->records[record_counter].srcport > 0)) {
+              EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+            }
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
                             sizeof(netflow_packet_ptr->records[record_counter].srcport));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
@@ -674,6 +679,9 @@ void *parse_v9(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                             sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+            if (netflow_packet_ptr->records[record_counter].prot == 1 && (netflow_packet_ptr->records[record_counter].srcport > 0 || netflow_packet_ptr->records[record_counter].srcport > 0)) {
+              EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+            }
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif
