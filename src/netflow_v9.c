@@ -431,7 +431,7 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dstport = (uint16_t) val_tmp16;
                     break;
                 case 4:
-                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((val_tmp32) >> 16);
+                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((val_tmp32) << 16);
                     break;
                 default:
                     netflow_packet_ptr->records[record_counter].dstport = 0;
@@ -444,7 +444,7 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].srcport = (uint16_t) val_tmp16;
                     break;
                 case 4:
-                    netflow_packet_ptr->records[record_counter].srcport = (uint16_t) ((val_tmp32) >> 16);
+                    netflow_packet_ptr->records[record_counter].srcport = (uint16_t) ((val_tmp32) << 16);
                     break;
                 default:
                     netflow_packet_ptr->records[record_counter].srcport = 0;
