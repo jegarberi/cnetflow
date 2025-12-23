@@ -120,6 +120,7 @@ void *parse_v5(uv_work_t *req) {
   // insert_v5(args->exporter, netflow_packet_ptr);
 
   netflow_v9_uint128_flowset_t flows_to_insert = {0};
+  memset(&flows_to_insert, 0, sizeof(flows_to_insert));
   copy_v5_to_flow(netflow_packet_ptr, &flows_to_insert);
   uint32_t exporter_host = args->exporter;
   swap_endianness((void *) &exporter_host, sizeof(exporter_host));

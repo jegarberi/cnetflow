@@ -537,6 +537,7 @@ void *parse_ipfix(uv_work_t *req) {
 
         netflow_packet_ptr->header.count = record_counter;
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
+        memset(&flows_to_insert, 0, sizeof(flows_to_insert));
         copy_ipfix_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
 
         uint32_t exporter_host = args->exporter;
