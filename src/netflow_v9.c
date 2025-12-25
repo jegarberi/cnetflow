@@ -242,20 +242,23 @@ void *parse_v9(uv_work_t *req) {
                     break;
                   case IPFIX_FT_OCTETDELTACOUNT:
                     if (f_len == 4) {
+                        swap_endianness(&val_tmp32, 4);
                         netflow_packet_ptr->records[record_counter].dOctets = (uint64_t)val_tmp32;
                     }
                     else if (f_len == 8) {
+                        swap_endianness(&val_tmp64, 8);
                         netflow_packet_ptr->records[record_counter].dOctets = val_tmp64;
                     }
                     break;
                   case IPFIX_FT_PACKETDELTACOUNT:
                     if (f_len == 4) {
+                        swap_endianness(&val_tmp32, 4);
                         netflow_packet_ptr->records[record_counter].dPkts = (uint64_t)val_tmp32;
                     }
                     else if (f_len == 8) {
+                        swap_endianness(&val_tmp64, 8);
                         netflow_packet_ptr->records[record_counter].dPkts = val_tmp64;
                     }
-
                     break;
                   case IPFIX_FT_DESTINATIONTRANSPORTPORT:
                     if (f_len == 2) netflow_packet_ptr->records[record_counter].dstport = val_tmp16;
