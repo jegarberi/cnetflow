@@ -132,9 +132,9 @@ void *parse_v9(uv_work_t *req) {
 
         size_t record_len = 0;
         for (int i = 0; i < field_count; i++) {
-          uint16_t record_length = template_data[2 + i * 2 + 1];
-          swap_endianness(&record_length, sizeof(record_length));
-          record_len += record_length;
+          uint16_t f_len = template_data[2 + i * 2 + 1];
+          swap_endianness(&f_len, sizeof(f_len));
+          record_len += f_len;
         }
 
         if (record_len == 0) {
@@ -155,9 +155,9 @@ void *parse_v9(uv_work_t *req) {
               size_t field_offset = 0;
               for (int i = 0; i < field_count; i++) {
                 uint16_t f_type = template_data[2 + i * 2];
-                uint16_t record_length = template_data[2 + i * 2 + 1];
+                uint16_t f_len = template_data[2 + i * 2 + 1];
                 swap_endianness(&f_type, sizeof(f_type));
-                swap_endianness(&record_length, sizeof(record_length));
+                swap_endianness(&f_len, sizeof(f_len));
 
                 void *field_ptr = record_ptr + field_offset;
 
@@ -174,7 +174,7 @@ void *parse_v9(uv_work_t *req) {
                 uint128_t val_tmp128;
 
                 // Read values into local variables for consistent handling
-                switch (record_length) {
+                switch (f_len) {
                   case 1:
                     val_tmp8 = *tmp8;
                     break;
@@ -199,71 +199,69 @@ void *parse_v9(uv_work_t *req) {
 
                 switch (f_type) {
                   case IPFIX_FT_FLOWENDSYSUPTIME:
-                    if (record_length == 4) {
-                      swap_endianness(&val_tmp32, sizeof(val_tmp32));
-                      val_tmp32 = val_tmp32 / 1000 + diff;
-                      swap_endianness(&val_tmp32, sizeof(val_tmp32));
-                      netflow_packet_ptr->records[record_counter].Last = val_tmp32;
-                    } else if (record_length == 8) {
-                      swap_endianness(&val_tmp64, sizeof(val_tmp64));
-                      val_tmp64 = val_tmp64 / 1000 + diff;
-                      swap_endianness(&val_tmp64, sizeof(val_tmp64));
-                      netflow_packet_ptr->records[record_counter].Last = (uint32_t) (val_tmp128 >> 32);
-                    }else {
-                      netflow_packet_ptr->records[record_counter].Last = 0;
+                    if (f_len == 4) {
+                       swap_endianness(&val_tmp32, 4);
+                       netflow_packet_ptr->records[record_counter].Last = val_tmp32 / 1000 + diff;
                     }
+                    break;
+                  case IPFIX_FT_FLOWSTARTSYSUPTIME:
+                    if (f_len == 4) {
+                       swap_endianness(&val_tmp32, 4);
+                       netflow_packet_ptr->records[record_counter].First = val_tmp32 / 1000 + diff;
+                    }
+                    break;
                   case IPFIX_FT_IPVERSION:
                     netflow_packet_ptr->records[record_counter].ip_version = val_tmp8;
                     if (val_tmp8 == 6) is_ipv6 = 1;
                     break;
                   case IPFIX_FT_SOURCEIPV4ADDRESS:
-                    if (record_length == 4) netflow_packet_ptr->records[record_counter].srcaddr = val_tmp32;
+                    if (f_len == 4) netflow_packet_ptr->records[record_counter].srcaddr = val_tmp32;
                     netflow_packet_ptr->records[record_counter].ip_version = 4;
                     break;
                   case IPFIX_FT_DESTINATIONIPV4ADDRESS:
-                    if (record_length == 4) netflow_packet_ptr->records[record_counter].dstaddr = val_tmp32;
+                    if (f_len == 4) netflow_packet_ptr->records[record_counter].dstaddr = val_tmp32;
                     break;
                   case IPFIX_FT_SOURCEIPV6ADDRESS:
-                    if (record_length == 16) {
+                    if (f_len == 16) {
                         netflow_packet_ptr->records[record_counter].ipv6srcaddr = val_tmp128;
                         netflow_packet_ptr->records[record_counter].ip_version = 6;
                         is_ipv6 = 1;
                     }
                     break;
                   case IPFIX_FT_DESTINATIONIPV6ADDRESS:
-                    if (record_length == 16) {
+                    if (f_len == 16) {
                         netflow_packet_ptr->records[record_counter].ipv6dstaddr = val_tmp128;
                         is_ipv6 = 1;
                     }
                     break;
                   case IPFIX_FT_BGPNEXTHOPIPV6ADDRESS:
-                    if (record_length == 16) {
+                    if (f_len == 16) {
                         netflow_packet_ptr->records[record_counter].ipv6nexthop = val_tmp128;
                         is_ipv6 = 1;
                     }
                     break;
                   case IPFIX_FT_OCTETDELTACOUNT:
-                    if (record_length == 4) {
+                    if (f_len == 4) {
                         netflow_packet_ptr->records[record_counter].dOctets = (uint64_t)val_tmp32;
                     }
-                    else if (record_length == 8) {
+                    else if (f_len == 8) {
                         netflow_packet_ptr->records[record_counter].dOctets = val_tmp64;
                     }
                     break;
                   case IPFIX_FT_PACKETDELTACOUNT:
-                    if (record_length == 4) {
+                    if (f_len == 4) {
                         netflow_packet_ptr->records[record_counter].dPkts = (uint64_t)val_tmp32;
                     }
-                    else if (record_length == 8) {
+                    else if (f_len == 8) {
                         netflow_packet_ptr->records[record_counter].dPkts = val_tmp64;
                     }
 
                     break;
                   case IPFIX_FT_DESTINATIONTRANSPORTPORT:
-                    if (record_length == 2) netflow_packet_ptr->records[record_counter].dstport = val_tmp16;
+                    if (f_len == 2) netflow_packet_ptr->records[record_counter].dstport = val_tmp16;
                     break;
                   case IPFIX_FT_SOURCETRANSPORTPORT:
-                    if (record_length == 2) netflow_packet_ptr->records[record_counter].srcport = val_tmp16;
+                    if (f_len == 2) netflow_packet_ptr->records[record_counter].srcport = val_tmp16;
                     break;
                   case IPFIX_FT_PROTOCOLIDENTIFIER:
                     netflow_packet_ptr->records[record_counter].prot = val_tmp8;
@@ -275,35 +273,41 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].tos = val_tmp8;
                     break;
                   case IPFIX_FT_INGRESSINTERFACE:
-                    if (record_length == 2) netflow_packet_ptr->records[record_counter].input = val_tmp16;
-                    else if (record_length == 4) {
+                    if (f_len == 2) netflow_packet_ptr->records[record_counter].input = val_tmp16;
+                    else if (f_len == 4) {
+                        swap_endianness(&val_tmp32, 4);
                         netflow_packet_ptr->records[record_counter].input = (uint16_t)(val_tmp32 >> 16);
                     }
                     break;
                   case IPFIX_FT_EGRESSINTERFACE:
-                    if (record_length == 2) netflow_packet_ptr->records[record_counter].output = val_tmp16;
-                    else if (record_length == 4) {
+                    if (f_len == 2) netflow_packet_ptr->records[record_counter].output = val_tmp16;
+                    else if (f_len == 4) {
+                        swap_endianness(&val_tmp32, 4);
                         netflow_packet_ptr->records[record_counter].output = (uint16_t)(val_tmp32 >> 16);
                     }
                     break;
                   case IPFIX_FT_BGPSOURCEASNUMBER:
-                    if (record_length == 2) {
+                    if (f_len == 2) {
+                        swap_endianness(&val_tmp16, 2);
                         netflow_packet_ptr->records[record_counter].src_as = (uint32_t)val_tmp16;
                     }
-                    else if (record_length == 4) {
+                    else if (f_len == 4) {
+                        swap_endianness(&val_tmp32, 4);
                         netflow_packet_ptr->records[record_counter].src_as = val_tmp32;
                     }
                     break;
                   case IPFIX_FT_BGPDESTINATIONASNUMBER:
-                    if (record_length == 2) {
+                    if (f_len == 2) {
+                        swap_endianness(&val_tmp16, 2);
                         netflow_packet_ptr->records[record_counter].dst_as = (uint32_t)val_tmp16;
                     }
-                    else if (record_length == 4) {
+                    else if (f_len == 4) {
+                        swap_endianness(&val_tmp32, 4);
                         netflow_packet_ptr->records[record_counter].dst_as = val_tmp32;
                     }
                     break;
                   case IPFIX_FT_BGPNEXTHOPIPV4ADDRESS:
-                    if (record_length == 4) netflow_packet_ptr->records[record_counter].nexthop = val_tmp32;
+                    if (f_len == 4) netflow_packet_ptr->records[record_counter].nexthop = val_tmp32;
                     break;
                   case IPFIX_FT_SOURCEIPV4PREFIXLENGTH:
                   case IPFIX_FT_SOURCEIPV6PREFIXLENGTH:
@@ -314,7 +318,7 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dst_mask = val_tmp8;
                     break;
                 }
-                field_offset += record_length;
+                field_offset += f_len;
               }
 
               // Finalize record
@@ -338,17 +342,17 @@ void *parse_v9(uv_work_t *req) {
 
               if (!is_ipv6) {
                   // Original code was swapping these before and after swap_src_dst
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcport, sizeof(netflow_packet_ptr->records[record_counter].srcport));
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstport, sizeof(netflow_packet_ptr->records[record_counter].dstport));
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr, sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr, sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcport, 2);
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstport, 2);
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr, 4);
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr, 4);
 
                   swap_src_dst_v9_ipv4(&netflow_packet_ptr->records[record_counter]);
 
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcport, sizeof(netflow_packet_ptr->records[record_counter].srcport));
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstport, sizeof(netflow_packet_ptr->records[record_counter].dstport));
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr, sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr, sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcport, 2);
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstport, 2);
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr, 4);
+                  swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr, 4);
               }
 
               pos += record_len;
