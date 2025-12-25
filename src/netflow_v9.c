@@ -238,7 +238,7 @@ void *parse_v9(uv_work_t *req) {
         int is_ipv6 = 0;
         while (has_more_records) {
           // netflow_v9_record_value_t *record_value;
-          size_t print_flow = 0;
+          
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
                   ip_int_to_str(args->exporter), template_id, flowsets + 1, record_counter + 1, field_count);
@@ -372,13 +372,13 @@ void *parse_v9(uv_work_t *req) {
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
                 netflow_packet_ptr->records[record_counter].ip_version = 4;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_DESTINATIONIPV4ADDRESS:
                 netflow_packet_ptr->records[record_counter].dstaddr = val_tmp32;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-                print_flow++;
+                
                 break;
               case IPFIX_FT_SOURCEIPV6ADDRESS:
                 // assert(((uintptr_t) tmp128 % 16) == 0);
@@ -386,14 +386,14 @@ void *parse_v9(uv_work_t *req) {
                 netflow_packet_ptr->records[record_counter].ip_version = 6;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-                print_flow++;
+                
                 is_ipv6 = 1;
                 break;
               case IPFIX_FT_DESTINATIONIPV6ADDRESS:
                 netflow_packet_ptr->records[record_counter].ipv6dstaddr = val_tmp128;
                 // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                 //                sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-                print_flow++;
+                
                 is_ipv6 = 1;
                 break;
               case IPFIX_FT_OCTETDELTACOUNT:
@@ -411,7 +411,7 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dOctets = 0;
                     break;
                 }
-                print_flow++;
+                
                 break;
               case IPFIX_FT_PACKETDELTACOUNT: {
                 // uint64_t dpkts_64 = 0;
@@ -430,20 +430,20 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dPkts = 0;
                     break;
                 }
-                print_flow++;
+                
                 break;
               }
               case IPFIX_FT_DESTINATIONTRANSPORTPORT:
                 netflow_packet_ptr->records[record_counter].dstport = val_tmp16;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_SOURCETRANSPORTPORT:
                 netflow_packet_ptr->records[record_counter].srcport = val_tmp16;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_PROTOCOLIDENTIFIER:
                 netflow_packet_ptr->records[record_counter].prot = val_tmp8;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_INGRESSINTERFACE:
                 switch (record_length) {
@@ -464,7 +464,7 @@ void *parse_v9(uv_work_t *req) {
                   LOG_ERROR("%s %d %s: input: %d\n", __FILE__, __LINE__, __func__,
                           netflow_packet_ptr->records[record_counter].input);
                 }
-                print_flow++;
+                
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
@@ -481,7 +481,7 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].output = 0;
                     break;
                 }
-                print_flow++;
+                
                 break;
               case IPFIX_FT_BGPSOURCEASNUMBER:
                 switch (record_length) {
@@ -496,7 +496,7 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].src_as = 0;
                     break;
                 }
-                print_flow++;
+                
                 break;
               case IPFIX_FT_BGPDESTINATIONASNUMBER:
                 switch (record_length) {
@@ -511,40 +511,40 @@ void *parse_v9(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].dst_as = 0;
                     break;
                 }
-                print_flow++;
+                
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV4ADDRESS:
                 netflow_packet_ptr->records[record_counter].nexthop = val_tmp32;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV6ADDRESS:
                 netflow_packet_ptr->records[record_counter].ipv6nexthop = val_tmp128;
                 is_ipv6 = 1;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_TCPCONTROLBITS:
                 netflow_packet_ptr->records[record_counter].tcp_flags = val_tmp8;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_IPCLASSOFSERVICE:
                 netflow_packet_ptr->records[record_counter].tos = val_tmp8;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_SOURCEIPV4PREFIXLENGTH:
                 netflow_packet_ptr->records[record_counter].src_mask = val_tmp8;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_DESTINATIONIPV4PREFIXLENGTH:
                 netflow_packet_ptr->records[record_counter].dst_mask = val_tmp8;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_SOURCEIPV6PREFIXLENGTH:
                 netflow_packet_ptr->records[record_counter].src_mask = val_tmp8;
-                print_flow++;
+                
                 break;
               case IPFIX_FT_DESTINATIONIPV6PREFIXLENGTH:
                 netflow_packet_ptr->records[record_counter].dst_mask = val_tmp8;
-                print_flow++;
+                
                 break;
               default:
                 break;
