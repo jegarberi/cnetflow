@@ -694,12 +694,14 @@ void *parse_v9(uv_work_t *req) {
         }
         */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
+        /*
         if (netflow_packet_ptr->records[0].dOctets == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
         if (netflow_packet_ptr->records[0].dPkts == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
+        */
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
