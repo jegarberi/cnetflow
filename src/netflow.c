@@ -392,23 +392,19 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
           netflow_packet->records[i].prot);
 }
-void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, int i) {
+void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, size_t i) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
 
   char *tmp;
-  uint32_t tmp_address = netflow_packet->records[i].srcaddr;
-  swap_endianness(&tmp_address, sizeof(tmp_address));
-  tmp = ip_int_to_str(tmp_address);
+  tmp = ip_int_to_str(netflow_packet->records[i].srcaddr);
   strncpy(ip_src_str, tmp, strlen(tmp));
   uint16_t tmp_src_port = netflow_packet->records[i].srcport;
   uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
-  tmp_address = netflow_packet->records[i].dstaddr;
-  swap_endianness(&tmp_address, sizeof(tmp_address));
-  tmp = ip_int_to_str(tmp_address);
+  tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s %d %s  %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
+  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
           netflow_packet->records[i].prot);
 }
