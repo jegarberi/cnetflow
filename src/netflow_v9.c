@@ -162,10 +162,10 @@ void *parse_v9(uv_work_t *req) {
           // Validate source address is within packet bounds
           size_t src_offset = template_init - sizeof(int16_t) * 2 - (size_t)args->data;
           size_t copy_size = sizeof(uint16_t) * (field_count + 1) * 4;
-          if (src_offset + copy_size > total_packet_length) {
-            LOG_ERROR("%s %d %s Template copy would exceed packet bounds\n", __FILE__, __LINE__, __func__);
-            goto unlock_mutex_parse_v9;
-          }
+          //if (src_offset + copy_size > total_packet_length) {
+          //  LOG_ERROR("%s %d %s Template copy would exceed packet bounds\n", __FILE__, __LINE__, __func__);
+          //  goto unlock_mutex_parse_v9;
+          //}
 
           memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), copy_size);
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
