@@ -633,9 +633,13 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stdout, "\n");
 #endif
           if (netflow_packet_ptr->records[record_counter].Last != 0 && netflow_packet_ptr->records[record_counter].First != 0) {
+            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
             uint32_t duration  = netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
             netflow_packet_ptr->records[record_counter].Last = now;
             netflow_packet_ptr->records[record_counter].First = now - duration;
+            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
           }
           if (!is_ipv6) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,

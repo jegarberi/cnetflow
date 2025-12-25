@@ -114,7 +114,15 @@ void *parse_v5(uv_work_t *req) {
                     sizeof((netflow_packet_ptr->records[record_counter].dOctets)));
     swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dPkts),
                     sizeof((netflow_packet_ptr->records[record_counter].dPkts)));
-    
+    if (netflow_packet_ptr->records[record_counter].Last != 0 && netflow_packet_ptr->records[record_counter].First != 0) {
+      swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
+      swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
+      uint32_t duration  = netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
+      netflow_packet_ptr->records[record_counter].Last = now;
+      netflow_packet_ptr->records[record_counter].First = now - duration;
+      swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
+      swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
+    }
 #ifdef CNETFLOW_DEBUG_BUILD
     printf_v5(stdout, netflow_packet_ptr, record_counter);
 #endif
