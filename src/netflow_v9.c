@@ -474,8 +474,8 @@ void *parse_v9(uv_work_t *req) {
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].output = (uint16_t) ((val_tmp32) >> 16);
-                    LOG_ERROR("egress tmp32: %d\n", val_tmp32);
-                    LOG_ERROR("egress tmp32: %d\n", netflow_packet_ptr->records[record_counter].output);
+                    LOG_ERROR("%s %d %s egress tmp32: %d\n", __FILE__,__LINE__,__func__,val_tmp32);
+                    LOG_ERROR("%s %d %s egress tmp32: %d\n", __FILE__,__LINE__,__func__,netflow_packet_ptr->records[record_counter].output);
                     break;
                   default:
                     netflow_packet_ptr->records[record_counter].output = 0;
