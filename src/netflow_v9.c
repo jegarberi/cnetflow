@@ -338,6 +338,7 @@ void *parse_v9(uv_work_t *req) {
             }
 
             switch (field_type) {
+              LOG_INFO("field_type: %d\n", field_type);
               case IPFIX_FT_FLOWENDSYSUPTIME:
                 swap_endianness(&val_tmp32, sizeof(val_tmp32));
                 val_tmp32 = val_tmp32 / 1000 + diff;
