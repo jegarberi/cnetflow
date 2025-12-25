@@ -23,7 +23,7 @@ ORDER BY (bucket, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input,
 TTL bucket + INTERVAL 7 DAY  -- Keep 5-minute data for 7 days
 POPULATE
 AS SELECT
-    toStartOfFiveMinutes(first) AS bucket,
+    toStartOfFiveMinutes(inserted_at) AS bucket,
     exporter,
     srcaddr,
     dstaddr,
@@ -61,7 +61,7 @@ ORDER BY (bucket, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input,
 TTL bucket + INTERVAL 30 DAY  -- Keep hourly data for 30 days
 POPULATE
 AS SELECT
-    toStartOfHour(first) AS bucket,
+    toStartOfHour(inserted_at) AS bucket,
     exporter,
     srcaddr,
     dstaddr,
@@ -99,7 +99,7 @@ ORDER BY (bucket, exporter, srcaddr, dstaddr, protocol, input, output)
 TTL bucket + INTERVAL 365 DAY  -- Keep daily data for 1 year
 POPULATE
 AS SELECT
-    toStartOfDay(first) AS bucket,
+    toStartOfDay(inserted_at) AS bucket,
     exporter,
     srcaddr,
     dstaddr,
@@ -131,7 +131,7 @@ ORDER BY (bucket, exporter, srcaddr, dstaddr, input, output)
 TTL bucket + INTERVAL 30 DAY  -- Keep top talkers for 30 days
 POPULATE
 AS SELECT
-    toStartOfHour(first) AS bucket,
+    toStartOfHour(inserted_at) AS bucket,
     exporter,
     srcaddr,
     dstaddr,
@@ -160,7 +160,7 @@ ORDER BY (bucket, exporter, protocol)
 TTL bucket + INTERVAL 30 DAY
 POPULATE
 AS SELECT
-    toStartOfHour(first) AS bucket,
+    toStartOfHour(inserted_at) AS bucket,
     exporter,
     protocol,
     count() AS flow_count,
@@ -184,7 +184,7 @@ ORDER BY (bucket, exporter, dstport, protocol)
 TTL bucket + INTERVAL 30 DAY
 POPULATE
 AS SELECT
-    toStartOfHour(first) AS bucket,
+    toStartOfHour(inserted_at) AS bucket,
     exporter,
     dstport,
     protocol,
@@ -212,7 +212,7 @@ ORDER BY (bucket, exporter, src_as, dst_as)
 TTL bucket + INTERVAL 30 DAY
 POPULATE
 AS SELECT
-    toStartOfHour(first) AS bucket,
+    toStartOfHour(inserted_at) AS bucket,
     exporter,
     src_as,
     dst_as,
