@@ -327,6 +327,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
         char srcaddr[250];
         char dstaddr[250];
+
         char *nfaddr = ch_ip_uint128_to_string(flows->records[i].srcaddr,
                                                 flows->records[i].ip_version);
         memccpy(srcaddr, nfaddr, '\0', 250);
