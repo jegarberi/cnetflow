@@ -389,7 +389,7 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
+  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
           netflow_packet->records[i].prot);
 }
 void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, int i) {
@@ -409,6 +409,6 @@ void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, int i) {
   swap_endianness(&tmp_address, sizeof(tmp_address));
   tmp = ip_int_to_str(tmp_address);
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s:%u -> %s:%u %u\n", ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
+  fprintf(file, "%s %d %s  %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
           netflow_packet->records[i].prot);
 }
