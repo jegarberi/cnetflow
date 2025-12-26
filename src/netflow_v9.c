@@ -187,7 +187,7 @@ void *parse_v9(uv_work_t *req) {
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
-        if (pos >= flowset_length - 4) {
+        if (pos >= flowset_length ) {
           has_more_templates = 0;
         }
       }
@@ -203,7 +203,7 @@ void *parse_v9(uv_work_t *req) {
       }
 
       size_t has_more_records = 1;
-      size_t pos = 0;
+      size_t pos = 4;
 
       // Validate we have enough space for record header
       if (flowset_base + pos + sizeof(netflow_v9_record_t) > total_packet_length) {
@@ -677,7 +677,7 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
           record_counter++;
-          if (pos >= flowset_length - 6) { // flowset_id + length + padding
+          if (pos >= flowset_length ) { // flowset_id + length + padding
             has_more_records = 0;
             // exit(-1);
           }
