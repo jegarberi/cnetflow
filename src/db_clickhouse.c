@@ -298,11 +298,7 @@ int ch_insert_template(uint32_t exporter, char * template_key,const uint8_t * du
 
   char query[65536] = {0} ;
   char pre_query[250] = {0};
-  if (!query) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n",
-                 __FILE__, __LINE__, __func__);
-    return -1;
-  }
+
   // Convert exporter IP to string format
   swap_endianness(&exporter, sizeof(exporter));
   char exporter_str[INET_ADDRSTRLEN];
@@ -359,24 +355,21 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
     return -1;
   }
   // Build bulk insert query for better performance
-  size_t query_size = 65536; // Start with 64KB
-  char *query = malloc(query_size);
-  if (!query) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n",
-                 __FILE__, __LINE__, __func__);
-    return -1;
-  }
+
+  char query[65536] = {0} ;
+  char pre_query[250] = {0};
+
   // Convert exporter IP to string format
   swap_endianness(&exporter, sizeof(exporter));
   char exporter_str[INET_ADDRSTRLEN];
   struct in_addr addr;
-  //addr.s_addr = htonl(exporter);
+  addr.s_addr = htonl(exporter);
   if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
     snprintf(exporter_str, sizeof(exporter_str), "unknown");
   }
 
-  int offset = snprintf(query, query_size,
-                        "INSERT INTO dumps (exporter,template,dump) VALUES ");
+  int offset = snprintf(pre_query, sizeof(pre_query),
+                        "INSERT INTO dump (exporter,template_key,template) VALUES ");
   char str_dump[10000] = {0};
   int dump_offset = 0;
   dump_offset = snprintf(str_dump, 2,"{");
@@ -389,8 +382,9 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
   }
   dump_offset +=snprintf(str_dump+dump_offset, 2,"}");
   char value_str[1024];
-  int written = snprintf(value_str, sizeof(value_str),
-                         "('%s','%s','%s')",
+  int written = snprintf((char*)query, sizeof(query) + sizeof(pre_query),
+                         "%s ('%s','%s','%s')",
+                         pre_query,
                          exporter_str,
                          template_key,
                          str_dump
@@ -399,14 +393,14 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
 
   int result = ch_execute(conn, query);
   CH_LOG_INFO("%s\n", query);
-  free(query);
+
 
   if (result < 0) {
     CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
     return -1;
   }
 
-  CH_LOG_INFO("%s %d %s: Successfully inserted dump for template %s\n", __FILE__, __LINE__, __func__, template_key);
+  CH_LOG_INFO("%s %d %s: Successfully inserted dump for dump %s\n", __FILE__, __LINE__, __func__, template_key);
 
   return 0;
 }
