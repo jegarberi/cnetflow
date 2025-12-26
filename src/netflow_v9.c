@@ -203,7 +203,7 @@ void *parse_v9(uv_work_t *req) {
       }
 
       size_t has_more_records = 1;
-      size_t pos = 4;
+      size_t pos = 0;
 
       // Validate we have enough space for record header
       if (flowset_base + pos  > total_packet_length) {
@@ -235,7 +235,8 @@ void *parse_v9(uv_work_t *req) {
         swap_endianness(&template_id, sizeof(template_id));
         uint16_t field_count = template_hashmap[1];
         swap_endianness(&field_count, sizeof(field_count));
-        pos = 0;
+        //SKIP FLOWSET HEADER
+        pos = 4;
         // pos += 4;
         // FILE *ftemplate = fopen("templates.txt", "a");
         netflow_v9_flowset_t *netflow_packet_ptr;
