@@ -705,7 +705,7 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stderr, "dumping packet\n");
           uint8_t *ptr;
           ptr = args->data;
-          FILE* fdump = fopen("./dumps.txt","a+");
+          FILE* fdump = fopen("/tmp/dumps.txt","a+");
           fprintf(fdump, "{");
           for (size_t i = 0; i < 2000; i++) {
             uint8_t pkt = *(ptr+i);
