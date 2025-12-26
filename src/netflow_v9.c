@@ -710,7 +710,7 @@ void *parse_v9(uv_work_t *req) {
           for (size_t i = 0; i < args->len; i++) {
             uint8_t pkt = *(ptr+i);
             fprintf(fdump, "%02x", pkt);
-            if (i == args->len) {
+            if (i < args->len - 1) {
               fprintf(fdump, ",");
             } else {
 
