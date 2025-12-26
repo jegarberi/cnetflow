@@ -175,7 +175,7 @@ void *parse_v9(uv_work_t *req) {
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
-            insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
+            //insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
             LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
 
           }
