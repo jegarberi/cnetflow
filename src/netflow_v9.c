@@ -705,19 +705,21 @@ void *parse_v9(uv_work_t *req) {
           fprintf(stderr, "dumping packet\n");
           uint8_t *ptr;
           ptr = args->data;
+          FILE* fdump = fopen("./dumps.txt","a+");
           fprintf(stderr, "{");
           for (size_t i = 0; i < 2000; i++) {
             uint8_t pkt = *(ptr+i);
-            fprintf(stderr, "%02x", pkt);
+            fprintf(fdump, "%02x", pkt);
             if (i == 1999) {
-              fprintf(stderr, ",");
+              fprintf(fdump, ",");
             } else {
 
             }
           }
-          fprintf(stderr, "}");
-          fprintf(stderr, "\n");
-
+          fprintf(fdump, "}");
+          fprintf(fdump, "\n");
+          fflush(fdump);
+          fclose(fdump);
         }
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
