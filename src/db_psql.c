@@ -802,6 +802,12 @@ db_connect_exit_nicely:
   EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
 }
 
+int insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) {
+
+}
+int insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) {
+
+}
 
 void swap_src_dst(netflow_v9_uint128_flowset_t *flows) {
   for (int i = 0; i < flows->header.count; ++i) {

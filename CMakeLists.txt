@@ -75,7 +75,7 @@ else()
     set(DB_LINK_LIBRARIES pq)
 endif()
 
-target_link_libraries(netflow_v9 arena netflow netflow_v5)
+target_link_libraries(netflow_v9 arena netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} )
 target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
 target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
 

@@ -51,4 +51,6 @@ void prepare_statement_insert_flows(PGconn *conn);
 void insert_flows(uint32_t, netflow_v9_uint128_flowset_t *);
 char *ip_uint128_to_string(uint128_t value, uint8_t ip_version);
 void swap_src_dst(netflow_v9_uint128_flowset_t *);
+int insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
+int insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
 #endif // DB_PSQL_H

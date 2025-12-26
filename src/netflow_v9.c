@@ -175,7 +175,7 @@ void *parse_v9(uv_work_t *req) {
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
-            ch_insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
+            insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
             LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
 
           }
@@ -705,6 +705,10 @@ void *parse_v9(uv_work_t *req) {
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6, &dump);
 
         if (dump) {
+          uint16_t t_field_count = template_hashmap[1];
+          size_t alloc_size = sizeof(uint16_t) * (t_field_count + 1) * 4;
+          insert_dump(args->exporter, key, (uint8_t*) template_hashmap, alloc_size);
+          /*
           fprintf(stderr, "dumping packet\n");
           uint8_t *ptr;
           ptr = args->data;
@@ -737,6 +741,7 @@ void *parse_v9(uv_work_t *req) {
           fprintf(fdump, "\n");
           fflush(fdump);
           fclose(fdump);
+          */
         }
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));

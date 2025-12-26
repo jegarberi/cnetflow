@@ -21,6 +21,8 @@
     #define db_connect(conn) ch_db_connect(conn)
     #define db_disconnect(conn) do { if(*(conn)) ch_disconnect(*(conn)); *(conn) = NULL; } while(0)
     #define insert_flows(exporter, flows) ch_insert_flows(exporter, flows)
+    #define insert_dump(exporter, template_key, dump, dump_size) ch_insert_dump(exporter, template_key, dump, dump_size)
+    #define insert_template(exporter, template_key, dump, dump_size) ch_insert_template(exporter, template_key, dump, dump_size)
     #define db_create_flows_table(conn) ch_create_flows_table(*(conn))
     #define ip_uint128_to_string(value, version) ch_ip_uint128_to_string(value, version)
 
@@ -92,5 +94,6 @@ static inline void db_print_info(void) {
     LOG_ERROR("Format: postgresql://user:password@host:port/database\n");
 #endif
 }
-
+int insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
+int insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
 #endif // DB_H

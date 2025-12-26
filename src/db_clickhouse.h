@@ -83,8 +83,7 @@ char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version);
 
 
 int ch_insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
-
-
 int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) ;
-
+int insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
+int insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
 #endif // DB_CLICKHOUSE_H
