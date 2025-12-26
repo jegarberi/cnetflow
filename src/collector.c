@@ -182,7 +182,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // buf->len = suggested_size;
   // return;
   static volatile int data_counter = 1;
-  //suggested_size = 65536;
+  suggested_size = 2000; // should be enough for most packets
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,
           __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);

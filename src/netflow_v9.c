@@ -9,6 +9,8 @@
 #include "netflow_v5.h"
 #include "db.h"
 #include "log.h"
+#define _MAX_OCTETS_TO_CONSIDER_WRONG 50000000
+#define _MAX_PACKETS_TO_CONSIDER_WRONG 50000
 static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
@@ -697,7 +699,26 @@ void *parse_v9(uv_work_t *req) {
         if (netflow_packet_ptr->records[0].dPkts == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
-        copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
+        uint8_t dump = 0;
+        copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6, &dump);
+        if (dump) {
+          fprintf(stderr, "dumping packet\n");
+          uint8_t *ptr;
+          ptr = args->data;
+          fprintf(stderr, "{");
+          for (size_t i = 0; i < 2000; i++) {
+            uint8_t pkt = *(ptr+i);
+            fprintf(stderr, "%02x", pkt);
+            if (i == 1999) {
+              fprintf(stderr, ",");
+            } else {
+
+            }
+          }
+          fprintf(stderr, "}");
+          fprintf(stderr, "\n");
+
+        }
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
@@ -711,6 +732,8 @@ void *parse_v9(uv_work_t *req) {
 
         // fclose(ftemplate);
       }
+      //TODO
+      // IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
     } else if ((flowset_id < 256)) {
       // this is an option flowset
       LOG_ERROR("%s %d %s this is an option flowset\n", __FILE__, __LINE__, __func__);
@@ -730,7 +753,7 @@ unlock_mutex_parse_v9:
 }
 
 
-void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6) {
+void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6, uint8_t* dump) {
   //fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
@@ -780,6 +803,12 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
     out->records[i].input = in->records[i].input;
     out->records[i].output = in->records[i].output;
     out->records[i].dPkts = in->records[i].dPkts;
+    if (in->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG) {
+      *dump = 1;
+    }
+    if (in->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG) {
+      *dump = 1;
+    }
     out->records[i].dOctets = in->records[i].dOctets;
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;

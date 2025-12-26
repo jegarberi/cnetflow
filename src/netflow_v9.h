@@ -135,6 +135,6 @@ typedef struct {
 
 void init_v9(arena_struct_t *arena, const size_t cap);
 void *parse_v9(uv_work_t *req);
-void copy_v9_to_flow(netflow_v9_flowset_t *, netflow_v9_uint128_flowset_t *, int);
+void copy_v9_to_flow(netflow_v9_flowset_t *, netflow_v9_uint128_flowset_t *, int, uint8_t*);
 
 #endif // NETFLOW_V9_H
