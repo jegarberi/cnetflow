@@ -9,8 +9,8 @@
 #include "netflow_v5.h"
 #include "db.h"
 #include "log.h"
-#define _MAX_OCTETS_TO_CONSIDER_WRONG 50000000
-#define _MAX_PACKETS_TO_CONSIDER_WRONG 50000
+#define _MAX_OCTETS_TO_CONSIDER_WRONG 500000000
+#define _MAX_PACKETS_TO_CONSIDER_WRONG 500000
 static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
