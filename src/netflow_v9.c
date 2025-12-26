@@ -706,7 +706,7 @@ void *parse_v9(uv_work_t *req) {
           uint8_t *ptr;
           ptr = args->data;
           FILE* fdump = fopen("./dumps.txt","a+");
-          fprintf(stderr, "{");
+          fprintf(fdump, "{");
           for (size_t i = 0; i < 2000; i++) {
             uint8_t pkt = *(ptr+i);
             fprintf(fdump, "%02x", pkt);
