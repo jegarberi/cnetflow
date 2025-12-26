@@ -707,10 +707,10 @@ void *parse_v9(uv_work_t *req) {
           ptr = args->data;
           FILE* fdump = fopen("/tmp/dumps.txt","a+");
           fprintf(fdump, "{");
-          for (size_t i = 0; i < 2000; i++) {
+          for (size_t i = 0; i < args->len; i++) {
             uint8_t pkt = *(ptr+i);
             fprintf(fdump, "%02x", pkt);
-            if (i == 1999) {
+            if (i == args->len) {
               fprintf(fdump, ",");
             } else {
 
