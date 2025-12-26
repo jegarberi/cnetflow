@@ -34,5 +34,6 @@ size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len);
 int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key_len, void *value);
 void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len);
 int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len);
+void hashmap_destroy(hashmap_t *hashmap);
 
 #endif // HASHMAP_H
