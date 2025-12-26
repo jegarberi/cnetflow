@@ -19,6 +19,8 @@ typedef struct {
   uint32_t exporter;
   collector_data_status status;
   size_t index;
+  uint8_t is_test;
+  void *return_data;
   void *data;
 } parse_args_t;
 
