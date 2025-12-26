@@ -704,7 +704,7 @@ void *parse_v9(uv_work_t *req) {
         }*/
         uint8_t dump = 0;
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6, &dump);
-
+        /*
         if (dump) {
           uint16_t t_field_count = template_hashmap[1];
           size_t alloc_size = sizeof(uint16_t) * (t_field_count + 1) * 4;
@@ -742,8 +742,9 @@ void *parse_v9(uv_work_t *req) {
           fprintf(fdump, "\n");
           fflush(fdump);
           fclose(fdump);
-          */
+
         }
+        */
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
