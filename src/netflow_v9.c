@@ -707,7 +707,7 @@ void *parse_v9(uv_work_t *req) {
         if (dump) {
           uint16_t t_field_count = template_hashmap[1];
           size_t alloc_size = sizeof(uint16_t) * (t_field_count + 1) * 4;
-          insert_dump(args->exporter, key, (uint8_t*) template_hashmap, alloc_size);
+          insert_dump(args->exporter, key, (uint8_t*) args->data, args->len);
           /*
           fprintf(stderr, "dumping packet\n");
           uint8_t *ptr;

@@ -369,7 +369,7 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
   }
 
   int offset = snprintf(pre_query, sizeof(pre_query),
-                        "INSERT INTO dump (exporter,template_key,template) VALUES ");
+                        "INSERT INTO dumps (exporter,template,dump) VALUES ");
   char str_dump[10000] = {0};
   int dump_offset = 0;
   dump_offset = snprintf(str_dump, 2,"{");
