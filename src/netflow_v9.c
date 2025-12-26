@@ -740,6 +740,7 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
     //LOG_ERROR("%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
+    /*
     if (in->records[i].dOctets == 0) {
       LOG_ERROR("%s %d %s dOctets is 0\n", __FILE__, __LINE__, __func__);
       continue;
@@ -748,6 +749,7 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
       LOG_ERROR("%s %d %s dPkts is 0\n", __FILE__, __LINE__, __func__);
       continue;
     }
+    */
     swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
     swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
     swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));

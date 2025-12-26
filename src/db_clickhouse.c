@@ -313,7 +313,9 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
     int inserted = 0;
     for (int i = 0; i < flows->header.count; i++) {
-        if (flows->records[i].dOctets == 0 || flows->records[i].dPkts == 0) {
+        if (flows->records[i].dOctets == 0 || flows->records[i].dPkts == 0 || flows->records[i].First > flows->records[i].Last || flows->records[i].First == 0 || flows->records[i].Last == 0 ||
+          flows->records[i].dPkts >= 50000 || flows->records[i].dOctets >= 50000000 ) {
+
             continue;
         }
 
