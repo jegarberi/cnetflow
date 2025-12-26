@@ -304,6 +304,7 @@ int ch_insert_template(uint32_t exporter, char * template_key,const uint8_t * du
     return -1;
   }
   // Convert exporter IP to string format
+  swap_endianness(&exporter, sizeof(exporter));
   char exporter_str[INET_ADDRSTRLEN];
   struct in_addr addr;
   addr.s_addr = htonl(exporter);
@@ -366,6 +367,7 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
     return -1;
   }
   // Convert exporter IP to string format
+  swap_endianness(&exporter, sizeof(exporter));
   char exporter_str[INET_ADDRSTRLEN];
   struct in_addr addr;
   //addr.s_addr = htonl(exporter);
