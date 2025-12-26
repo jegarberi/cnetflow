@@ -206,7 +206,7 @@ void *parse_v9(uv_work_t *req) {
       size_t pos = 4;
 
       // Validate we have enough space for record header
-      if (flowset_base + pos + sizeof(netflow_v9_record_t) > total_packet_length) {
+      if (flowset_base + pos  > total_packet_length) {
         LOG_ERROR("%s %d %s: Insufficient space for record at offset %lu\n",
                   __FILE__, __LINE__, __func__, flowset_base + pos);
         goto unlock_mutex_parse_v9;
