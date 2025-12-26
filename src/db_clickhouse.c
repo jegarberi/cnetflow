@@ -283,6 +283,130 @@ int ch_create_flows_table(ch_conn_t *conn) {
     return ch_execute(conn, create_table_query);
 }
 
+
+
+int ch_insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) {
+  static THREAD_LOCAL ch_conn_t *conn = NULL;
+
+  ch_db_connect(&conn);
+  if (!conn || !conn->connected) {
+    CH_LOG_ERROR("%s %d %s: Failed to connect\n",
+                 __FILE__, __LINE__, __func__);
+    return -1;
+  }
+  // Build bulk insert query for better performance
+  size_t query_size = 65536; // Start with 64KB
+  char *query = malloc(query_size);
+  if (!query) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n",
+                 __FILE__, __LINE__, __func__);
+    return -1;
+  }
+  // Convert exporter IP to string format
+  char exporter_str[INET_ADDRSTRLEN];
+  struct in_addr addr;
+  addr.s_addr = htonl(exporter);
+  if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
+    snprintf(exporter_str, sizeof(exporter_str), "unknown");
+  }
+
+  int offset = snprintf(query, query_size,
+                        "INSERT INTO templates (exporter,template_key,template) VALUES ");
+  char str_dump[10000] = {0};
+  int dump_offset = 0;
+  dump_offset = snprintf(str_dump, 2,"{");
+  for (size_t i = 0; i < dump_size; i++) {
+    uint8_t pkt = *(dump+i);
+    dump_offset += snprintf(str_dump+dump_offset, 5,"%02x", pkt);
+    if (i < dump_size - 1) {
+      dump_offset +=snprintf(str_dump+dump_offset, 3,",");
+    }
+  }
+  dump_offset +=snprintf(str_dump+dump_offset, 2,"}");
+  char value_str[1024];
+  int written = snprintf(value_str, sizeof(value_str),
+                         "('%s','%s','%s')",
+                         exporter_str,
+                         template_key,
+                         str_dump
+  );
+
+
+  int result = ch_execute(conn, query);
+  CH_LOG_INFO("%s\n", query);
+  free(query);
+
+  if (result < 0) {
+    CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
+    return -1;
+  }
+
+  CH_LOG_INFO("%s %d %s: Successfully inserted dump for template %s\n", __FILE__, __LINE__, __func__, template_key);
+
+  return 0;
+}
+
+int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) {
+  static THREAD_LOCAL ch_conn_t *conn = NULL;
+
+  ch_db_connect(&conn);
+  if (!conn || !conn->connected) {
+    CH_LOG_ERROR("%s %d %s: Failed to connect\n",
+                 __FILE__, __LINE__, __func__);
+    return -1;
+  }
+  // Build bulk insert query for better performance
+  size_t query_size = 65536; // Start with 64KB
+  char *query = malloc(query_size);
+  if (!query) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n",
+                 __FILE__, __LINE__, __func__);
+    return -1;
+  }
+  // Convert exporter IP to string format
+  char exporter_str[INET_ADDRSTRLEN];
+  struct in_addr addr;
+  addr.s_addr = htonl(exporter);
+  if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
+    snprintf(exporter_str, sizeof(exporter_str), "unknown");
+  }
+
+  int offset = snprintf(query, query_size,
+                        "INSERT INTO dumps (exporter,template,dump) VALUES ");
+  char str_dump[10000] = {0};
+  int dump_offset = 0;
+  dump_offset = snprintf(str_dump, 2,"{");
+  for (size_t i = 0; i < dump_size; i++) {
+    uint8_t pkt = *(dump+i);
+    dump_offset += snprintf(str_dump+dump_offset, 5,"%02x", pkt);
+    if (i < dump_size - 1) {
+      dump_offset +=snprintf(str_dump+dump_offset, 3,",");
+    }
+  }
+  dump_offset +=snprintf(str_dump+dump_offset, 2,"}");
+  char value_str[1024];
+  int written = snprintf(value_str, sizeof(value_str),
+                         "('%s','%s','%s')",
+                         exporter_str,
+                         template_key,
+                         str_dump
+  );
+
+
+  int result = ch_execute(conn, query);
+  CH_LOG_INFO("%s\n", query);
+  free(query);
+
+  if (result < 0) {
+    CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
+    return -1;
+  }
+
+  CH_LOG_INFO("%s %d %s: Successfully inserted dump for template %s\n", __FILE__, __LINE__, __func__, template_key);
+
+  return 0;
+}
+
 int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     static THREAD_LOCAL ch_conn_t *conn = NULL;
 

@@ -175,7 +175,9 @@ void *parse_v9(uv_work_t *req) {
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
+            ch_insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
             LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
+
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
         } else {
@@ -693,20 +695,34 @@ void *parse_v9(uv_work_t *req) {
         }
         */
         netflow_v9_uint128_flowset_t flows_to_insert = {0};
-        if (netflow_packet_ptr->records[0].dOctets == 0) {
+        /*if (netflow_packet_ptr->records[0].dOctets == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
         if (netflow_packet_ptr->records[0].dPkts == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
-        }
+        }*/
         uint8_t dump = 0;
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6, &dump);
+
         if (dump) {
           fprintf(stderr, "dumping packet\n");
           uint8_t *ptr;
           ptr = args->data;
           FILE* fdump = fopen("/tmp/dumps.txt","a+");
+          fprintf(fdump, "timestamp : %d \n ",now);
           fprintf(fdump, "template id : %s: \n ",key);
+
+          uint16_t field_count = template_hashmap[1];
+          size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 4;
+          fprintf(fdump, "{");
+          for (size_t i = 0; i < alloc_size; i++) {
+            uint8_t temp_packet = template_hashmap[i];
+            fprintf(fdump, "%02x,", temp_packet);
+            if (i < alloc_size - 1) {
+              fprintf(fdump, ",");
+            }
+          }
+          fprintf(fdump, "}\n");
           fprintf(fdump, "{");
           for (size_t i = 0; i < args->len; i++) {
             uint8_t pkt = *(ptr+i);

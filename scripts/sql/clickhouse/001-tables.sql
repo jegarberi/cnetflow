@@ -54,9 +54,9 @@ CREATE TABLE IF NOT EXISTS flows
     flow_hash   String DEFAULT ''
 )
 ENGINE = MergeTree()
-PARTITION BY toYYYYMMDD(first)
+PARTITION BY toYYYYMMDD(inserted_at)
 ORDER BY (exporter, first, srcaddr, dstaddr, srcport, dstport, protocol)
-TTL first + INTERVAL 7 DAY  -- Automatically delete data older than 7 days
+TTL inserted_at + INTERVAL 7 DAY  -- Automatically delete data older than 7 days
 SETTINGS
     index_granularity = 8192,
     storage_policy = 'default';
@@ -178,3 +178,35 @@ ALTER TABLE flows ADD INDEX idx_dstport dstport TYPE set(1000) GRANULARITY 4;
 
 -- Drop old partitions manually if needed
 -- ALTER TABLE flows DROP PARTITION '20250101';
+CREATE TABLE IF NOT EXISTS netflow.templates
+(
+    inserted_at DateTime DEFAULT now(),
+    exporter    String,
+    template_key String,
+    template     String
+
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMMDD(inserted_at)
+ORDER BY (exporter)
+TTL inserted_at + INTERVAL 7 DAY  -- Automatically delete data older than 7 days
+SETTINGS
+            index_granularity = 8192,
+            storage_policy = 'default';
+
+
+CREATE TABLE IF NOT EXISTS netflow.dumps
+(
+    inserted_at DateTime DEFAULT now(),
+    exporter    String,
+    template     String,
+    dump         String
+
+)
+    ENGINE = MergeTree()
+        PARTITION BY toYYYYMMDD(inserted_at)
+        ORDER BY (exporter)
+        TTL inserted_at + INTERVAL 7 DAY  -- Automatically delete data older than 7 days
+        SETTINGS
+            index_granularity = 8192,
+            storage_policy = 'default';
