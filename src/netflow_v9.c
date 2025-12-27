@@ -153,47 +153,33 @@ void *parse_v9(uv_work_t *req) {
         uint16_t *temp;
         size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
         size_t template_size = sizeof(uint16_t) * (field_count + 1) * 4;
-        if (template_hashmap == NULL) {
+        temp = arena_alloc(arena_hashmap_nf9, template_size);
+        if (temp == NULL) {
+          LOG_ERROR("%s %d %s Failed to allocate %lu bytes for template\n",
+                    __FILE__, __LINE__, __func__, template_size);
+          goto unlock_mutex_parse_v9;
+        }
+
+        if (template_hashmap != NULL) {
+          hashmap_delete(templates_nfv9_hashmap,key,strlen(key));
+        }
           LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
           LOG_ERROR("%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
                   template_init, template_end);
 
-          // CRITICAL FIX: Validate arena allocation before memcpy
-
-          temp = arena_alloc(arena_hashmap_nf9, template_size);
-          if (temp == NULL) {
-            LOG_ERROR("%s %d %s Failed to allocate %lu bytes for template\n",
-                      __FILE__, __LINE__, __func__, template_size);
-            goto unlock_mutex_parse_v9;
-          }
-
-          // Validate source address is within packet bounds
-          /*
-          size_t src_offset = template_init - sizeof(int16_t) * 2 - (size_t)args->data;
-          size_t copy_size = sizeof(uint16_t) * (field_count + 1) * 4;
-          if (src_offset + copy_size > total_packet_length) {
-            LOG_ERROR("%s %d %s Template copy would exceed packet bounds\n", __FILE__, __LINE__, __func__);
-            goto unlock_mutex_parse_v9;
-          }
-          */
           memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), template_size);
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
             insert_template(args->exporter, key, (uint8_t*) temp, template_size);
             LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
-
           }
           // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
-        } else {
-          //arena_free(arena_hashmap_nf9,template_hashmap);
-          temp = arena_alloc(arena_hashmap_nf9, template_size);
-          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), template_size);
-          hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp);
 
-        }
+          //arena_free(arena_hashmap_nf9,template_hashmap);
+
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
