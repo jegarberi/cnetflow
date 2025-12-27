@@ -211,7 +211,9 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
 #else
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   (void)arena;
-  return calloc(1, bytes);
+  void* address = calloc(1, bytes);
+  LOG_INFO("arena_alloc: %zu bytes ptr: %p\n", bytes, address);
+  return address;
 }
 #endif
 
@@ -415,6 +417,7 @@ int arena_free(arena_struct_t *arena, void *address) {
 #else
 int arena_free(arena_struct_t *arena, void *address) {
   (void)arena;
+  LOG_INFO("arena_free ptr: %p\n", address);
   free(address);
   return 0;
 }
