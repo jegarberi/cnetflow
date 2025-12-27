@@ -293,7 +293,7 @@ int8_t collector_start(collector_t *collector) {
   const struct sockaddr *addr_const = addr;
   uv_ip4_addr("0.0.0.0", 9995, (struct sockaddr_in *) addr);
   LOG_INFO("binding to udp port %d\n", 9995);
-  const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
+  const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEPORT | UV_UDP_RECVMMSG);
   if (bind_ret < 0) {
     LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
     goto error_destroy_arena;
