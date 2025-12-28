@@ -369,7 +369,7 @@ void *after_work_cb(uv_work_t *req, int status) {
               __FILE__, __LINE__, __func__, req, ret);
   }
   data_counter_after++;
-  LOG_ERROR("%s %d %s: after_work_cb done data_counter %d\n", __FILE__, __LINE__, __func__, data_counter_after);
+  LOG_ERROR("%s %d %s: after_work_cb done %d\n", __FILE__, __LINE__, __func__, data_counter_after);
   return NULL;
 }
 /**
