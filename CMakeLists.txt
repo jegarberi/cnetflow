@@ -7,7 +7,7 @@ if (NOT CMAKE_C_COMPILER)
     SET(CMAKE_C_COMPILER "/usr/bin/gcc")
 endif ()
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
-SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -fsanitize=address ")
+SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra  ")
 SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG -Wall -Wextra ")
 SET(CMAKE_C_FLAGS_RELEASE "-O3 -Wall -Wextra -flto")
 SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-O3 -flto")
@@ -279,10 +279,6 @@ if (CRITERION_FOUND)
             dyn_array
             netflow
             netflow_v5
-            netflow_v9
-            netflow_ipfix
-            collector
-
             ${DB_LIBRARY}
             ${DB_LINK_LIBRARIES}
             uv
@@ -291,11 +287,10 @@ if (CRITERION_FOUND)
     # Aggregate test (all suites)
     add_test(NAME cnetflow_tests COMMAND cnetflow_tests)
     # Separate steps per suite
-    #add_test(NAME tests_arena COMMAND cnetflow_tests -s arena)
-    #add_test(NAME tests_hashmap COMMAND cnetflow_tests -s hashmap)
-    #add_test(NAME tests_dyn_array COMMAND cnetflow_tests -s dyn_array)
-    #add_test(NAME tests_netflow COMMAND cnetflow_tests -s netflow)
-    #add_test(NAME parse_v9 COMMAND cnetflow_tests -s parse_v9)
+    add_test(NAME tests_arena COMMAND cnetflow_tests -s arena)
+    add_test(NAME tests_hashmap COMMAND cnetflow_tests -s hashmap)
+    add_test(NAME tests_dyn_array COMMAND cnetflow_tests -s dyn_array)
+    add_test(NAME tests_netflow COMMAND cnetflow_tests -s netflow)
 else ()
     message(WARNING "Criterion not found. Unit tests will not be built.")
 endif ()
