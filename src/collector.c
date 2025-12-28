@@ -450,8 +450,6 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->len = nread;
   func_args->status = collector_data_status_init;
   func_args->index = data_counter;
-  func_args->is_test = 0;
-  func_args->return_data = NULL;
   work_req->data = (parse_args_t *) func_args;
   LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__,
           data_counter, work_req, buf->base);

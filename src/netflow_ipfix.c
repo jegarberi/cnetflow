@@ -159,10 +159,7 @@ void *parse_ipfix(uv_work_t *req) {
             LOG_ERROR("%s %d %s: IPFIX template saved [%s]\n", __FILE__, __LINE__, __func__, key);
           }
         } else {
-          //arena_free(arena_hashmap_ipfix,template_hashmap);
-          temp = arena_alloc(arena_hashmap_ipfix, template_size);
-          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), template_size);
-          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp);
+          memcpy(template_hashmap, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
         }
 
         pos += template_size;
