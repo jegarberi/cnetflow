@@ -176,11 +176,11 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  //buf->base = malloc(suggested_size);
-  //buf->len = suggested_size;
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
-  //return;
+  // buf->base = malloc(suggested_size);
+  // buf->len = suggested_size;
+  // return;
   static volatile int data_counter = 1;
   suggested_size = 2000; // should be enough for most packets
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,

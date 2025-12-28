@@ -175,7 +175,7 @@ void *parse_v9(uv_work_t *req) {
           if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
           } else {
-            insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
+            //insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
             LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
 
           }
@@ -704,10 +704,7 @@ void *parse_v9(uv_work_t *req) {
         }*/
         uint8_t dump = 0;
         copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6, &dump);
-        if (args->return_data != NULL) {
-          memccpy(args->return_data, &flows_to_insert, sizeof(netflow_v9_uint128_flowset_t), sizeof(netflow_v9_uint128_flowset_t));
-        }
-
+        /*
         if (dump) {
           uint16_t t_field_count = template_hashmap[1];
           size_t alloc_size = sizeof(uint16_t) * (t_field_count + 1) * 4;
@@ -745,21 +742,20 @@ void *parse_v9(uv_work_t *req) {
           fprintf(fdump, "\n");
           fflush(fdump);
           fclose(fdump);
-          */
-        }
 
+        }
+        */
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
         if (is_ipv6) {
           LOG_ERROR("%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
-
+          insert_flows(exporter_host, &flows_to_insert);
         } else {
           LOG_ERROR("%s %d %s this is ipv4\n", __FILE__, __LINE__, __func__);
-        }
-        if (args->is_test == 0){
           insert_flows(exporter_host, &flows_to_insert);
         }
+
         // fclose(ftemplate);
       }
       //TODO

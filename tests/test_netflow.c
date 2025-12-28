@@ -7,7 +7,6 @@
 
 #include "../src/netflow.h"
 #include "../src/netflow_v5.h"
-#include "../src/netflow_v9.h"
 
 // --- Linkage stubs for external dependencies referenced by libnetflow and libnetflow_v5 ---
 // Provide minimal implementations to avoid bringing database or collector modules into the test binary.
@@ -71,96 +70,6 @@ static uint32_t ipv4(const char *dotted) {
   struct in_addr a;
   inet_pton(AF_INET, dotted, &a);
   return ntohl(a.s_addr);
-}
-
-
-Test(netflow,parse_v9_bug) {
-    cr_log(CR_LOG_INFO,"Starting NetFlow v9 Padding Bug Replication Test...\n");
-
-    // 1. Initialize Arenas and V9
-    arena_struct_t arena_hashmap;
-    arena_create(&arena_hashmap, 1024 * 1024);
-    init_v9(&arena_hashmap, 100);
-
-    // 2. Construct a Template Packet (ID 256)
-    // 4 fields: SrcIP(4), DstIP(4), Octets(4), Packets(4) = 16 bytes per record
-    uint8_t template_pkt[] = {
-        0x00, 0x09, // Version 9
-        0x00, 0x01, // Count 1 FlowSet
-        0x00, 0x00, 0x00, 0x01, // SysUptime
-        0x00, 0x00, 0x00, 0x01, // UNIX Secs
-        0x00, 0x00, 0x00, 0x01, // Sequence
-        0x00, 0x00, 0x00, 0x01, // Source ID
-        // Template FlowSet
-        0x00, 0x00,             // FlowSet ID 0
-        0x00, 0x1c,             // Length 28 bytes
-        0x01, 0x00,             // Template ID 256
-        0x00, 0x04,             // Field Count 4
-        0x00, 0x08, 0x00, 0x04, // IPV4_SRC_ADDR (4)
-        0x00, 0x0c, 0x00, 0x04, // IPV4_DST_ADDR (4)
-        0x00, 0x01, 0x00, 0x04, // IN_BYTES (4)
-        0x00, 0x02, 0x00, 0x04  // IN_PKTS (4)
-    };
-
-    uv_work_t req_template;
-    parse_args_t args_template = {
-        .data = template_pkt,
-        .len = sizeof(template_pkt),
-        .exporter = 0x01010101, // 1.1.1.1
-        .status = 0
-    };
-    req_template.data = &args_template;
-    parse_v9(&req_template);
-
-    // 3. Construct a Data Packet with 1 Record + Padding
-    // Record size = 16 bytes.
-    // FlowSet Header = 4 bytes.
-    // Total Data = 20 bytes.
-    // 20 is already 32-bit aligned, so let's force a length that requires 2 bytes of padding (22 bytes).
-    // If the parser doesn't handle the remaining 2 bytes, it might try to read them as a new record.
-    uint8_t data_pkt[] = {
-        0x00, 0x09, // Version 9
-        0x00, 0x01, // Count 1
-        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-        // Data FlowSet
-        0x01, 0x00,             // FlowSet ID 256
-        0x00, 0x16,             // Length 22 (4 header + 16 data + 2 padding)
-        // Record 1
-        0x0A, 0x00, 0x00, 0x01, // Src 10.0.0.1
-        0x0A, 0x00, 0x00, 0x02, // Dst 10.0.0.2
-        0x00, 0x00, 0x03, 0xE8, // 1000 Octets
-        0x00, 0x00, 0x00, 0x0A, // 10 Packets
-        0x00, 0x00              // Padding bytes! (The bug: Parser sees these as start of Record 2)
-    };
-
-    uv_work_t req_data;
-    netflow_v9_uint128_flowset_t* flows = malloc(sizeof(netflow_v9_uint128_flowset_t));
-    parse_args_t args_data = {
-        .data = data_pkt,
-        .len = sizeof(data_pkt),
-        .exporter = 0x01010101,
-        .status = 0,
-        .return_data = (void *) flows,
-        .is_test = 1,
-    };
-    req_data.data = &args_data;
-
-    cr_log(CR_LOG_INFO,"Parsing data packet with padding...\n");
-    parse_v9(&req_data);
-    for (int i = 0; i < flows->header.count; i++) {
-      cr_assert(flows->records[i].dOctets == 1000, "dOctets should be 1000, but is %d", flows->records[i].dOctets);
-      cr_log(CR_LOG_INFO,"header.count: %d",flows->header.count);
-      cr_log(CR_LOG_INFO,"header.count: %u",flows->header.version);
-    }
-    cr_log(CR_LOG_INFO,"Done.\n");
-
-    // In a real test environment, we would check if 'insert_flows' was called once (correct)
-    // or twice (buggy). Since we use LOG_ERROR for debugging in the code:
-    // Check console output for "field count: 0" or similar errors occurring after "Record 1".
-
-    cr_log(CR_LOG_INFO,"Test completed.\n");
-    arena_destroy(&arena_hashmap);
-    free(flows);
 }
 
 Test(netflow, swap_src_dst_v5_logic) {

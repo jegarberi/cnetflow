@@ -108,21 +108,8 @@ size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
  *         operation failed (e.g., due to invalid parameters or lack of space in the hashmap).
  */
 int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key_len, void *value) {
-
-#ifdef USE_ARENA_ALLOCATOR
   if (!hashmap || !arena || !key || !value || key_len == 0) {
-#else
-  if (!hashmap || !key || !value || key_len == 0) {
-#endif
     LOG_ERROR("%s %d %s: Invalid parameters\n", __FILE__, __LINE__, __func__);
-    if (!hashmap) LOG_ERROR("hashmap is NULL\n");
-#ifdef USE_ARENA_ALLOCATOR
-    if (!arena) LOG_ERROR("arena is NULL\n");
-#endif
-
-    if (!key) LOG_ERROR("key is NULL\n");
-    if (!value) LOG_ERROR("value is NULL\n");
-    if (key_len == 0) LOG_ERROR("key_len is 0\n");
     return -1;
   }
 
