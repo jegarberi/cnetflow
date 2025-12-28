@@ -18,12 +18,6 @@ void init_ipfix(arena_struct_t *arena, const size_t cap) {
   templates_ipfix_hashmap = hashmap_create(arena, cap);
 }
 
-void cleanup_ipfix(void) {
-  LOG_ERROR("%s %d %s: Cleaning up IPFIX [templates_ipfix_hashmap]...\n", __FILE__, __LINE__, __func__);
-  hashmap_destroy(templates_ipfix_hashmap);
-  templates_ipfix_hashmap = NULL;
-}
-
 void *parse_ipfix(uv_work_t *req) {
 
   parse_args_t *args = (parse_args_t *) req->data;

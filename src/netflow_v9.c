@@ -20,12 +20,6 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
   templates_nfv9_hashmap = hashmap_create(arena, cap);
 }
 
-void cleanup_v9(void) {
-  LOG_ERROR("%s %d %s: Cleaning up v9 [templates_nfv9_hashmap]...\n", __FILE__, __LINE__, __func__);
-  hashmap_destroy(templates_nfv9_hashmap);
-  templates_nfv9_hashmap = NULL;
-}
-
 void *parse_v9(uv_work_t *req) {
 
   parse_args_t *args = (parse_args_t *) req->data;

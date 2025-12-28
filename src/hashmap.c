@@ -34,9 +34,6 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
   hashmap->buckets = arena_alloc(arena, sizeof(bucket_t) * bucket_count);
   if (hashmap->buckets == NULL) {
     LOG_ERROR("%s %d %s: Failed to allocate buckets\n", __FILE__, __LINE__, __func__);
-#ifndef USE_ARENA_ALLOCATOR
-    free(hashmap);
-#endif
     return NULL;
   }
 
@@ -44,10 +41,6 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
   hashmap->mutex = arena_alloc(arena, sizeof(uv_mutex_t));
   if (hashmap->mutex == NULL) {
     LOG_ERROR("%s %d %s: Failed to allocate mutex\n", __FILE__, __LINE__, __func__);
-#ifndef USE_ARENA_ALLOCATOR
-    free(hashmap->buckets);
-    free(hashmap);
-#endif
     return NULL;
   }
 
@@ -165,13 +158,12 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
                strlen(buckets[index].key) == key_len &&
                memcmp(buckets[index].key, key, key_len) == 0) {
       // Found existing key, update value
-      // NOTE: We don't free the key since it's the same key - only update the value
-#ifndef USE_ARENA_ALLOCATOR
-      if (buckets[index].value != NULL) {
-        free(buckets[index].value);
-      }
+#ifdef USE_ARENA_ALLOCATOR
+#else
+  free(buckets[index].key);  // FREE THE KEY!
+  free(buckets[index].value);
 #endif
-      buckets[index].value = value;
+buckets[index].value = value;
       goto hashmap_set_success;
     }
 
@@ -343,47 +335,4 @@ hashmap_delete_success:
 hashmap_delete_error:
   uv_mutex_unlock(hashmap->mutex);
   return -1;
-}
-
-/**
- * Destroys a hashmap and frees all associated memory.
- *
- * This function properly cleans up a hashmap by freeing all keys and values
- * stored in occupied buckets, destroying the mutex, and freeing the hashmap
- * structure itself. When USE_ARENA_ALLOCATOR is enabled, this function does
- * nothing as the arena manages all memory.
- *
- * @param hashmap Pointer to the hashmap to be destroyed.
- */
-void hashmap_destroy(hashmap_t *hashmap) {
-#ifndef USE_ARENA_ALLOCATOR
-  if (hashmap == NULL) {
-    return;
-  }
-
-  if (hashmap->buckets != NULL) {
-    bucket_t *buckets = (bucket_t *)hashmap->buckets;
-    // Free all keys and values in occupied buckets
-    for (size_t i = 0; i < hashmap->bucket_count; i++) {
-      if (buckets[i].occupied && !buckets[i].deleted) {
-        if (buckets[i].key != NULL) {
-          free(buckets[i].key);
-        }
-        if (buckets[i].value != NULL) {
-          free(buckets[i].value);
-        }
-      }
-    }
-    free(hashmap->buckets);
-  }
-
-  if (hashmap->mutex != NULL) {
-    uv_mutex_destroy(hashmap->mutex);
-    free(hashmap->mutex);
-  }
-
-  free(hashmap);
-#else
-  (void)hashmap;
-#endif
 }

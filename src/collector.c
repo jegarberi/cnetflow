@@ -310,8 +310,6 @@ int8_t collector_start(collector_t *collector) {
 
   uv_run(loop_udp, UV_RUN_DEFAULT);
 ok:
-  cleanup_v9();
-  cleanup_ipfix();
   arena_destroy(arena_collector);
   arena_destroy(arena_hashmap_ipfix);
   arena_destroy(arena_hashmap_nf9);
@@ -322,8 +320,6 @@ ok:
   return 0;
 
 error_destroy_arena:
-  cleanup_v9();
-  cleanup_ipfix();
   arena_destroy(arena_hashmap_ipfix);
   arena_destroy(arena_hashmap_nf9);
   arena_destroy(arena_udp_handle);
