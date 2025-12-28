@@ -160,12 +160,11 @@ void *parse_v9(uv_work_t *req) {
           goto unlock_mutex_parse_v9;
         }
 
-          if (template_hashmap == NULL) {
-            temp = arena_alloc(arena_hashmap_nf9, template_size);
-            LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
+        if (template_hashmap != NULL) {
+          hashmap_delete(templates_nfv9_hashmap,key,strlen(key));
+        }
+          LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
-          }
-          memcpy(temp, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
           size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
           LOG_ERROR("%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
                   template_init, template_end);
