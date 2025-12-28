@@ -148,8 +148,8 @@ void signal_handler(const int signal) {
 int8_t collector_default(collector_t *col_conf) {
 
   collector_config = col_conf;
-  collector_config->alloc = (void *) arena_alloc;
-  collector_config->free = (void *) arena_free;
+  collector_config->alloc = arena_alloc;
+  collector_config->free = (void *) free;
   collector_config->realloc = (void *) realloc;
   collector_config->detect_version = (void *) detect_version;
   collector_config->parse_v5 = parse_v5;
@@ -484,8 +484,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:
-  //arena_free(arena_udp_handle, buf->base);
-  return;
+  arena_free(arena_udp_handle, buf->base);
 
 
 }

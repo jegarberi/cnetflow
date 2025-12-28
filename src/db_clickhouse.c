@@ -407,10 +407,7 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
 
 int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     static THREAD_LOCAL ch_conn_t *conn = NULL;
-    static THREAD_LOCAL char * query = NULL;
-    static THREAD_LOCAL int offset = 0;
-    static THREAD_LOCAL size_t query_size = 0;
-    static THREAD_LOCAL size_t inserted = 0;
+
     ch_db_connect(&conn);
     if (!conn || !conn->connected) {
         CH_LOG_ERROR("%s %d %s: Failed to connect\n",
@@ -423,27 +420,24 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     }
 
     // Build bulk insert query for better performance
-    if (query_size == 0){
-      query_size = 65536; // Start with 64KB
-    }
-    if (query == NULL){
-      query = malloc(query_size);
-    }
+    size_t query_size = 65536; // Start with 64KB
+    char *query = malloc(query_size);
     if (!query) {
         CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n",
                      __FILE__, __LINE__, __func__);
         return -1;
     }
-    if (offset == 0){
-      offset = snprintf(query, query_size,
-          "INSERT INTO flows (exporter,srcaddr,dstaddr,srcport,dstport,"
-          "protocol,input,output,dpkts,doctets,first,last,"
-          "tcp_flags,tos,src_as,dst_as,src_mask,dst_mask,ip_version) VALUES ");
-    }
 
+    int offset = snprintf(query, query_size,
+        "INSERT INTO flows (exporter,srcaddr,dstaddr,srcport,dstport,"
+        "protocol,input,output,dpkts,doctets,first,last,"
+        "tcp_flags,tos,src_as,dst_as,src_mask,dst_mask,ip_version) VALUES ");
+
+    int inserted = 0;
     for (int i = 0; i < flows->header.count; i++) {
         if (flows->records[i].dOctets == 0 || flows->records[i].dPkts == 0 || flows->records[i].First > flows->records[i].Last || flows->records[i].First == 0 || flows->records[i].Last == 0 ||
           flows->records[i].dPkts >= 50000 || flows->records[i].dOctets >= 50000000 ) {
+
             continue;
         }
 
@@ -513,22 +507,19 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     }
 
     query[offset] = '\0';
-    if (inserted > 1000000) {
-      int result = ch_execute(conn, query);
-      CH_LOG_INFO("%s\n", query);
-      free(query);
 
-      if (result < 0) {
+    int result = ch_execute(conn, query);
+    CH_LOG_INFO("%s\n", query);
+    free(query);
+
+    if (result < 0) {
         CH_LOG_ERROR("%s %d %s: Failed to insert flows\n",
                      __FILE__, __LINE__, __func__);
         return -1;
-      }
-
-      CH_LOG_INFO("%s %d %s: Successfully inserted %d of %d flows\n",
-                  __FILE__, __LINE__, __func__, inserted, flows->header.count);
-      inserted = 0;
-      offset = 0;
-
     }
+
+    CH_LOG_INFO("%s %d %s: Successfully inserted %d of %d flows\n",
+                __FILE__, __LINE__, __func__, inserted, flows->header.count);
+
     return 0;
 }
