@@ -149,9 +149,7 @@ void *parse_ipfix(uv_work_t *req) {
         uint16_t *temp;
         size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
 
-        if (template_hashmap != NULL) {
-          hashmap_delete(templates_ipfix_hashmap,key,strlen(key));
-        }
+        if (template_hashmap == NULL) {
           temp = arena_alloc(arena_hashmap_ipfix, template_size);
           memcpy(temp, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
 
@@ -160,7 +158,12 @@ void *parse_ipfix(uv_work_t *req) {
           } else {
             LOG_ERROR("%s %d %s: IPFIX template saved [%s]\n", __FILE__, __LINE__, __func__, key);
           }
-
+        } else {
+          //arena_free(arena_hashmap_ipfix,template_hashmap);
+          temp = arena_alloc(arena_hashmap_ipfix, template_size);
+          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), template_size);
+          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp);
+        }
 
         pos += template_size;
         template_counter++;
