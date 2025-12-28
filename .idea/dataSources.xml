@@ -26,14 +26,14 @@
     <data-source source="LOCAL" name="clickhouse" uuid="8fd7dbc7-e38b-4620-b7b0-13a759b57c8b">
       <driver-ref>clickhouse</driver-ref>
       <synchronize>true</synchronize>
-      <jdbc-driver>ru.yandex.clickhouse.ClickHouseDriver</jdbc-driver>
+      <jdbc-driver>com.clickhouse.jdbc.ClickHouseDriver</jdbc-driver>
       <jdbc-url>jdbc:clickhouse://localhost:8123/netflow</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
     <data-source source="LOCAL" name="netflow@10.30.24.14" uuid="4f8d5ee0-c1ac-46ee-95b5-f6439caac251">
       <driver-ref>clickhouse</driver-ref>
       <synchronize>true</synchronize>
-      <jdbc-driver>ru.yandex.clickhouse.ClickHouseDriver</jdbc-driver>
+      <jdbc-driver>com.clickhouse.jdbc.ClickHouseDriver</jdbc-driver>
       <jdbc-url>jdbc:clickhouse://10.30.24.14:8123/netflow</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
