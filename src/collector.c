@@ -474,7 +474,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       assert(false);
   }
   if (work_cb) {
-    int queue = uv_queue_work(loop_udp, work_req, work_cb, (void *) after_work_cb);
+    int queue = uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
     LOG_ERROR("%s %d %s: uv_queue_work  %d\n", __FILE__, __LINE__, __func__, queue);
     data_counter++;
     LOG_ERROR("%s %d %s: udp_handle sent work data_counter %d\n", __FILE__, __LINE__, __func__, data_counter);
