@@ -176,7 +176,11 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-
+  //buf->base = malloc(suggested_size);
+  //buf->len = suggested_size;
+  // buf->base = malloc(suggested_size);
+  // buf->len = suggested_size;
+  //return;
   static volatile int data_counter = 1;
   suggested_size = 2000; // should be enough for most packets
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,
@@ -330,8 +334,6 @@ error_no_arena:
 }
 
 void *after_work_cb(uv_work_t *req, int status) {
-  static int data_counter_after = 0;
-  LOG_ERROR("%s %d %s: after_work_cb status: %d \n", __FILE__, __LINE__, __func__,status);
   if (req == NULL) {
     LOG_ERROR("%s %d %s: req is NULL\n", __FILE__, __LINE__, __func__);
     return NULL;
@@ -368,8 +370,7 @@ void *after_work_cb(uv_work_t *req, int status) {
     LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n",
               __FILE__, __LINE__, __func__, req, ret);
   }
-  data_counter_after++;
-  LOG_ERROR("%s %d %s: after_work_cb done %d\n", __FILE__, __LINE__, __func__, data_counter_after);
+
   return NULL;
 }
 /**
@@ -387,7 +388,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   LOG_DEBUG("%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
           (void *) handle, flags, nread);
   if (nread > 65536 || nread == 0) {
-    LOG_DEBUG("nread > 65536 || nread == 0\n");
+    LOG_DEBUG("nread > 65536\n");
     goto udp_handle_free_and_return;
   }
   if (buf->base == NULL) {
@@ -441,7 +442,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   // work_req = malloc(sizeof(uv_work_t));
   uv_work_cb work_cb;
-  static size_t data_counter = 0;
+  static size_t data_counter = 1;
   uint32_t *exporter_ptr = NULL;
   exporter_ptr = (uint32_t *) &(addr->sa_data[2]);
   func_args->exporter = *(uint32_t *) exporter_ptr;
@@ -476,14 +477,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   if (work_cb) {
     uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
     data_counter++;
-    LOG_ERROR("%s %d %s: udp_handle sent work %d\n", __FILE__, __LINE__, __func__, data_counter);
   }
-  // after_work_cb will release all memory chunks
+  // after_work_cb will release all mmemory chunks
   return;
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:
   arena_free(arena_udp_handle, buf->base);
-
-
 }
