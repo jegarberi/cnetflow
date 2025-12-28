@@ -168,7 +168,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       // NOTE: We don't free the key since it's the same key - only update the value
 #ifndef USE_ARENA_ALLOCATOR
       if (buckets[index].value != NULL) {
-        free(buckets[index].value);
+        //free(buckets[index].value);
       }
 #endif
       buckets[index].value = value;

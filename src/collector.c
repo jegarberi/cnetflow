@@ -484,7 +484,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:
-  //arena_free(arena_udp_handle, buf->base);
+  arena_free(arena_udp_handle, buf->base);
   return;
 
 
