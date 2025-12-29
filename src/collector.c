@@ -383,8 +383,16 @@ void *after_work_cb(uv_work_t *req, int status) {
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
   LOG_DEBUG("%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__,
           (void *) handle, flags, nread);
-  if (nread > 65536 || nread == 0) {
-    LOG_DEBUG("nread > 65536\n");
+  if (nread > 65536 || nread < 1) {
+    if (nread == 0) {
+      LOG_DEBUG("%s %d %s nread == 0\n",__FILE__,__LINE__,__func__);
+    }else if (nread > 65536) {
+      LOG_DEBUG("%s %d %s nread > 65536\n",__FILE__,__LINE__,__func__);
+    }else if (nread < 0) {
+      LOG_DEBUG("%s %d %s nread < 0\n",__FILE__,__LINE__,__func__);
+    }
+
+
     goto udp_handle_free_and_return;
   }
   if (buf->base == NULL) {

@@ -406,12 +406,20 @@ int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, 
 }
 
 
-int ch_insert_flows_buffered(uint32_t exporter, netflow_v9_uint128_flowset_t *flows, size_t limit) {
+int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     static THREAD_LOCAL ch_conn_t *conn = NULL;
     static THREAD_LOCAL char * query = NULL;
     static THREAD_LOCAL int offset = 0;
     static THREAD_LOCAL size_t query_size = 0;
     static THREAD_LOCAL size_t inserted = 0;
+    static THREAD_LOCAL uint32_t last = 0;
+    static THREAD_LOCAL uint32_t now = 0;
+    if (last == 0) {
+      last = (uint32_t) time(NULL);
+    }
+    now = (uint32_t) time(NULL);
+
+
     ch_db_connect(&conn);
     if (!conn || !conn->connected) {
         CH_LOG_ERROR("%s %d %s: Failed to connect\n",
@@ -514,7 +522,8 @@ int ch_insert_flows_buffered(uint32_t exporter, netflow_v9_uint128_flowset_t *fl
     }
 
     query[offset] = '\0';
-    if (inserted > limit) {
+    if (inserted > 1000 || (now - last) > 60 ) {
+      last = now;
       int result = ch_execute(conn, query);
       CH_LOG_INFO("%s\n", query);
       free(query);
@@ -535,7 +544,7 @@ int ch_insert_flows_buffered(uint32_t exporter, netflow_v9_uint128_flowset_t *fl
 }
 
 
-int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
+int ch_insert_flows2(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     static THREAD_LOCAL ch_conn_t *conn = NULL;
 
     ch_db_connect(&conn);
