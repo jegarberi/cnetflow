@@ -110,6 +110,10 @@ void *parse_ipfix(uv_work_t *req) {
         size_t template_size = 4; // template_id + field_count
 
         for (size_t field = 0; field < field_count; field++) {
+          if (field_count > 60) {
+            LOG_ERROR("%s %d %s: Too many fields...\n", __FILE__, __LINE__, __func__);
+            return 0;
+          }
           uint16_t t = template->templates[0].fields[field].field_type;
           uint16_t l = template->templates[0].fields[field].field_length;
           swap_endianness(&t, sizeof(t));
