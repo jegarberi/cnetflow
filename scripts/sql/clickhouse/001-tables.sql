@@ -210,3 +210,80 @@ CREATE TABLE IF NOT EXISTS netflow.dumps
         SETTINGS
             index_granularity = 8192,
             storage_policy = 'default';
+
+create table netflow.flows
+(
+    inserted_at DateTime default now(),
+    exporter    String,
+    srcaddr     String,
+    dstaddr     String,
+    srcport     UInt16,
+    dstport     UInt16,
+    protocol    UInt8,
+    input       UInt16,
+    output      UInt16,
+    dpkts       UInt64,
+    doctets     UInt64,
+    first       DateTime,
+    last        DateTime,
+    tcp_flags   UInt8,
+    tos         UInt8,
+    src_as      UInt16,
+    dst_as      UInt16,
+    src_mask    UInt8,
+    dst_mask    UInt8,
+    ip_version  UInt8,
+    flow_hash   String   default ''
+)
+    engine = MergeTree PARTITION BY toYYYYMMDD(first)
+        ORDER BY (exporter, first, srcaddr, dstaddr, srcport, dstport, protocol)
+        TTL first + toIntervalDay(7)
+        SETTINGS index_granularity = 8192, storage_policy = 'default';
+
+
+
+
+create table ips
+
+(
+    nombre String,
+    nodo   Int32,
+    vlan   UInt32,
+    tipo   String,
+    ip     String
+)ENGINE = MergeTree()
+     ORDER BY (ip, nodo);
+
+
+create table netflow.ports
+(
+    number      UInt16,
+    protocol    UInt16,
+    name        String,
+    description String
+)ENGINE = MergeTree()
+     ORDER BY (number, protocol);
+
+
+
+
+create table netflow.protocols
+(
+    id          UInt256,
+    name        String,
+    description String
+)ENGINE = MergeTree()
+     ORDER BY (name, description);
+
+
+
+create table netflow.services
+(
+    addr     IPv4,
+    port     UInt16,
+    protocol UInt16,
+    name     String,
+    cidr     Int32
+)
+    engine = MergeTree()
+        ORDER BY (addr, cidr,port,protocol);
