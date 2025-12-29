@@ -495,7 +495,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   }
 
   query[offset] = '\0';
-  if (inserted > 1000 || (now - last) > 60) {
+  if (inserted > 5000 || (now - last) > 60) {
     last = now;
     int result = ch_execute(conn, query);
     CH_LOG_INFO("%s\n", query);
