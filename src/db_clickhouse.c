@@ -406,11 +406,21 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL size_t inserted = 0;
   static THREAD_LOCAL uint32_t last = 0;
   static THREAD_LOCAL uint32_t now = 0;
+  static THREAD_LOCAL uint32_t max_diff = 0;
+  static THREAD_LOCAL uint32_t max_flows = 0;
   if (last == 0) {
     last = (uint32_t) time(NULL);
   }
   now = (uint32_t) time(NULL);
 
+  if (max_diff == 0) {
+    const char *max_diff_str = getenv("CNETFLOW_MAX_DIFF");
+    max_diff = (int)strtoul(max_diff_str, NULL, 10);
+  }
+  if (max_flows == 0) {
+    const char *max_flows_str = getenv("CNETFLOW_MAX_FLOWS");
+    max_flows = (int)strtoul(max_flows_str, NULL, 10);
+  }
 
   ch_db_connect(&conn);
   if (!conn || !conn->connected) {
@@ -495,7 +505,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   }
 
   query[offset] = '\0';
-  if (inserted > 5000 || (now - last) > 60) {
+  if (inserted > max_flows || (now - last) > max_diff) {
     last = now;
     int result = ch_execute(conn, query);
     CH_LOG_INFO("%s\n", query);
