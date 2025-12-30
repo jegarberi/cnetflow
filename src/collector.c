@@ -300,7 +300,7 @@ int8_t collector_start(collector_t *collector) {
   const int port = (int)strtoul(port_bind_str, NULL, 10);
   uv_ip4_addr(ip_bind, port, (struct sockaddr_in *) addr);
   LOG_INFO("binding to udp port %d\n", port);
-  const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEPORT);
+  const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
   if (bind_ret < 0) {
     LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
     goto error_destroy_arena;
