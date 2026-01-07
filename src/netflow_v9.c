@@ -506,7 +506,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_BGPSOURCEASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].src_as = (uint32_t) val_tmp16;
+                    netflow_packet_ptr->records[record_counter].src_as = ((uint32_t) val_tmp16 )<< 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].src_as = val_tmp32;
@@ -519,7 +519,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_BGPDESTINATIONASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].dst_as = (uint32_t) val_tmp16;
+                    netflow_packet_ptr->records[record_counter].dst_as = ((uint32_t) val_tmp16 )<< 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].dst_as = val_tmp32;

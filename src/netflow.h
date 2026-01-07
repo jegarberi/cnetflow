@@ -79,8 +79,8 @@ typedef struct {
   uint8_t tcp_flags;
   uint8_t prot;
   uint8_t tos;
-  uint16_t src_as;
-  uint16_t dst_as;
+  uint32_t src_as;
+  uint32_t dst_as;
   uint8_t src_mask;
   uint8_t dst_mask;
   uint8_t ip_version;
@@ -102,8 +102,8 @@ typedef struct {
   uint8_t tcp_flags;
   uint8_t prot;
   uint8_t tos;
-  uint16_t src_as;
-  uint16_t dst_as;
+  uint32_t src_as;
+  uint32_t dst_as;
   uint8_t src_mask;
   uint8_t dst_mask;
   uint8_t ip_version;
