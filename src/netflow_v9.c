@@ -12,7 +12,7 @@
 //#define _MAX_OCTETS_TO_CONSIDER_WRONG 500000000
 //#define _MAX_PACKETS_TO_CONSIDER_WRONG 5000000
 #define _MAX_OCTETS_TO_CONSIDER_WRONG 10737418240 //10G
-#define _MAX_PACKETS_TO_CONSIDER_WRONG 10000000
+#define _MAX_PACKETS_TO_CONSIDER_WRONG 10737418240
 static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
