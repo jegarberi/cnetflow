@@ -491,14 +491,13 @@ void *parse_v9(uv_work_t *req) {
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
-                  case 2:
-                    netflow_packet_ptr->records[record_counter].output = (uint32_t) val_tmp16;
-                    netflow_packet_ptr->records[record_counter].output <<= 16;
+                case 2:
+                    netflow_packet_ptr->records[record_counter].output = val_tmp16;
                     break;
-                  case 4:
+                case 4:
                     netflow_packet_ptr->records[record_counter].output = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                  default:
+                default:
                     netflow_packet_ptr->records[record_counter].output = 0;
                     break;
                 }
