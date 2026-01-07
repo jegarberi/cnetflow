@@ -297,7 +297,7 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
     record->src_mask = record->dst_mask;
     record->dst_mask = tmp_mask;
 
-    const uint8_t tmp_as = record->src_as;
+    const uint32_t tmp_as = record->src_as;
     record->src_as = record->dst_as;
     record->dst_as = tmp_as;
 
@@ -346,7 +346,7 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
     record->src_mask = record->dst_mask;
     record->dst_mask = tmp_mask;
 
-    const uint8_t tmp_as = record->src_as;
+    const uint32_t tmp_as = record->src_as;
     record->src_as = record->dst_as;
     record->dst_as = tmp_as;
 
@@ -394,7 +394,7 @@ void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
     record->src_mask = record->dst_mask;
     record->dst_mask = tmp_mask;
 
-    const uint8_t tmp_as = record->src_as;
+    const uint32_t tmp_as = record->src_as;
     record->src_as = record->dst_as;
     record->dst_as = tmp_as;
 
