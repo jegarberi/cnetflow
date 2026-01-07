@@ -292,6 +292,15 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
     const uint16_t tmp_interface = record->input;
     record->input = record->output;
     record->output = tmp_interface;
+
+    const uint8_t tmp_mask = record->src_mask;
+    record->src_mask = record->dst_mask;
+    record->dst_mask = tmp_mask;
+
+    const uint8_t tmp_as = record->src_as;
+    record->src_as = record->dst_as;
+    record->dst_as = tmp_as;
+
   } else {
     //fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
   }
@@ -332,6 +341,15 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
     const uint16_t tmp_interface = record->input;
     record->input = record->output;
     record->output = tmp_interface;
+
+    const uint8_t tmp_mask = record->src_mask;
+    record->src_mask = record->dst_mask;
+    record->dst_mask = tmp_mask;
+
+    const uint8_t tmp_as = record->src_as;
+    record->src_as = record->dst_as;
+    record->dst_as = tmp_as;
+
   } else {
     //fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
   }
@@ -371,6 +389,16 @@ void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
     const uint16_t tmp_interface = record->input;
     record->input = record->output;
     record->output = tmp_interface;
+
+    const uint8_t tmp_mask = record->src_mask;
+    record->src_mask = record->dst_mask;
+    record->dst_mask = tmp_mask;
+
+    const uint8_t tmp_as = record->src_as;
+    record->src_as = record->dst_as;
+    record->dst_as = tmp_as;
+
+
   } else {
     LOG_ERROR("%s %d %s: NOT swapping flow_v5 src and dst\n", __FILE__, __LINE__, __func__);
   }
