@@ -5,6 +5,8 @@
 
 #ifndef DB_H
 #define DB_H
+//#define _MAX_OCTETS_TO_CONSIDER_WRONG 500000000
+//#define _MAX_PACKETS_TO_CONSIDER_WRONG 5000000
 
 #include "netflow.h"
 #include "log.h"
