@@ -455,7 +455,8 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
         flows->records[i].First > flows->records[i].Last || flows->records[i].First == 0 ||
         flows->records[i].Last == 0 || flows->records[i].dPkts >= _MAX_PACKETS_TO_CONSIDER_WRONG || flows->records[i].dOctets >= _MAX_OCTETS_TO_CONSIDER_WRONG ||
         //TO-DO Averiguar porque pasa esto.
-        (flows->records[i].prot == 6 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0)) { //TCP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
+        (flows->records[i].prot == 6 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0) ||  //TCP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
+        (flows->records[i].prot == 17 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0)){ //UDP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
       continue;
     }
 
