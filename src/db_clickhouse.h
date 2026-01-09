@@ -4,8 +4,8 @@
 
 #ifndef DB_CLICKHOUSE_H
 #define DB_CLICKHOUSE_H
-#define _MAX_OCTETS_TO_CONSIDER_WRONG 10737418240 //10G
-#define _MAX_PACKETS_TO_CONSIDER_WRONG 10737418240
+#define _MAX_OCTETS_TO_CONSIDER_WRONG 500000000
+#define _MAX_PACKETS_TO_CONSIDER_WRONG 5000000
 #include <curl/curl.h>
 #include "netflow.h"
 #include <stdint.h>
