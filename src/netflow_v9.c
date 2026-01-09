@@ -448,6 +448,8 @@ void *parse_v9(uv_work_t *req) {
                 }
                 break;
               case IPFIX_FT_DESTINATIONTRANSPORTPORT:
+              case IPFIX_FT_TCPDESTINATIONPORT:
+              case IPFIX_FT_UDPDESTINATIONPORT:
                 switch (record_length) {
                   case 2:
                     netflow_packet_ptr->records[record_counter].dstport = (uint16_t) val_tmp16;
@@ -461,6 +463,8 @@ void *parse_v9(uv_work_t *req) {
                 }
                 break;
               case IPFIX_FT_SOURCETRANSPORTPORT:
+              case IPFIX_FT_TCPSOURCEPORT:
+              case IPFIX_FT_UDPSOURCEPORT:
                 switch (record_length) {
                 case 2:
                     netflow_packet_ptr->records[record_counter].srcport = (uint16_t) val_tmp16;
