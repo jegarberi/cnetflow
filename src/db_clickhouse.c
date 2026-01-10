@@ -469,7 +469,9 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     if (dur == 0 && (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
       continue;
     }
-
+    if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
+      continue;
+    }
     // Convert exporter IP to string format
     char exporter_str[INET_ADDRSTRLEN];
     struct in_addr addr;
