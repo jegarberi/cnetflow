@@ -436,3 +436,19 @@ void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, size_t i) {
   fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
           netflow_packet->records[i].prot);
 }
+void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
+  char ip_src_str[50] = {0};
+  char ip_dst_str[50] = {0};
+
+  char *tmp;
+  tmp = ip_int_to_str(record->srcaddr);
+  strncpy(ip_src_str, tmp, strlen(tmp));
+  uint16_t tmp_src_port = record->srcport;
+  uint16_t tmp_dst_port = record->dstport;
+  swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
+  swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
+  tmp = ip_int_to_str(record->dstaddr);
+  strncpy(ip_dst_str, tmp, strlen(tmp));
+  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
+          record->prot);
+}

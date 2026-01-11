@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include "arena.h"
 #include "log.h"
+#include "netflow.h"
 
 #if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
 #if defined(__GNUC__) || defined(__clang__)
@@ -461,10 +462,11 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
         (flows->records[i].prot == 17 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0) //UDP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
       ){
       CH_LOG_INFO("%s %d %s: Ignoring flow values set to 0 when it shouldnt be\n", __FILE__, __LINE__, __func__);
+
       continue;
     }
     uint32_t dur =  flows->records[i].Last - flows->records[i].First;
-    if (dur > 0 &&
+    /*if (dur > 0 &&
       (flows->records[i].dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG)){
         CH_LOG_INFO("%s %d %s: Ignoring flow dur > 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
         continue;
@@ -474,6 +476,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       CH_LOG_INFO("%s %d %s: Ignoring flow dur == 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
       continue;
     }
+    */
     if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
       CH_LOG_INFO("%s %d %s: Ignoring flow dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
       continue;
