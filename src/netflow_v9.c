@@ -437,7 +437,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_OCTETDELTACOUNT:
                 switch (record_length) {
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) val_tmp32;
+                    netflow_packet_ptr->records[record_counter].dOctets = ((uint64_t) val_tmp32) << 32;
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) val_tmp64;
@@ -450,7 +450,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_PACKETDELTACOUNT:
                 switch (record_length) {
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) val_tmp32;
+                    netflow_packet_ptr->records[record_counter].dPkts = ((uint64_t) val_tmp32) << 32;
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) val_tmp64;
