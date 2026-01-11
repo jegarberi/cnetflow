@@ -130,7 +130,9 @@ void *parse_v9(uv_work_t *req) {
         for (size_t field = 0; field < field_count; field++) {
           if (field_count > 60) {
             LOG_ERROR("%s %d %s: Too many fields...\n", __FILE__, __LINE__, __func__);
-            return 0;
+            has_more_templates = 0;
+            break;
+            //return 0;
           }
           uint16_t t = (uint16_t) template->templates[0].fields[field].field_type;
           uint16_t l = (uint16_t) template->templates[0].fields[field].field_length;
@@ -146,6 +148,9 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
             assert(-1);
           }
+        }
+        if (has_more_templates == 0) {
+          break;
         }
         pos += (field_count * 4) + 4;
         char key[255];
@@ -195,7 +200,7 @@ void *parse_v9(uv_work_t *req) {
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
-        if (pos >= flowset_length - 4) {
+        if (pos >= flowset_length ) {
           has_more_templates = 0;
         }
       }
@@ -291,7 +296,10 @@ void *parse_v9(uv_work_t *req) {
             if (pointer_offset + field_length > total_packet_length) {
               LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n",
                         __FILE__, __LINE__, __func__, pointer_offset, field_length);
-              goto unlock_mutex_parse_v9;
+              if (has_padding) {
+                break;
+              }
+              //goto unlock_mutex_parse_v9;
             }
 #ifdef CNETFLOW_DEBUG_BUILD
             fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field, 
@@ -703,14 +711,14 @@ void *parse_v9(uv_work_t *req) {
           if (has_padding == 0 && pos  >= flowset_length ) { // flowset_id + length + padding
             has_more_records = 0;
             // exit(-1);
-          } else if (pos - 4 >= flowset_length){
+          } else if (pos + 4 >= flowset_length){
             has_more_records = 0;
           }
 
-          if (record_counter + template_counter >= total_records) {
-            has_more_records = 0;
+          //if (record_counter + template_counter >= total_records) {
+          //  has_more_records = 0;
             // exit(-1);
-          }
+          //}
         }
         netflow_packet_ptr->header.count = record_counter;
         /*if (!is_ipv6) {
