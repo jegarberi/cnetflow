@@ -854,12 +854,12 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
     out->records[i].input = in->records[i].input;
     out->records[i].output = in->records[i].output;
     out->records[i].dPkts = in->records[i].dPkts;
-    if (in->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG) {
+    /*if (in->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG) {
       *dump = 1;
     }
     if (in->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG) {
       *dump = 1;
-    }
+    }*/
     out->records[i].dOctets = in->records[i].dOctets;
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;
