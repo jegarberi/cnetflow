@@ -98,10 +98,10 @@ void *parse_v9(uv_work_t *req) {
     uint16_t flowset_id = flowset->template.flowset_id;
     uint16_t flowset_length = flowset->template.length;
     // uint16_t *template = NULL;
-    LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
-    LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
 
     if (0 == flowset_id) {
+      LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
+      LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
       // this is a template flowset
       LOG_ERROR("%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
       size_t has_more_templates = 1;
@@ -206,6 +206,8 @@ void *parse_v9(uv_work_t *req) {
       }
     } else if (flowset_id >= 256) {
       // this a record flowset
+      LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
+      LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
       LOG_ERROR("%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
 
       // Validate flowset_base is within packet bounds
@@ -793,9 +795,10 @@ void *parse_v9(uv_work_t *req) {
       }
       //TODO
       // IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
-    } else if ((flowset_id < 256)) {
-      // this is an option flowset
-      LOG_ERROR("%s %d %s this is an option flowset\n", __FILE__, __LINE__, __func__);
+    } else if (flowset_id == 1) {
+      // this is an option flowset, skip it entirely
+    } else if (flowset_id > 1 && flowset_id < 256) {
+      LOG_ERROR("%s %d %s this is a reserved flowset: %d\n", __FILE__, __LINE__, __func__, flowset_id);
     } else {
       LOG_ERROR("%s %d %s this should not happen\n", __FILE__, __LINE__, __func__);
       goto unlock_mutex_parse_v9;
