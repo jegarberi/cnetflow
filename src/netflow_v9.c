@@ -195,7 +195,7 @@ void *parse_v9(uv_work_t *req) {
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
-        if (pos >= flowset_length ) {
+        if (pos >= flowset_length - 4) {
           has_more_templates = 0;
         }
       }
