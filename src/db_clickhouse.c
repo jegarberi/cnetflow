@@ -477,10 +477,12 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       continue;
     }
     */
-    if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
+    /*
+     if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
       CH_LOG_INFO("%s %d %s: Ignoring flow dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
       continue;
     }
+    */
     records_to_insert++;
     if (records_to_insert == 0 ) {
       CH_LOG_ERROR("%s %d %s: No Valid records to insert...\n", __FILE__, __LINE__, __func__);
