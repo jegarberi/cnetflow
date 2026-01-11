@@ -107,6 +107,8 @@ typedef struct {
   uint8_t src_mask;
   uint8_t dst_mask;
   uint8_t ip_version;
+  uint8_t template_id;
+  uint8_t flow_version;
 } netflow_v9_record_insert_uint128_t;
 
 

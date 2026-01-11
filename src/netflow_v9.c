@@ -36,7 +36,7 @@ void *parse_v9(uv_work_t *req) {
     LOG_ERROR("%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
     goto unlock_mutex_parse_v9;
   }
-  size_t flowsets = header->count;
+  size_t total_records = header->count;
   LOG_ERROR("%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
   if (header->SysUptime == 1384148828) {
@@ -51,7 +51,7 @@ void *parse_v9(uv_work_t *req) {
 
   flowset_union_t *flowset;
 
-  size_t flowset_counter = 0;
+  size_t total_record_counter = 0;
   size_t record_counter = 0;
   size_t template_counter = 0;
   size_t flowset_base = 0;
@@ -60,9 +60,9 @@ void *parse_v9(uv_work_t *req) {
   uint16_t len = 0;
   size_t total_packet_length = args->len;
   LOG_ERROR("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
-
-  for (flowset_counter = 0; flowset_counter < flowsets; ++flowset_counter) {
-    if (flowset_counter == 0) {
+  int8_t has_padding = 0;
+  for (total_record_counter = 0; total_record_counter < total_records; ++total_record_counter) {
+    if (total_record_counter == 0) {
       flowset_base = sizeof(netflow_v9_header_t);
       flowset = (flowset_union_t *) (args->data + flowset_base);
       len = flowset->record.length;
@@ -76,6 +76,11 @@ void *parse_v9(uv_work_t *req) {
       len = flowset->record.length;
       swap_endianness(&len, sizeof(len));
       flowset_end = flowset_base + len;
+      if (flowset_end % 32 != 0) {
+        has_padding = 1;
+      } else {
+        has_padding = 0;
+      }
       if (flowset_end > total_packet_length) {
         LOG_ERROR("%s %d %s: read all packet\n", __FILE__, __LINE__, __func__);
         break;
@@ -253,7 +258,7 @@ void *parse_v9(uv_work_t *req) {
           size_t print_flow = 0;
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
-                  ip_int_to_str(args->exporter), template_id, flowsets + 1, record_counter + 1, field_count);
+                  ip_int_to_str(args->exporter), template_id, total_records + 1, record_counter + 1, field_count);
 #endif
           size_t reading_field = 0;
           for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
@@ -294,16 +299,16 @@ void *parse_v9(uv_work_t *req) {
             // record_length = ipfix_field_types[field].length;
 
             uint16_t record_length = field_length;
-            uint8_t *tmp8;
+            uint8_t *tmp8 = NULL;
             uint8_t val_tmp8 = 0;
-            uint16_t *tmp16;
+            uint16_t *tmp16 = NULL;
             uint16_t val_tmp16 = 0;
-            uint32_t *tmp32;
+            uint32_t *tmp32 = NULL;
             uint32_t val_tmp32 = 0;
-            uint64_t *tmp64;
+            uint64_t *tmp64 = NULL;
             uint64_t val_tmp64 = 0;
-            uint128_t *tmp128;
-            uint128_t val_tmp128;
+            uint128_t *tmp128 = NULL;
+            uint128_t val_tmp128 = 0;
 
             switch (record_length) {
               case 1:
@@ -684,11 +689,14 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
           record_counter++;
-          if (pos >= flowset_length ) { // flowset_id + length + padding
+          if (has_padding == 0 && pos  >= flowset_length ) { // flowset_id + length + padding
             has_more_records = 0;
             // exit(-1);
+          } else if (pos - 4 >= flowset_length){
+            has_more_records = 0;
           }
-          if (record_counter + template_counter >= flowsets) {
+
+          if (record_counter + template_counter >= total_records) {
             has_more_records = 0;
             // exit(-1);
           }

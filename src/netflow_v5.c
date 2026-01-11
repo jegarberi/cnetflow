@@ -10,7 +10,7 @@
 #include "db.h"
 #include "log.h"
 
-arena_struct_t *arena_collector;
+extern arena_struct_t *arena_collector;
 
 
 /**

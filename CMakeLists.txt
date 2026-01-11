@@ -27,7 +27,7 @@ if (NOT CMAKE_C_COMPILER)
     SET(CMAKE_C_COMPILER "/usr/bin/gcc")
 endif ()
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
-SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra  ")
+SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -fsanitize=address   ")
 SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG -Wall -Wextra ")
 SET(CMAKE_C_FLAGS_RELEASE "-O3 -Wall -Wextra -flto")
 SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-O3 -flto")
@@ -154,6 +154,7 @@ if (CRITERION_FOUND)
     add_executable(cnetflow_tests
             tests/tests.c
             tests/test_netflow.c
+            tests/test_ipfix.c
     )
     target_include_directories(cnetflow_tests PRIVATE ${CRITERION_INCLUDE_DIRS})
     target_link_libraries(cnetflow_tests
@@ -162,6 +163,8 @@ if (CRITERION_FOUND)
             dyn_array
             netflow
             netflow_v5
+            netflow_ipfix
+            collector
             ${DB_LIBRARY}
             ${DB_LINK_LIBRARIES}
             uv

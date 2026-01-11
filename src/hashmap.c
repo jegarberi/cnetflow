@@ -147,8 +147,8 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       // Found existing key, update value
 #ifdef USE_ARENA_ALLOCATOR
 #else
-  free(buckets[index].key);  // FREE THE KEY!
-  free(buckets[index].value);
+  //free(buckets[index].key);  // FREE THE KEY!
+  //free(buckets[index].value);
 #endif
 buckets[index].value = value;
       goto hashmap_set_success;

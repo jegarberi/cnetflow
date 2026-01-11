@@ -22,6 +22,12 @@ void *parse_ipfix(uv_work_t *req) {
 
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
+
+  if (args->len < sizeof(netflow_ipfix_header_t)) {
+    LOG_ERROR("%s %d %s: Packet too short for IPFIX header: %lu\n", __FILE__, __LINE__, __func__, args->len);
+    goto unlock_mutex_parse_ipfix;
+  }
+
   netflow_ipfix_header_t *header = (netflow_ipfix_header_t *) (args->data);
 
   swap_endianness((void *) &(header->version), sizeof(header->version));
@@ -42,7 +48,7 @@ void *parse_ipfix(uv_work_t *req) {
 
   flowset_union_ipfix_t *flowset;
 
-  size_t flowset_counter = 0;
+  size_t total_record_counter = 0;
   size_t record_counter = 0;
   size_t template_counter = 0;
   size_t flowset_base = 0;
@@ -55,7 +61,7 @@ void *parse_ipfix(uv_work_t *req) {
   // Process all sets in the IPFIX message
   flowset_base = sizeof(netflow_ipfix_header_t);
 
-  while (flowset_base < total_packet_length && flowset_base < header->length) {
+  while (flowset_base + 4 <= total_packet_length && flowset_base + 4 <= header->length) {
     flowset = (flowset_union_ipfix_t *) (args->data + flowset_base);
     len = flowset->record.length;
     swap_endianness(&len, sizeof(len));
@@ -78,17 +84,12 @@ void *parse_ipfix(uv_work_t *req) {
     if (flowset_id == IPFIX_TEMPLATE_SET) {
       // Template Set (ID = 2)
       LOG_DEBUG("%s %d %s: Processing IPFIX template set\n", __FILE__, __LINE__, __func__);
-      size_t pos = 0; // Skip set header (flowset_id + length)
+      size_t pos = 4; // Skip set header (flowset_id + length)
 
-      while (pos + 4 <= flowset_length) {
-        netflow_ipfix_flow_header_template_t *template =
-            (netflow_ipfix_flow_header_template_t *) (args->data + flowset_base + pos);
-
-        uint16_t template_id = template->templates[0].template_id;
-        uint16_t field_count = template->templates[0].field_count;
-
-        swap_endianness(&template_id, sizeof(template_id));
-        swap_endianness(&field_count, sizeof(field_count));
+      while (pos + 4 <= flowset_length && flowset_base + pos + 4 <= total_packet_length) {
+        uint8_t *template_record_ptr = args->data + flowset_base + pos;
+        uint16_t template_id = (template_record_ptr[0] << 8) | template_record_ptr[1];
+        uint16_t field_count = (template_record_ptr[2] << 8) | template_record_ptr[3];
 
 
         if (template_id < 256) {
@@ -108,33 +109,33 @@ void *parse_ipfix(uv_work_t *req) {
                 field_count);
 
         size_t template_size = 4; // template_id + field_count
+        uint8_t *field_def_ptr = args->data + flowset_base + pos + 4;
 
-        for (size_t field = 0; field < field_count; field++) {
-          if (field_count > 60) {
-            LOG_ERROR("%s %d %s: Too many fields...\n", __FILE__, __LINE__, __func__);
-            return 0;
+        for (uint16_t i = 0; i < field_count; i++) {
+          if (pos + template_size + 4 > flowset_length || flowset_base + pos + template_size + 4 > total_packet_length) {
+            LOG_ERROR("%s %d %s: Template field definition OOB\n", __FILE__, __LINE__, __func__);
+            goto unlock_mutex_parse_ipfix;
           }
-          uint16_t t = template->templates[0].fields[field].field_type;
-          uint16_t l = template->templates[0].fields[field].field_length;
-          swap_endianness(&t, sizeof(t));
-          swap_endianness(&l, sizeof(l));
+          uint16_t ft = (field_def_ptr[0] << 8) | field_def_ptr[1];
+          uint16_t fl = (field_def_ptr[2] << 8) | field_def_ptr[3];
 
-          // Check for enterprise bit
-          int is_enterprise = (t & 0x8000) ? 1 : 0;
-          uint16_t field_type = t & 0x7FFF;
-
-          if (is_enterprise) {
-            template_size += 4; // field_type + field_length + enterprise_number
-            LOG_ERROR("%s %d %s: field: %lu type: %u (enterprise) len: %u\n", __FILE__, __LINE__, __func__, field,
-                    field_type, l);
-          } else {
-            template_size += 4; // field_type + field_length
-            if (field_type < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
-              LOG_ERROR("%s %d %s: field: %lu type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field,
-                      field_type, l, ipfix_field_types[field_type].name);
-            } else {
-              LOG_ERROR("%s %d %s: Unknown field type: %u\n", __FILE__, __LINE__, __func__, field_type);
+          if (ft & 0x8000) {
+            // Enterprise bit set
+            if (pos + template_size + 8 > flowset_length || flowset_base + pos + template_size + 8 > total_packet_length) {
+              LOG_ERROR("%s %d %s: Template field definition (enterprise) OOB\n", __FILE__, __LINE__, __func__);
+              goto unlock_mutex_parse_ipfix;
             }
+            uint32_t enterprise_id = (field_def_ptr[4] << 24) | (field_def_ptr[5] << 16) |
+                                     (field_def_ptr[6] << 8) | field_def_ptr[7];
+            LOG_ERROR("%s %d %s: field: %d type: %u (enterprise: %u) len: %u\n", __FILE__, __LINE__, __func__, i,
+                      ft & 0x7FFF, enterprise_id, fl);
+            template_size += 8;
+            field_def_ptr += 8;
+          } else {
+            LOG_ERROR("%s %d %s: field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i,
+                      ft, fl);
+            template_size += 4;
+            field_def_ptr += 4;
           }
         }
 
@@ -145,11 +146,11 @@ void *parse_ipfix(uv_work_t *req) {
 
         uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
         uint16_t *temp;
-        size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
+        uint8_t *template_record_start = args->data + flowset_base + pos;
 
         if (template_hashmap == NULL) {
           temp = arena_alloc(arena_hashmap_ipfix, template_size);
-          memcpy(temp, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
+          memcpy(temp, (void *) template_record_start, template_size);
 
           if (hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp)) {
             LOG_ERROR("%s %d %s: Error saving IPFIX template [%s]\n", __FILE__, __LINE__, __func__, key);
@@ -157,7 +158,9 @@ void *parse_ipfix(uv_work_t *req) {
             LOG_ERROR("%s %d %s: IPFIX template saved [%s]\n", __FILE__, __LINE__, __func__, key);
           }
         } else {
-          memcpy(template_hashmap, (void *) (template_init - sizeof(uint16_t) * 2), template_size);
+          temp = arena_alloc(arena_hashmap_ipfix, template_size);
+          memcpy(temp, (void *) template_record_start, template_size);
+          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp);
         }
 
         pos += template_size;
@@ -199,7 +202,7 @@ void *parse_ipfix(uv_work_t *req) {
 
         while (pos + 4 <= flowset_length) {
 #ifdef CNETFLOW_DEBUG_BUILD
-          fprintf(stdout, "exporter: %s template: %d record_no: %d field_count: %d\n", ip_int_to_str(args->exporter),
+          fprintf(stdout, "exporter: %s template: %d record_no: %lu field_count: %u\n", ip_int_to_str(args->exporter),
                   template_id, record_counter + 1, field_count);
 #endif
 
@@ -207,21 +210,22 @@ void *parse_ipfix(uv_work_t *req) {
           uint64_t sysUptimeMillis = 0;
           netflow_v9_record_insert_t empty_record = {0};
           memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
-          for (size_t count = 2; count < field_count * 2 + 2; count += 2) {
+          
+          uint8_t *stored_field_ptr = (uint8_t *) template_hashmap + 4;
+
+          for (uint16_t i = 0; i < field_count; i++) {
             reading_field++;
-            uint16_t field_type = template_hashmap[count];
-            swap_endianness(&field_type, sizeof(field_type));
+            uint16_t field_type = (stored_field_ptr[0] << 8) | stored_field_ptr[1];
+            uint16_t field_length = (stored_field_ptr[2] << 8) | stored_field_ptr[3];
+            
+            size_t stored_field_def_size = (field_type & 0x8000) ? 8 : 4;
 
-
-            // Mask off enterprise bit for now (skip enterprise fields)
+            // Mask off enterprise bit for now
             field_type = field_type & 0x7FFF;
 
             if (field_type > (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
               goto unlock_mutex_parse_ipfix;
             }
-
-            uint16_t field_length = template_hashmap[count + 1];
-            swap_endianness(&field_length, sizeof(field_length));
 
 #ifdef CNETFLOW_DEBUG_BUILD
             fprintf(stdout, " field_%lu_%s[%d]_%d ", reading_field, ipfix_field_types[field_type].name, field_type,
@@ -229,16 +233,22 @@ void *parse_ipfix(uv_work_t *req) {
 #endif
 
             uint16_t record_length = field_length;
-            uint8_t *tmp8;
+            uint8_t *tmp8 = NULL;
             uint8_t val_tmp8 = 0;
-            uint16_t *tmp16;
+            uint16_t *tmp16 = NULL;
             uint16_t val_tmp16 = 0;
-            uint32_t *tmp32;
+            uint32_t *tmp32 = NULL;
             uint32_t val_tmp32 = 0;
-            uint64_t *tmp64;
+            uint64_t *tmp64 = NULL;
             uint64_t val_tmp64 = 0;
-            uint128_t *tmp128;
-            uint128_t val_tmp128;
+            uint128_t *tmp128 = NULL;
+            uint128_t val_tmp128 = 0;
+
+            if ((uint8_t*)pointer + record_length > (uint8_t*)args->data + args->len ||
+                pos + record_length > flowset_length) {
+                LOG_ERROR("%s %d %s: Data record OOB! field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i, field_type, record_length);
+                goto unlock_mutex_parse_ipfix;
+            }
 
             switch (record_length) {
               case 1:
@@ -266,7 +276,7 @@ void *parse_ipfix(uv_work_t *req) {
                 break;
               case 16:
                 tmp128 = (uint128_t *) pointer;
-                memcpy(&val_tmp128, pointer, sizeof(uint128_t));
+                memcpy(&val_tmp128, tmp128, sizeof(uint128_t));
                 break;
             }
 
@@ -321,7 +331,7 @@ void *parse_ipfix(uv_work_t *req) {
                 netflow_packet_ptr->records[record_counter].Last = (uint32_t) (val_tmp64 >> 32);
                 break;
               case IPFIX_FT_IPVERSION:
-                switch (*tmp8) {
+                switch (record_length) {
                   case 4:
                     is_ipv6 = 0;
                     netflow_packet_ptr->records[record_counter].ip_version = 4;
@@ -496,14 +506,15 @@ void *parse_ipfix(uv_work_t *req) {
 
             pointer += record_length;
             pos += record_length;
+            stored_field_ptr += stored_field_def_size;
           }
 
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-          if (netflow_packet_ptr->records[record_counter].prot == 1 && (netflow_packet_ptr->records[record_counter].srcport > 0 || netflow_packet_ptr->records[record_counter].dstport > 0)) {
-            EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
-          }
+          //if (netflow_packet_ptr->records[record_counter].prot == 1 && (netflow_packet_ptr->records[record_counter].srcport > 0 || netflow_packet_ptr->records[record_counter].dstport > 0)) {
+          //  EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+          //}
           if (sysUptimeMillis != 0 ) {
 
             LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
@@ -546,7 +557,7 @@ void *parse_ipfix(uv_work_t *req) {
 
           record_counter++;
 
-          if (pos >= flowset_length - 4) {
+          if (pos + 4 >= (size_t)flowset_length) {
             break;
           }
         }
@@ -559,7 +570,7 @@ void *parse_ipfix(uv_work_t *req) {
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
-        LOG_ERROR("%s %d %s: Inserting %d IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
+        LOG_ERROR("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
                 is_ipv6 ? "IPv6" : "IPv4");
         insert_flows(exporter_host, &flows_to_insert);
       }
@@ -570,12 +581,12 @@ void *parse_ipfix(uv_work_t *req) {
     }
 
     flowset_base = flowset_end;
-    flowset_counter++;
+    total_record_counter++;
     record_counter = 0;
   }
 
   LOG_ERROR("%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,
-          flowset_counter, template_counter, record_counter);
+          total_record_counter, template_counter, record_counter);
 
 unlock_mutex_parse_ipfix:
   args->status = collector_data_status_done;

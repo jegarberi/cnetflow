@@ -214,7 +214,8 @@ void ch_disconnect(ch_conn_t *conn) {
 int ch_execute(ch_conn_t *conn, const char *query) {
   if (!conn || !conn->curl)
     return -1;
-
+  if (strlen(query) == 0)
+    return -1;
   char url[512];
   snprintf(url, sizeof(url), "http://%s:%u/?database=%s", conn->host, conn->port, conn->database);
 
@@ -437,7 +438,8 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     query_size = 65536; // Start with 64KB
   }
   if (query == NULL) {
-    query = malloc(query_size);
+    query = calloc(query_size,1);
+
   }
   if (!query) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n", __FILE__, __LINE__, __func__);
@@ -449,7 +451,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
                       "protocol,input,output,dpkts,doctets,first,last,"
                       "tcp_flags,tos,src_as,dst_as,src_mask,dst_mask,ip_version) VALUES ");
   }
-
+  int records_to_insert = 0;
   for (int i = 0; i < flows->header.count; i++) {
     if (flows->records[i].dOctets == 0 || flows->records[i].dPkts == 0 ||
         flows->records[i].First > flows->records[i].Last || flows->records[i].First == 0 ||
@@ -471,6 +473,15 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     }
     if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
       continue;
+    }
+    records_to_insert++;
+    if (records_to_insert == 0 ) {
+      CH_LOG_ERROR("%s %d %s: No Valid records to insert...\n", __FILE__, __LINE__, __func__);
+      memset(query, 0, query_size);
+      free(query);
+      offset = 0;
+      query = NULL;
+      return -1;
     }
     // Convert exporter IP to string format
     char exporter_str[INET_ADDRSTRLEN];
@@ -503,7 +514,10 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       char *new_query = realloc(query, query_size);
       if (!new_query) {
         CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
+        memset(query, 0, query_size);
+        offset = 0;
         free(query);
+        query = NULL;
         return -1;
       }
       query = new_query;
@@ -515,7 +529,10 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   }
 
   if (inserted == 0) {
+    memset(query, 0, query_size);
     free(query);
+    offset = 0;
+    query = NULL;
     return 0;
   }
 
@@ -524,8 +541,11 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     last = now;
     int result = ch_execute(conn, query);
     CH_LOG_INFO("%s\n", query);
+    memset(query, 0, query_size);
     free(query);
+    offset = 0;
     query = NULL;
+
     if (result < 0) {
       CH_LOG_ERROR("%s %d %s: Failed to insert flows\n", __FILE__, __LINE__, __func__);
       return -1;

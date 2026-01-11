@@ -22,6 +22,11 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   (void) exporter;
   (void) flows; // no-op stub
 }
+int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
+  (void) exporter;
+  (void) flows;
+  return 0;
+}
 
 // Suite: netflow
 

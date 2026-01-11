@@ -38,10 +38,10 @@
 // #define MALLOC(x, y) malloc(y)
 #define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
-volatile arena_struct_t *arena_collector;
-volatile arena_struct_t *arena_udp_handle;
-volatile arena_struct_t *arena_hashmap_nf9;
-volatile arena_struct_t *arena_hashmap_ipfix;
+arena_struct_t *arena_collector;
+arena_struct_t *arena_udp_handle;
+arena_struct_t *arena_hashmap_nf9;
+arena_struct_t *arena_hashmap_ipfix;
 static collector_t *collector_config;
 
 uv_loop_t *loop_udp;
@@ -183,7 +183,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // return;
   static volatile int data_counter = 1;
   suggested_size = 2000; // should be enough for most packets
-  LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_collector, suggested_size);\n", __FILE__,
+  LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);\n", __FILE__,
           __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);
   buf->len = suggested_size;
@@ -394,8 +394,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     }else if (nread < 0) {
       LOG_DEBUG("%s %d %s nread < 0\n",__FILE__,__LINE__,__func__);
     }
+    LOG_INFO("%s %d %s relase: %p\n",__FILE__,__LINE__,__func__,buf->base);
+    arena_free(arena_udp_handle, buf->base);
 
-
+    return;
     goto udp_handle_free_and_return;
   }
   if (buf->base == NULL) {
@@ -482,9 +484,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   if (work_cb) {
     uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
     data_counter++;
+    return;
   }
   // after_work_cb will release all mmemory chunks
-  return;
+
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:

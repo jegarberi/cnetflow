@@ -220,7 +220,7 @@
 #define IPFIX_FT_HASHSELECTEDRANGEMAX 332
 #define IPFIX_FT_HASHDIGESTOUTPUT 333
 #define IPFIX_FT_HASHINITIALISERVALUE 334
-ipfix_field_type_t ipfix_field_types[] = {
+static ipfix_field_type_t ipfix_field_types[] = {
     {0, 0, 0, 0, NULL, NULL},
     {0, IPFIX_FT_OCTETDELTACOUNT, 8,IPFIX_CODING_UINT,"octetDeltaCount", ""},
     {0, IPFIX_FT_PACKETDELTACOUNT, 8,IPFIX_CODING_UINT,"packetDeltaCount", ""},
