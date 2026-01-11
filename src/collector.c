@@ -188,27 +188,29 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);
   buf->len = suggested_size;
   if (buf->base == NULL) {
+#ifdef USE_ARENA_ALLOCATOR
+    size_t arena_offset = arena_udp_handle->offset;
+#else
+    size_t arena_offset = 0;
+#endif
     LOG_ERROR(
             "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
-            __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
-#ifdef USE_ARENA_ALLOCATOR
-            arena_udp_handle->offset
-#else
-            0
-#endif
+            __FILE__, __LINE__, __func__, data_counter, (void *) handle, suggested_size, buf->base, buf->len,
+            arena_offset
     );
     LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
     EXIT_WITH_MSG(-1, "alloc_cb failed to allocate memory\n");
   }
 
+#ifdef USE_ARENA_ALLOCATOR
+  size_t arena_offset_debug = arena_udp_handle->offset;
+#else
+  size_t arena_offset_debug = 0;
+#endif
   LOG_DEBUG(
           "%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
-          __FILE__, __LINE__, __func__, data_counter, (size_t *) handle, suggested_size, buf->base, buf->len,
-#ifdef USE_ARENA_ALLOCATOR
-          arena_udp_handle->offset
-#else
-          0
-#endif
+          __FILE__, __LINE__, __func__, data_counter, (void *) handle, suggested_size, buf->base, buf->len,
+          arena_offset_debug
   );
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
