@@ -483,6 +483,10 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       continue;
     }
     */
+    if (flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0) {
+      CH_LOG_INFO("%s %d %s: Ignoring flow flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0\n", __FILE__, __LINE__, __func__);
+      continue;
+    }
     records_to_insert++;
     if (records_to_insert == 0 ) {
       CH_LOG_ERROR("%s %d %s: No Valid records to insert...\n", __FILE__, __LINE__, __func__);
