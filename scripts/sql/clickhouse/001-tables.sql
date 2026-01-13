@@ -68,24 +68,25 @@ SETTINGS
 
 CREATE TABLE IF NOT EXISTS exporters
 (
-    id                UInt64,
-    created_at        DateTime DEFAULT now(),
-    ip_bin            UInt32,
-    ip_inet           String,
-    name              String,
-    snmp_version      UInt8 DEFAULT 0,
-    snmp_community    String DEFAULT '',
-    snmpv3_username   String DEFAULT '',
-    snmpv3_level      String DEFAULT '',
-    snmpv3_auth_proto String DEFAULT '',
-    snmpv3_auth_pass  String DEFAULT '',
-    snmpv3_priv_proto String DEFAULT '',
-    snmpv3_priv_pass  String DEFAULT '',
-    data              String DEFAULT '{}'  -- JSON as String in ClickHouse
+    `id` UInt64 DEFAULT rand64(),
+    `created_at` DateTime DEFAULT now(),
+    `ip_bin` UInt32,
+    `ip_inet` String,
+    `name` String,
+    `snmp_version` UInt8 DEFAULT 0,
+    `snmp_community` String DEFAULT '',
+    `snmpv3_username` String DEFAULT '',
+    `snmpv3_level` String DEFAULT '',
+    `snmpv3_auth_proto` String DEFAULT '',
+    `snmpv3_auth_pass` String DEFAULT '',
+    `snmpv3_priv_proto` String DEFAULT '',
+    `snmpv3_priv_pass` String DEFAULT '',
+    `data` String DEFAULT '{}'
 )
-ENGINE = ReplacingMergeTree(created_at)
-ORDER BY (id, ip_bin)
-SETTINGS index_granularity = 8192;
+    ENGINE = ReplacingMergeTree(created_at)
+        PRIMARY KEY id
+        ORDER BY (id, ip_inet)
+        SETTINGS index_granularity = 8192;
 
 -- ============================================================
 -- 3. INTERFACES TABLE
