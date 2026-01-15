@@ -288,3 +288,20 @@ create table netflow.services
 )
     engine = MergeTree()
         ORDER BY (addr, cidr,port,protocol);
+
+-- ============================================================
+-- 7. CONFIG TABLE
+-- ============================================================
+-- Stores configuration key-value pairs
+
+CREATE TABLE IF NOT EXISTS netflow.config
+(
+    id         UInt64 DEFAULT rand64(),
+    created_at DateTime DEFAULT now(),
+    key_name   String,
+    key_value  String,
+    data       String DEFAULT '{}'
+)
+ENGINE = ReplacingMergeTree(created_at)
+PRIMARY KEY id
+ORDER BY id;
