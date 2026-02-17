@@ -8,6 +8,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#if defined(__linux__)
+#include <endian.h>
+#endif
 // Compile-time architecture endianness detection
 #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 #define CNETFLOW_BIG_ENDIAN_ARCH 1

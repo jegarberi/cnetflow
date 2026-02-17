@@ -6,26 +6,37 @@
 #include "netflow_ipfix.h"
 #include <assert.h>
 #include <stdio.h>
+#include "db.h"
 #include "log.h"
 #include "netflow_v5.h"
-#include "db.h"
+#ifdef USE_REDIS
+#include "redis_handler.h"
+#else
 static hashmap_t *templates_ipfix_hashmap;
+#endif
+
+// static hashmap_t *templates_ipfix_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;
 
 void init_ipfix(arena_struct_t *arena, const size_t cap) {
-  LOG_ERROR("%s %d %s: Initializing IPFIX [templates_ipfix_hashmap]...\n", __FILE__, __LINE__, __func__);
+#ifdef USE_REDIS
+  LOG_ERROR("%s %d %s: Initializing IPFIX (Redis)...\n", __FILE__, __LINE__, __func__);
+#else
+  LOG_ERROR("%s %d %s: Initializing IPFIX (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_ipfix_hashmap = hashmap_create(arena, cap);
+#endif
 }
 
 void *parse_ipfix(uv_work_t *req) {
 
+  uint16_t *template_hashmap = NULL;
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
 
   if (args->len < sizeof(netflow_ipfix_header_t)) {
     LOG_ERROR("%s %d %s: Packet too short for IPFIX header: %lu\n", __FILE__, __LINE__, __func__, args->len);
-    goto unlock_mutex_parse_ipfix;
+    goto cleanup_ipfix_and_unlock;
   }
 
   netflow_ipfix_header_t *header = (netflow_ipfix_header_t *) (args->data);
@@ -33,7 +44,7 @@ void *parse_ipfix(uv_work_t *req) {
   swap_endianness((void *) &(header->version), sizeof(header->version));
   if (header->version != 10) {
     LOG_ERROR("%s %d %s: Invalid IPFIX version: %d\n", __FILE__, __LINE__, __func__, header->version);
-    goto unlock_mutex_parse_ipfix;
+    goto cleanup_ipfix_and_unlock;
   }
 
   swap_endianness((void *) &(header->length), sizeof(header->length));
@@ -42,9 +53,9 @@ void *parse_ipfix(uv_work_t *req) {
   swap_endianness((void *) &(header->ObsDomainId), sizeof(header->ObsDomainId));
   uint32_t now = (uint32_t) time(NULL);
   uint32_t diff = now - (uint32_t) (header->ExportTime);
-  LOG_DEBUG("%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u Now: %u Diff: %u\n",
-          __FILE__, __LINE__, __func__, header->length, header->ExportTime, header->SequenceNumber, header->ObsDomainId,
-          now, diff);
+  LOG_DEBUG("%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u Now: %u Diff: %u\n", __FILE__,
+            __LINE__, __func__, header->length, header->ExportTime, header->SequenceNumber, header->ObsDomainId, now,
+            diff);
 
   flowset_union_ipfix_t *flowset;
 
@@ -67,8 +78,7 @@ void *parse_ipfix(uv_work_t *req) {
     swap_endianness(&len, sizeof(len));
 
     if (len < 4 || flowset_base + len > total_packet_length) {
-      LOG_ERROR("%s %d %s: Invalid set length: %d at offset %lu\n", __FILE__, __LINE__, __func__, len,
-              flowset_base);
+      LOG_ERROR("%s %d %s: Invalid set length: %d at offset %lu\n", __FILE__, __LINE__, __func__, len, flowset_base);
       break;
     }
 
@@ -106,61 +116,72 @@ void *parse_ipfix(uv_work_t *req) {
         }
 
         LOG_ERROR("%s %d %s: template_id: %d field_count: %d\n", __FILE__, __LINE__, __func__, template_id,
-                field_count);
+                  field_count);
 
         size_t template_size = 4; // template_id + field_count
         uint8_t *field_def_ptr = args->data + flowset_base + pos + 4;
 
         for (uint16_t i = 0; i < field_count; i++) {
-          if (pos + template_size + 4 > flowset_length || flowset_base + pos + template_size + 4 > total_packet_length) {
+          if (pos + template_size + 4 > flowset_length ||
+              flowset_base + pos + template_size + 4 > total_packet_length) {
             LOG_ERROR("%s %d %s: Template field definition OOB\n", __FILE__, __LINE__, __func__);
-            goto unlock_mutex_parse_ipfix;
+            goto cleanup_ipfix_and_unlock;
           }
           uint16_t ft = (field_def_ptr[0] << 8) | field_def_ptr[1];
           uint16_t fl = (field_def_ptr[2] << 8) | field_def_ptr[3];
 
           if (ft & 0x8000) {
             // Enterprise bit set
-            if (pos + template_size + 8 > flowset_length || flowset_base + pos + template_size + 8 > total_packet_length) {
+            if (pos + template_size + 8 > flowset_length ||
+                flowset_base + pos + template_size + 8 > total_packet_length) {
               LOG_ERROR("%s %d %s: Template field definition (enterprise) OOB\n", __FILE__, __LINE__, __func__);
-              goto unlock_mutex_parse_ipfix;
+              goto cleanup_ipfix_and_unlock;
             }
-            uint32_t enterprise_id = (field_def_ptr[4] << 24) | (field_def_ptr[5] << 16) |
-                                     (field_def_ptr[6] << 8) | field_def_ptr[7];
+            uint32_t enterprise_id =
+                (field_def_ptr[4] << 24) | (field_def_ptr[5] << 16) | (field_def_ptr[6] << 8) | field_def_ptr[7];
             LOG_ERROR("%s %d %s: field: %d type: %u (enterprise: %u) len: %u\n", __FILE__, __LINE__, __func__, i,
                       ft & 0x7FFF, enterprise_id, fl);
             template_size += 8;
             field_def_ptr += 8;
           } else {
-            LOG_ERROR("%s %d %s: field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i,
-                      ft, fl);
+            LOG_ERROR("%s %d %s: field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i, ft, fl);
             template_size += 4;
             field_def_ptr += 4;
           }
         }
 
-        // Store template in hashmap
+        // Store template in Redis
         char key[255];
-        snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
+        snprintf(key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
         LOG_ERROR("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, key);
 
-        uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
-        uint16_t *temp;
         uint8_t *template_record_start = args->data + flowset_base + pos;
 
-        if (template_hashmap == NULL) {
-          temp = arena_alloc(arena_hashmap_ipfix, template_size);
-          memcpy(temp, (void *) template_record_start, template_size);
+        // We use arena for temporary buffer if needed, but here we can just use the raw pointer if we were copying
+        // But redis_set_template takes a buffer.
+        // The original code allocated on arena then set to hashmap.
+        // We can just set to Redis directly from the packet buffer if it's contiguous?
+        // Wait, the template definition in packet might not be contiguous if we skipped enterprise fields?
+        // The original code copied to `temp` using `memcpy`.
+        // AND `template_size` was calculated.
 
-          if (hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp)) {
-            LOG_ERROR("%s %d %s: Error saving IPFIX template [%s]\n", __FILE__, __LINE__, __func__, key);
-          } else {
-            LOG_ERROR("%s %d %s: IPFIX template saved [%s]\n", __FILE__, __LINE__, __func__, key);
-          }
-        } else {
-          temp = arena_alloc(arena_hashmap_ipfix, template_size);
+        // Let's allocate a clean buffer to store the standardized template format
+        uint16_t *temp = arena_alloc(arena_hashmap_ipfix, template_size);
+        if (temp) {
           memcpy(temp, (void *) template_record_start, template_size);
+#ifdef USE_REDIS
+          if (redis_set_template(key, strlen(key), temp, template_size) != 0) {
+            LOG_ERROR("%s %d %s: Error saving IPFIX template to Redis [%s]\n", __FILE__, __LINE__, __func__, key);
+          } else {
+            LOG_ERROR("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, key);
+          }
+#else
           hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp);
+          LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, key);
+#endif
+        } else {
+          LOG_ERROR("%s %d %s: Failed to allocate memory for template copy\n", __FILE__, __LINE__, __func__);
+          goto cleanup_ipfix_and_unlock;
         }
 
         pos += template_size;
@@ -175,18 +196,23 @@ void *parse_ipfix(uv_work_t *req) {
 
       uint16_t template_id = flowset_id;
       char key[255];
-      snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
+      snprintf(key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
       LOG_ERROR("%s %d %s: Looking up template key: %s\n", __FILE__, __LINE__, __func__, key);
 
-      uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
+      size_t t_len = 0;
+#ifdef USE_REDIS
+      template_hashmap = (uint16_t *) redis_get_template(key, strlen(key), &t_len);
+#else
+      template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
+#endif
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
-                ip_int_to_str(args->exporter));
+                  ip_int_to_str(args->exporter));
       } else {
         if (args->exporter == 1090654892) {
           LOG_ERROR("%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
-                  args->exporter);
+                    args->exporter);
         }
         void *pointer = args->data + flowset_base + 4; // Skip set header
         size_t pos = 4;
@@ -214,14 +240,14 @@ void *parse_ipfix(uv_work_t *req) {
           uint64_t sysUptimeMillis = 0;
           netflow_v9_record_insert_t empty_record = {0};
           memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
-          
+
           uint8_t *stored_field_ptr = (uint8_t *) template_hashmap + 4;
 
           for (uint16_t i = 0; i < field_count; i++) {
             reading_field++;
             uint16_t field_type = (stored_field_ptr[0] << 8) | stored_field_ptr[1];
             uint16_t field_length = (stored_field_ptr[2] << 8) | stored_field_ptr[3];
-            
+
             size_t stored_field_def_size = (field_type & 0x8000) ? 8 : 4;
 
             // Mask off enterprise bit for now
@@ -229,13 +255,13 @@ void *parse_ipfix(uv_work_t *req) {
 
             if (field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
               LOG_ERROR("%s %d %s: Unknown IPFIX field type: %u\n", __FILE__, __LINE__, __func__, field_type);
-              goto unlock_mutex_parse_ipfix;
+              goto cleanup_ipfix_and_unlock;
             }
 
 #ifdef CNETFLOW_DEBUG_BUILD
-            fprintf(stdout, " field_%lu_%s[%d]_%d ", reading_field, 
-                    ipfix_field_types[field_type].name ? ipfix_field_types[field_type].name : "unknown", 
-                    field_type, field_length);
+            fprintf(stdout, " field_%lu_%s[%d]_%d ", reading_field,
+                    ipfix_field_types[field_type].name ? ipfix_field_types[field_type].name : "unknown", field_type,
+                    field_length);
 #endif
 
             uint16_t record_length = field_length;
@@ -250,10 +276,11 @@ void *parse_ipfix(uv_work_t *req) {
             uint128_t *tmp128 = NULL;
             uint128_t val_tmp128 = 0;
 
-            if ((uint8_t*)pointer + record_length > (uint8_t*)args->data + args->len ||
+            if ((uint8_t *) pointer + record_length > (uint8_t *) args->data + args->len ||
                 pos + record_length > flowset_length) {
-                LOG_ERROR("%s %d %s: Data record OOB! field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i, field_type, record_length);
-                goto unlock_mutex_parse_ipfix;
+              LOG_ERROR("%s %d %s: Data record OOB! field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i,
+                        field_type, record_length);
+              goto cleanup_ipfix_and_unlock;
             }
 
             switch (record_length) {
@@ -298,15 +325,15 @@ void *parse_ipfix(uv_work_t *req) {
                 if (record_length == 4) {
                   swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
-                  swap_endianness(&val_tmp32, sizeof(val_tmp32));
+                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].Last = val_tmp32;
                 } else if (record_length == 8) {
                   swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].Last = val32;
-                }else {
+                } else {
                   netflow_packet_ptr->records[record_counter].Last = 0;
                 }
                 break;
@@ -314,15 +341,15 @@ void *parse_ipfix(uv_work_t *req) {
                 if (record_length == 4) {
                   swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
-                  swap_endianness(&val_tmp32, sizeof(val_tmp32));
+                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].First = val_tmp32;
                 } else if (record_length == 8) {
                   swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].First = val32;
-                }else {
+                } else {
                   netflow_packet_ptr->records[record_counter].First = 0;
                 }
                 break;
@@ -331,7 +358,7 @@ void *parse_ipfix(uv_work_t *req) {
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].First = val32;
                 }
                 break;
@@ -340,7 +367,7 @@ void *parse_ipfix(uv_work_t *req) {
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].Last = val32;
                 }
                 break;
@@ -412,7 +439,7 @@ void *parse_ipfix(uv_work_t *req) {
                   case 4:
                     netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                default:
+                  default:
                     netflow_packet_ptr->records[record_counter].dstport = 0;
                     break;
                 }
@@ -421,13 +448,13 @@ void *parse_ipfix(uv_work_t *req) {
               case IPFIX_FT_TCPSOURCEPORT:
               case IPFIX_FT_UDPSOURCEPORT:
                 switch (record_length) {
-                case 2:
+                  case 2:
                     netflow_packet_ptr->records[record_counter].srcport = (uint16_t) val_tmp16;
                     break;
-                case 4:
+                  case 4:
                     netflow_packet_ptr->records[record_counter].srcport = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                default:
+                  default:
                     netflow_packet_ptr->records[record_counter].srcport = 0;
                     break;
                 }
@@ -450,13 +477,13 @@ void *parse_ipfix(uv_work_t *req) {
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
-                case 2:
+                  case 2:
                     netflow_packet_ptr->records[record_counter].output = val_tmp16;
                     break;
-                case 4:
+                  case 4:
                     netflow_packet_ptr->records[record_counter].output = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                default:
+                  default:
                     netflow_packet_ptr->records[record_counter].output = 0;
                     break;
                 }
@@ -464,7 +491,7 @@ void *parse_ipfix(uv_work_t *req) {
               case IPFIX_FT_BGPSOURCEASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].src_as = ((uint32_t) val_tmp16 )<< 16;
+                    netflow_packet_ptr->records[record_counter].src_as = ((uint32_t) val_tmp16) << 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].src_as = val_tmp32;
@@ -477,7 +504,7 @@ void *parse_ipfix(uv_work_t *req) {
               case IPFIX_FT_BGPDESTINATIONASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].dst_as = ((uint32_t) val_tmp16 )<< 16;
+                    netflow_packet_ptr->records[record_counter].dst_as = ((uint32_t) val_tmp16) << 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].dst_as = val_tmp32;
@@ -524,24 +551,35 @@ void *parse_ipfix(uv_work_t *req) {
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-          //if (netflow_packet_ptr->records[record_counter].prot == 1 && (netflow_packet_ptr->records[record_counter].srcport > 0 || netflow_packet_ptr->records[record_counter].dstport > 0)) {
-          //  EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
-          //}
-          //if (sysUptimeMillis != 0 ) {
+          // if (netflow_packet_ptr->records[record_counter].prot == 1 &&
+          // (netflow_packet_ptr->records[record_counter].srcport > 0 ||
+          // netflow_packet_ptr->records[record_counter].dstport > 0)) {
+          //   EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+          // }
+          // if (sysUptimeMillis != 0 ) {
 
-            LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
-            LOG_ERROR("%s %d %s: Last = %u\n", __FILE__, __LINE__, __func__, netflow_packet_ptr->records[record_counter].Last);
-            LOG_ERROR("%s %d %s: First = %u\n", __FILE__, __LINE__, __func__, netflow_packet_ptr->records[record_counter].First);
-            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
-            uint32_t duration = netflow_packet_ptr->records[record_counter].Last -netflow_packet_ptr->records[record_counter].First;
-            netflow_packet_ptr->records[record_counter].Last = now;
-            netflow_packet_ptr->records[record_counter].First = now - duration;
-            //netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
-            //netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
-            //netflow_packet_ptr->records[record_counter].First = (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].First;
-            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
+          LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
+          LOG_ERROR("%s %d %s: Last = %u\n", __FILE__, __LINE__, __func__,
+                    netflow_packet_ptr->records[record_counter].Last);
+          LOG_ERROR("%s %d %s: First = %u\n", __FILE__, __LINE__, __func__,
+                    netflow_packet_ptr->records[record_counter].First);
+          swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+                          sizeof(netflow_packet_ptr->records[record_counter].Last));
+          swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+                          sizeof(netflow_packet_ptr->records[record_counter].First));
+          uint32_t duration =
+              netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
+          netflow_packet_ptr->records[record_counter].Last = now;
+          netflow_packet_ptr->records[record_counter].First = now - duration;
+          // netflow_packet_ptr->records[record_counter].Last = (sysUptimeMillis/1000) +
+          // netflow_packet_ptr->records[record_counter].Last; netflow_packet_ptr->records[record_counter].Last =
+          // (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
+          // netflow_packet_ptr->records[record_counter].First = (sysUptimeMillis/1000) +
+          // netflow_packet_ptr->records[record_counter].First;
+          swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+                          sizeof(netflow_packet_ptr->records[record_counter].Last));
+          swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+                          sizeof(netflow_packet_ptr->records[record_counter].First));
           //}
           if (!is_ipv6) {
 
@@ -564,12 +602,11 @@ void *parse_ipfix(uv_work_t *req) {
                             sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
             swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
                             sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-
           }
 
           record_counter++;
 
-          if (pos + 4 >= (size_t)flowset_length) {
+          if (pos + 4 >= (size_t) flowset_length) {
             break;
           }
         }
@@ -583,10 +620,9 @@ void *parse_ipfix(uv_work_t *req) {
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
         LOG_ERROR("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
-                is_ipv6 ? "IPv6" : "IPv4");
+                  is_ipv6 ? "IPv6" : "IPv4");
         insert_flows(exporter_host, &flows_to_insert);
       }
-
     } else if (flowset_id == IPFIX_OPTION_SET) {
       // Options Template Set (ID = 3)
       LOG_ERROR("%s %d %s: IPFIX options template set (not implemented)\n", __FILE__, __LINE__, __func__);
@@ -598,7 +634,13 @@ void *parse_ipfix(uv_work_t *req) {
   }
 
   LOG_ERROR("%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,
-          total_record_counter, template_counter, record_counter);
+            total_record_counter, template_counter, record_counter);
+
+cleanup_ipfix_and_unlock:
+#ifdef USE_REDIS
+  if (template_hashmap)
+    free(template_hashmap);
+#endif
 
 unlock_mutex_parse_ipfix:
   args->status = collector_data_status_done;
@@ -606,7 +648,7 @@ unlock_mutex_parse_ipfix:
 }
 
 void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6) {
-  //fprintf(stderr, "%s %d %s: copy_ipfix_to_flow entry\n", __FILE__, __LINE__, __func__);
+  // fprintf(stderr, "%s %d %s: copy_ipfix_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
   out->header.unix_secs = in->header.unix_secs;
@@ -615,57 +657,73 @@ void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *
   out->header.sampling_interval = in->header.sampling_interval;
 
   for (int i = 0; i < in->header.count; i++) {
-    swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
-    swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
-    swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));
-    swap_endianness(&in->records[i].ipv6srcaddr, sizeof(in->records[i].ipv6srcaddr));
-    swap_endianness(&in->records[i].ipv6dstaddr, sizeof(in->records[i].ipv6dstaddr));
-    swap_endianness(&in->records[i].ipv6nexthop, sizeof(in->records[i].ipv6nexthop));
-    swap_endianness(&in->records[i].srcport, sizeof(in->records[i].srcport));
-    swap_endianness(&in->records[i].dstport, sizeof(in->records[i].dstport));
-    swap_endianness(&in->records[i].dPkts, sizeof(in->records[i].dPkts));
-    swap_endianness(&in->records[i].dOctets, sizeof(in->records[i].dOctets));
-    swap_endianness(&in->records[i].First, sizeof(in->records[i].First));
-    swap_endianness(&in->records[i].Last, sizeof(in->records[i].Last));
-    swap_endianness(&in->records[i].input, sizeof(in->records[i].input));
-    swap_endianness(&in->records[i].output, sizeof(in->records[i].output));
-    swap_endianness(&in->records[i].src_as, sizeof(in->records[i].src_as));
-    swap_endianness(&in->records[i].dst_as, sizeof(in->records[i].dst_as));
-    swap_endianness(&in->records[i].src_mask, sizeof(in->records[i].src_mask));
-    swap_endianness(&in->records[i].dst_mask, sizeof(in->records[i].dst_mask));
+    // Non-destructive copy & swap common fields
+    out->records[i].srcport = in->records[i].srcport;
+    swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
 
-    if (is_ipv6) {
-      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
-      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
-      out->records[i].nexthop = in->records[i].ipv6nexthop;
-    } else {
-      out->records[i].dstaddr = in->records[i].dstaddr;
-      out->records[i].srcaddr = in->records[i].srcaddr;
-      out->records[i].nexthop = in->records[i].nexthop;
-    }
+    out->records[i].dstport = in->records[i].dstport;
+    swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
 
-    out->records[i].input = in->records[i].input;
-    out->records[i].output = in->records[i].output;
     out->records[i].dPkts = in->records[i].dPkts;
+    swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts));
+
     out->records[i].dOctets = in->records[i].dOctets;
+    swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
+
+    // First and Last are already Host Order from parse_ipfix
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;
-    out->records[i].srcport = in->records[i].srcport;
-    out->records[i].dstport = in->records[i].dstport;
+
+    out->records[i].input = in->records[i].input;
+    swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
+
+    out->records[i].output = in->records[i].output;
+    swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
+
     out->records[i].src_as = in->records[i].src_as;
+    swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
+
     out->records[i].dst_as = in->records[i].dst_as;
+    swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
+
     out->records[i].src_mask = in->records[i].src_mask;
+    swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
+
     out->records[i].dst_mask = in->records[i].dst_mask;
+
     out->records[i].tcp_flags = in->records[i].tcp_flags;
     out->records[i].prot = in->records[i].prot;
     out->records[i].tos = in->records[i].tos;
 
     if (is_ipv6) {
+      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
+      swap_endianness(&out->records[i].srcaddr, sizeof(out->records[i].srcaddr));
+
+      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
+      swap_endianness(&out->records[i].dstaddr, sizeof(out->records[i].dstaddr));
+
+      out->records[i].nexthop = in->records[i].ipv6nexthop;
+      swap_endianness(&out->records[i].nexthop, sizeof(out->records[i].nexthop));
+
       out->records[i].ip_version = 6;
     } else {
+      uint32_t tmp;
+
+      tmp = in->records[i].srcaddr;
+      swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].srcaddr = tmp;
+
+      tmp = in->records[i].dstaddr;
+      swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].dstaddr = tmp;
+
+      tmp = in->records[i].nexthop;
+      swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].nexthop = tmp;
+
       out->records[i].ip_version = 4;
     }
   }
 
-  //LOG_ERROR("%s %d %s: copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
+  // LOG_ERROR("%s %d %s: copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
 }

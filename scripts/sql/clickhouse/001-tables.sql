@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS exporters
     ENGINE = ReplacingMergeTree(created_at)
         PRIMARY KEY id
         ORDER BY (id, ip_inet)
-        SETTINGS index_granularity = 8192;
+        SETTINGS index_granularity = 8192, enable_block_number_column = 1;
 
 -- ============================================================
 -- 3. INTERFACES TABLE
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS interfaces
 )
 ENGINE = ReplacingMergeTree(created_at)
 ORDER BY (exporter, snmp_index, id)
-SETTINGS index_granularity = 8192;
+SETTINGS index_granularity = 8192, enable_block_number_column = 1;
 
 -- ============================================================
 -- 4. INTERFACE METRICS TABLE

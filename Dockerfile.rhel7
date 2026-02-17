@@ -17,6 +17,7 @@ RUN yum install -y \
     rpm-build \
     postgresql-devel \
     libuv-devel \
+    hiredis-devel \
     && yum clean all
 
 # Set working directory

@@ -8,7 +8,6 @@ bin
 /scripts/sql/psql/003-dontupload.sql
 tmp
 data
-tests
 CMakeFiles
 cmake-build-*
 *.so

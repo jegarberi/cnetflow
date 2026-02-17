@@ -6,20 +6,30 @@
 #include "netflow_v9.h"
 #include <assert.h>
 #include <stdio.h>
-#include "netflow_v5.h"
 #include "db.h"
 #include "log.h"
-
+#include "netflow_v5.h"
+#ifdef USE_REDIS
+#include "redis_handler.h"
+#else
 static hashmap_t *templates_nfv9_hashmap;
+#endif
+
+// static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
 
 void init_v9(arena_struct_t *arena, const size_t cap) {
-  LOG_ERROR("%s %d %s: Initializing v9 [templates_nfv9_hashmap]...\n", __FILE__, __LINE__, __func__);
+#ifdef USE_REDIS
+  LOG_ERROR("%s %d %s: Initializing v9 (Redis)...\n", __FILE__, __LINE__, __func__);
+#else
+  LOG_ERROR("%s %d %s: Initializing v9 (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
+#endif
 }
 
 void *parse_v9(uv_work_t *req) {
+  uint16_t *template_hashmap = NULL;
 
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
@@ -29,12 +39,12 @@ void *parse_v9(uv_work_t *req) {
 
   swap_endianness((void *) &(header->version), sizeof(header->version));
   if (header->version != 9) {
-    goto unlock_mutex_parse_v9;
+    goto cleanup_template_and_unlock;
   }
   swap_endianness((void *) &(header->count), sizeof(header->count));
   if (header->count > 30000) {
     LOG_ERROR("%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
-    goto unlock_mutex_parse_v9;
+    goto cleanup_template_and_unlock;
   }
   size_t total_records = header->count;
   LOG_ERROR("%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
@@ -120,7 +130,7 @@ void *parse_v9(uv_work_t *req) {
         swap_endianness(&template_id, sizeof(template_id));
         swap_endianness(&field_count, sizeof(field_count));
         if (template_id == 0) {
-          goto unlock_mutex_parse_v9;
+          goto cleanup_template_and_unlock;
         }
         LOG_ERROR("%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
         LOG_ERROR("%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
@@ -132,18 +142,18 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("%s %d %s: Too many fields...\n", __FILE__, __LINE__, __func__);
             has_more_templates = 0;
             break;
-            //return 0;
+            // return 0;
           }
           uint16_t t = (uint16_t) template->templates[0].fields[field].field_type;
           uint16_t l = (uint16_t) template->templates[0].fields[field].field_length;
           swap_endianness(&t, sizeof(t));
           swap_endianness(&l, sizeof(l));
           if (t == 0 || l == 0) {
-            goto unlock_mutex_parse_v9;
+            goto cleanup_template_and_unlock;
           }
           if (t < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
             LOG_ERROR("%s %d %s field: %d type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field, t, l,
-                    ipfix_field_types[t].name);
+                      ipfix_field_types[t].name);
           } else {
             LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
             assert(-1);
@@ -154,53 +164,40 @@ void *parse_v9(uv_work_t *req) {
         }
         pos += (field_count * 4) + 4;
         char key[255];
-        snprintf(key, 255, "%s-%u", ip_int_to_str(args->exporter), template_id);
+        snprintf(key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
         LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, key);
-        uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
-        uint16_t *temp;
-        size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
-        if (template_hashmap == NULL) {
-          LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
-                  ip_int_to_str(args->exporter));
-          size_t template_end = template_init + sizeof(uint16_t) * field_count * 2;
-          LOG_ERROR("%s %d %s template_init: %lu template_end: %lu\n", __FILE__, __LINE__, __func__,
-                  template_init, template_end);
 
-          // CRITICAL FIX: Validate arena allocation before memcpy
-          size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 4;
-          temp = arena_alloc(arena_hashmap_nf9, alloc_size);
-          if (temp == NULL) {
-            LOG_ERROR("%s %d %s Failed to allocate %lu bytes for template\n",
-                      __FILE__, __LINE__, __func__, alloc_size);
-            goto unlock_mutex_parse_v9;
-          }
+        // Prepare template data
+        size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 4;
 
-          // Validate source address is within packet bounds
-          /*
-          size_t src_offset = template_init - sizeof(int16_t) * 2 - (size_t)args->data;
-          size_t copy_size = sizeof(uint16_t) * (field_count + 1) * 4;
-          if (src_offset + copy_size > total_packet_length) {
-            LOG_ERROR("%s %d %s Template copy would exceed packet bounds\n", __FILE__, __LINE__, __func__);
-            goto unlock_mutex_parse_v9;
-          }
-          */
-          memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), alloc_size);
-          if (hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp)) {
-            LOG_ERROR("%s %d %s Error saving template in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
-          } else {
-            //insert_template(args->exporter, key, (uint8_t*) temp, alloc_size);
-            LOG_ERROR("%s %d %s Template saved in hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
-
-          }
-          // fprintf(stderr, "template %d not found for exporter %s\n", template_id, ip_int_to_str(args->exporter));
-        } else {
-          memcpy(template_hashmap, (void *) (template_init - sizeof(int16_t) * 2),
-                 sizeof(uint16_t) * (field_count + 1) * 2);
+        // We use arena_hashmap_nf9 as temporary storage for construction
+        uint16_t *temp = arena_alloc(arena_hashmap_nf9, alloc_size);
+        if (temp == NULL) {
+          LOG_ERROR("%s %d %s Failed to allocate %lu bytes for template\n", __FILE__, __LINE__, __func__, alloc_size);
+          goto cleanup_template_and_unlock;
         }
+
+        // Copy template data to buffer
+        size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
+        memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), alloc_size);
+
+        // Store in Redis
+        // Store in Redis or Hashmap
+#ifdef USE_REDIS
+        if (redis_set_template(key, strlen(key), temp, alloc_size) != 0) {
+          LOG_ERROR("%s %d %s Error saving template in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
+        } else {
+          LOG_ERROR("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
+        }
+#else
+        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp);
+        LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
+#endif
+
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
         template_counter++;
         total_flowsets++;
-        if (pos >= flowset_length ) {
+        if (pos >= flowset_length) {
           has_more_templates = 0;
         }
       }
@@ -212,37 +209,44 @@ void *parse_v9(uv_work_t *req) {
 
       // Validate flowset_base is within packet bounds
       if (flowset_base >= total_packet_length) {
-        LOG_ERROR("%s %d %s: flowset_base %lu exceeds packet length %lu\n",
-                  __FILE__, __LINE__, __func__, flowset_base, total_packet_length);
-        goto unlock_mutex_parse_v9;
+        LOG_ERROR("%s %d %s: flowset_base %lu exceeds packet length %lu\n", __FILE__, __LINE__, __func__, flowset_base,
+                  total_packet_length);
+        goto cleanup_template_and_unlock;
       }
 
       size_t has_more_records = 1;
       size_t pos = 0;
 
       // Validate we have enough space for record header
-      if (flowset_base + pos  > total_packet_length) {
-        LOG_ERROR("%s %d %s: Insufficient space for record at offset %lu\n",
-                  __FILE__, __LINE__, __func__, flowset_base + pos);
-        goto unlock_mutex_parse_v9;
+      if (flowset_base + pos > total_packet_length) {
+        LOG_ERROR("%s %d %s: Insufficient space for record at offset %lu\n", __FILE__, __LINE__, __func__,
+                  flowset_base + pos);
+        goto cleanup_template_and_unlock;
       }
 
       netflow_v9_record_t *record = (netflow_v9_record_t *) (args->data + flowset_base + pos);
       uint16_t template_id = flowset_id;
       char key[255];
-      snprintf(key, 255, "%s-%u\0", ip_int_to_str(args->exporter), template_id);
+      snprintf(key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
       LOG_ERROR("%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
-      uint16_t *template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
+
+      size_t t_len = 0;
+#ifdef USE_REDIS
+      template_hashmap = (uint16_t *) redis_get_template(key, strlen(key), &t_len);
+#else
+      template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
+#endif
+
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
-                ip_int_to_str(args->exporter));
+                  ip_int_to_str(args->exporter));
         pos = flowset_length;
         has_more_records = 0;
       } else {
         // CRITICAL FIX: Validate record pointer before accessing record_value
         if (record == NULL) {
           LOG_ERROR("%s %d %s: record is NULL\n", __FILE__, __LINE__, __func__);
-          goto unlock_mutex_parse_v9;
+          goto cleanup_template_and_unlock;
         }
         void *pointer = &record->record_value;
         uint16_t record_length = 0;
@@ -250,7 +254,7 @@ void *parse_v9(uv_work_t *req) {
         swap_endianness(&template_id, sizeof(template_id));
         uint16_t field_count = template_hashmap[1];
         swap_endianness(&field_count, sizeof(field_count));
-        //SKIP FLOWSET HEADER
+        // SKIP FLOWSET HEADER
         pos = 4;
         // pos += 4;
         // FILE *ftemplate = fopen("templates.txt", "a");
@@ -276,37 +280,38 @@ void *parse_v9(uv_work_t *req) {
             reading_field++;
 
             // CRITICAL FIX: Validate pointer is within packet bounds before accessing
-            size_t pointer_offset = (size_t)pointer - (size_t)args->data;
+            size_t pointer_offset = (size_t) pointer - (size_t) args->data;
             if (pointer_offset >= total_packet_length) {
-              LOG_ERROR("%s %d %s: pointer offset %lu exceeds packet length %lu\n",
-                        __FILE__, __LINE__, __func__, pointer_offset, total_packet_length);
-              goto unlock_mutex_parse_v9;
+              LOG_ERROR("%s %d %s: pointer offset %lu exceeds packet length %lu\n", __FILE__, __LINE__, __func__,
+                        pointer_offset, total_packet_length);
+              goto cleanup_template_and_unlock;
             }
 
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
-            //memset(&netflow_packet_ptr->records[record_counter], 0, sizeof(netflow_packet_ptr->records[record_counter]));
+            // memset(&netflow_packet_ptr->records[record_counter], 0,
+            // sizeof(netflow_packet_ptr->records[record_counter]));
             if (field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
               // assert(-1);
               // exit(-1);
-              goto unlock_mutex_parse_v9;
+              goto cleanup_template_and_unlock;
             }
             uint16_t field_length = template_hashmap[count + 1];
             swap_endianness(&field_length, sizeof(field_length));
 
             // Validate we have enough space for this field
             if (pointer_offset + field_length > total_packet_length) {
-              LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n",
-                        __FILE__, __LINE__, __func__, pointer_offset, field_length);
+              LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n", __FILE__, __LINE__, __func__,
+                        pointer_offset, field_length);
               if (has_padding) {
                 break;
               }
-              //goto unlock_mutex_parse_v9;
+              // goto cleanup_template_and_unlock;
             }
 #ifdef CNETFLOW_DEBUG_BUILD
-            fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field, 
-                    ipfix_field_types[field_type].name ? ipfix_field_types[field_type].name : "unknown", 
-                    field_type, field_length);
+            fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field,
+                    ipfix_field_types[field_type].name ? ipfix_field_types[field_type].name : "unknown", field_type,
+                    field_length);
 #endif
             /*if (field_type == 8) {
               printf("STAP!\n");
@@ -357,7 +362,7 @@ void *parse_v9(uv_work_t *req) {
             if (field_type == 21 || field_type == 22) {
             }
             if (field_type > 337) {
-              goto unlock_mutex_parse_v9;
+              goto cleanup_template_and_unlock;
             }
 
             // Process field based on IPFIX field type (same as NetFlow v9)
@@ -366,15 +371,15 @@ void *parse_v9(uv_work_t *req) {
                 if (record_length == 4) {
                   swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
-                  swap_endianness(&val_tmp32, sizeof(val_tmp32));
+                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].Last = val_tmp32;
                 } else if (record_length == 8) {
                   swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].Last = val32;
-                }else {
+                } else {
                   netflow_packet_ptr->records[record_counter].Last = 0;
                 }
                 break;
@@ -382,15 +387,15 @@ void *parse_v9(uv_work_t *req) {
                 if (record_length == 4) {
                   swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
-                  swap_endianness(&val_tmp32, sizeof(val_tmp32));
+                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].First = val_tmp32;
                 } else if (record_length == 8) {
                   swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].First = val32;
-                }else {
+                } else {
                   netflow_packet_ptr->records[record_counter].First = 0;
                 }
                 break;
@@ -399,7 +404,7 @@ void *parse_v9(uv_work_t *req) {
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].First = val32;
                 }
                 break;
@@ -408,7 +413,7 @@ void *parse_v9(uv_work_t *req) {
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  swap_endianness(&val32, sizeof(val32));
+                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].Last = val32;
                 }
                 break;
@@ -480,7 +485,7 @@ void *parse_v9(uv_work_t *req) {
                   case 4:
                     netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                default:
+                  default:
                     netflow_packet_ptr->records[record_counter].dstport = 0;
                     break;
                 }
@@ -489,13 +494,13 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_TCPSOURCEPORT:
               case IPFIX_FT_UDPSOURCEPORT:
                 switch (record_length) {
-                case 2:
+                  case 2:
                     netflow_packet_ptr->records[record_counter].srcport = (uint16_t) val_tmp16;
                     break;
-                case 4:
+                  case 4:
                     netflow_packet_ptr->records[record_counter].srcport = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                default:
+                  default:
                     netflow_packet_ptr->records[record_counter].srcport = 0;
                     break;
                 }
@@ -518,13 +523,13 @@ void *parse_v9(uv_work_t *req) {
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
-                case 2:
+                  case 2:
                     netflow_packet_ptr->records[record_counter].output = val_tmp16;
                     break;
-                case 4:
+                  case 4:
                     netflow_packet_ptr->records[record_counter].output = (uint16_t) ((val_tmp32) >> 16);
                     break;
-                default:
+                  default:
                     netflow_packet_ptr->records[record_counter].output = 0;
                     break;
                 }
@@ -532,7 +537,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_BGPSOURCEASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].src_as = ((uint32_t) val_tmp16 )<< 16;
+                    netflow_packet_ptr->records[record_counter].src_as = ((uint32_t) val_tmp16) << 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].src_as = val_tmp32;
@@ -545,7 +550,7 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_BGPDESTINATIONASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].dst_as = ((uint32_t) val_tmp16 )<< 16;
+                    netflow_packet_ptr->records[record_counter].dst_as = ((uint32_t) val_tmp16) << 16;
                     break;
                   case 4:
                     netflow_packet_ptr->records[record_counter].dst_as = val_tmp32;
@@ -585,7 +590,7 @@ void *parse_v9(uv_work_t *req) {
             }
 
             if (field_type > 337) {
-              goto unlock_mutex_parse_v9;
+              goto cleanup_template_and_unlock;
             }
 #ifdef CNETFLOW_DEBUG_BUILD
             {
@@ -674,14 +679,20 @@ void *parse_v9(uv_work_t *req) {
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-          if (netflow_packet_ptr->records[record_counter].Last != 0 && netflow_packet_ptr->records[record_counter].First != 0) {
-            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
-            uint32_t duration  = netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
+          if (netflow_packet_ptr->records[record_counter].Last != 0 &&
+              netflow_packet_ptr->records[record_counter].First != 0) {
+            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+                            sizeof(netflow_packet_ptr->records[record_counter].Last));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+                            sizeof(netflow_packet_ptr->records[record_counter].First));
+            uint32_t duration =
+                netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
             netflow_packet_ptr->records[record_counter].Last = now;
             netflow_packet_ptr->records[record_counter].First = now - duration;
-            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,sizeof(netflow_packet_ptr->records[record_counter].Last));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].First,sizeof(netflow_packet_ptr->records[record_counter].First));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+                            sizeof(netflow_packet_ptr->records[record_counter].Last));
+            swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+                            sizeof(netflow_packet_ptr->records[record_counter].First));
           }
           if (!is_ipv6) {
             swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
@@ -710,16 +721,16 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
           record_counter++;
-          if (has_padding == 0 && pos  >= flowset_length ) { // flowset_id + length + padding
+          if (has_padding == 0 && pos >= flowset_length) { // flowset_id + length + padding
             has_more_records = 0;
             // exit(-1);
-          } else if (pos + 4 >= flowset_length){
+          } else if (pos + 4 >= flowset_length) {
             has_more_records = 0;
           }
 
-          //if (record_counter + template_counter >= total_records) {
-          //  has_more_records = 0;
-            // exit(-1);
+          // if (record_counter + template_counter >= total_records) {
+          //   has_more_records = 0;
+          //  exit(-1);
           //}
         }
         netflow_packet_ptr->header.count = record_counter;
@@ -793,19 +804,27 @@ void *parse_v9(uv_work_t *req) {
 
         // fclose(ftemplate);
       }
-      //TODO
-      // IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
+      // TODO
+      //  IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
     } else if (flowset_id == 1) {
       // this is an option flowset, skip it entirely
     } else if (flowset_id > 1 && flowset_id < 256) {
       LOG_ERROR("%s %d %s this is a reserved flowset: %d\n", __FILE__, __LINE__, __func__, flowset_id);
     } else {
       LOG_ERROR("%s %d %s this should not happen\n", __FILE__, __LINE__, __func__);
-      goto unlock_mutex_parse_v9;
+      goto cleanup_template_and_unlock;
     }
     record_counter = 0;
   }
 
+
+  // insert_flows(exporter_host, &flows_to_insert);
+
+cleanup_template_and_unlock:
+#ifdef USE_REDIS
+  if (template_hashmap)
+    free(template_hashmap);
+#endif
 
 unlock_mutex_parse_v9:
   // uv_mutex_unlock(lock);
@@ -815,8 +834,8 @@ unlock_mutex_parse_v9:
 }
 
 
-void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6, uint8_t* dump) {
-  //fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
+void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6, uint8_t *dump) {
+  // fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
   out->header.unix_secs = in->header.unix_secs;
@@ -824,70 +843,73 @@ void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out
   out->header.flow_sequence = in->header.flow_sequence;
   out->header.sampling_interval = in->header.sampling_interval;
   for (int i = 0; i < in->header.count; i++) {
-    //LOG_ERROR("%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
-    /*
-    if (in->records[i].dOctets == 0) {
-      LOG_ERROR("%s %d %s dOctets is 0\n", __FILE__, __LINE__, __func__);
-      continue;
-    }
-    if (in->records[i].dPkts == 0) {
-      LOG_ERROR("%s %d %s dPkts is 0\n", __FILE__, __LINE__, __func__);
-      continue;
-    }
-    */
-    swap_endianness(&in->records[i].srcaddr, sizeof(in->records[i].srcaddr));
-    swap_endianness(&in->records[i].dstaddr, sizeof(in->records[i].dstaddr));
-    swap_endianness(&in->records[i].nexthop, sizeof(in->records[i].nexthop));
-    swap_endianness(&in->records[i].ipv6srcaddr, sizeof(in->records[i].ipv6srcaddr));
-    swap_endianness(&in->records[i].ipv6dstaddr, sizeof(in->records[i].ipv6dstaddr));
-    swap_endianness(&in->records[i].ipv6nexthop, sizeof(in->records[i].ipv6nexthop));
-    swap_endianness(&in->records[i].srcport, sizeof(in->records[i].srcport));
-    swap_endianness(&in->records[i].dstport, sizeof(in->records[i].dstport));
-    swap_endianness(&in->records[i].dPkts, sizeof(in->records[i].dPkts));
-    swap_endianness(&in->records[i].dOctets, sizeof(in->records[i].dOctets));
-    swap_endianness(&in->records[i].First, sizeof(in->records[i].First));
-    swap_endianness(&in->records[i].Last, sizeof(in->records[i].Last));
-    swap_endianness(&in->records[i].input, sizeof(in->records[i].input));
-    swap_endianness(&in->records[i].output, sizeof(in->records[i].output));
-    swap_endianness(&in->records[i].src_as, sizeof(in->records[i].src_as));
-    swap_endianness(&in->records[i].dst_as, sizeof(in->records[i].dst_as));
-    swap_endianness(&in->records[i].src_mask, sizeof(in->records[i].src_mask));
-    swap_endianness(&in->records[i].dst_mask, sizeof(in->records[i].dst_mask));
-    if (is_ipv6) {
-      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
-      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
-      out->records[i].nexthop = in->records[i].ipv6nexthop;
-    } else {
-      out->records[i].dstaddr = in->records[i].dstaddr;
-      out->records[i].srcaddr = in->records[i].srcaddr;
-      out->records[i].nexthop = in->records[i].nexthop;
-    }
-    out->records[i].input = in->records[i].input;
-    out->records[i].output = in->records[i].output;
+    // Non-destructive copy & swap
+    out->records[i].srcport = in->records[i].srcport;
+    swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
+
+    out->records[i].dstport = in->records[i].dstport;
+    swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
+
     out->records[i].dPkts = in->records[i].dPkts;
-    /*if (in->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG) {
-      *dump = 1;
-    }
-    if (in->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG) {
-      *dump = 1;
-    }*/
+    swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts));
+
     out->records[i].dOctets = in->records[i].dOctets;
+    swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
+
+    // First and Last are already Host Order from parse_v9
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;
-    out->records[i].srcport = in->records[i].srcport;
-    out->records[i].dstport = in->records[i].dstport;
+
+    out->records[i].input = in->records[i].input;
+    swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
+
+    out->records[i].output = in->records[i].output;
+    swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
+
     out->records[i].src_as = in->records[i].src_as;
+    swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
+
     out->records[i].dst_as = in->records[i].dst_as;
+    swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
+
     out->records[i].src_mask = in->records[i].src_mask;
+    swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
+
     out->records[i].dst_mask = in->records[i].dst_mask;
+    swap_endianness(&out->records[i].dst_mask, sizeof(out->records[i].dst_mask));
+
     out->records[i].tcp_flags = in->records[i].tcp_flags;
     out->records[i].prot = in->records[i].prot;
     out->records[i].tos = in->records[i].tos;
+
     if (is_ipv6) {
+      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
+      swap_endianness(&out->records[i].srcaddr, sizeof(out->records[i].srcaddr));
+
+      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
+      swap_endianness(&out->records[i].dstaddr, sizeof(out->records[i].dstaddr));
+
+      out->records[i].nexthop = in->records[i].ipv6nexthop;
+      swap_endianness(&out->records[i].nexthop, sizeof(out->records[i].nexthop));
+
       out->records[i].ip_version = 6;
     } else {
+      uint32_t tmp;
+
+      tmp = in->records[i].srcaddr;
+      swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].srcaddr = tmp;
+
+      tmp = in->records[i].dstaddr;
+      swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].dstaddr = tmp;
+
+      tmp = in->records[i].nexthop;
+      swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].nexthop = tmp;
+
       out->records[i].ip_version = 4;
     }
   }
-  //fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
+  // fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }

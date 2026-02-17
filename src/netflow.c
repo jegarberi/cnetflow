@@ -7,8 +7,8 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
-#include "netflow_v5.h"
 #include "log.h"
+#include "netflow_v5.h"
 
 /**
  * Detects the NetFlow version from the provided data.
@@ -80,12 +80,12 @@ endianness_e detect_endianness(void) {
  */
 #if !CNETFLOW_BIG_ENDIAN_ARCH
 void swap_endianness(void *value, size_t len) {
-  if (endianness == NETFLOW_NO_ENDIAN) {
-    endianness = detect_endianness();
-  }
-  if (endianness == NETFLOW_BIG_ENDIAN) {
-    return;
-  }
+  //   if (endianness == NETFLOW_NO_ENDIAN) {
+  //     endianness = detect_endianness();
+  //   }
+  //   if (endianness == NETFLOW_BIG_ENDIAN) {
+  //     return;
+  //   }
   switch (len) {
     case 2: {
       uint16_t tmp16 = *(uint16_t *) value;
@@ -240,8 +240,8 @@ void *fix_endianness(void *buf, void *data, size_t len) {
       case 4: {
         int32_t *ptr32 = (uint32_t *) data;
         int32_t tmp32 = *ptr32;
-        tmp32 = ntohs(tmp32);
-        memcpy(buf, &tmp32, 2);
+        tmp32 = ntohl(tmp32);
+        memcpy(buf, &tmp32, 4);
         break;
       }
     }
@@ -250,7 +250,7 @@ void *fix_endianness(void *buf, void *data, size_t len) {
 
 int is_ipv4_private(const uint32_t ip) {
   if ((ip >= 167772160 && ip <= 184549375) || // CLASS A PRIVATE
-      (ip >= 2886729728 && ip <= 2887843839) || // CLASS B PRIVATE
+      (ip >= 2886729728 && ip <= 2887778303) || // CLASS B PRIVATE
       (ip >= 3232235520 && ip <= 3232301055)) // CLASS C PRIVATE
   {
     return 1;
@@ -281,7 +281,7 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
     LOG_ERROR("%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
             __func__, record->dstport > record->srcport);
     */
-    //LOG_ERROR("%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+    // LOG_ERROR("%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
 
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
@@ -302,7 +302,7 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
     record->dst_as = tmp_as;
 
   } else {
-    //fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
+    // fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
   }
 }
 
@@ -330,7 +330,7 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
     LOG_ERROR("%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
             __func__, record->dstport > record->srcport);
     */
-    //LOG_ERROR("%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+    // LOG_ERROR("%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
 
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
@@ -351,7 +351,7 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
     record->dst_as = tmp_as;
 
   } else {
-    //fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
+    // fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
   }
 }
 
@@ -417,8 +417,8 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
-          netflow_packet->records[i].prot);
+  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__, __LINE__, __func__, ip_src_str, tmp_src_port, ip_dst_str,
+          tmp_dst_port, netflow_packet->records[i].prot);
 }
 void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, size_t i) {
   char ip_src_str[50] = {0};
@@ -433,8 +433,8 @@ void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, size_t i) {
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
-          netflow_packet->records[i].prot);
+  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__, __LINE__, __func__, ip_src_str, tmp_src_port, ip_dst_str,
+          tmp_dst_port, netflow_packet->records[i].prot);
 }
 void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   char ip_src_str[50] = {0};
@@ -449,6 +449,6 @@ void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(record->dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__,__LINE__,__func__,ip_src_str, tmp_src_port, ip_dst_str, tmp_dst_port,
-          record->prot);
+  fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__, __LINE__, __func__, ip_src_str, tmp_src_port, ip_dst_str,
+          tmp_dst_port, record->prot);
 }

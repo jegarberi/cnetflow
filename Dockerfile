@@ -8,6 +8,7 @@ RUN yes | /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
 RUN apt install -y --no-install-recommends libuv1-dev \
     libpq-dev \
     libsnmp-dev \
+    libhiredis-dev \
     cmake \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -31,6 +32,7 @@ RUN apt update && apt install -y --no-install-recommends \
     libuv1 \
     libpq5 \
     libsnmp40 \
+    libhiredis* \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security

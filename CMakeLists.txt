@@ -10,14 +10,31 @@ option(BUILD_STATIC "Build cnetflow as a static executable" OFF)
 if (BUILD_STATIC)
     set(INTERNAL_LIBRARY_TYPE STATIC)
     message(STATUS "Building internal libraries as STATIC.")
-    # Set linker flags for full static linking (for external libraries)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+    # Global -static flag removed to allow tests to link dynamically
     set(CMAKE_SHARED_LINKER_FLAGS "") # Clear shared linker flags if not needed
 else()
     set(INTERNAL_LIBRARY_TYPE SHARED)
     message(STATUS "Building internal libraries as SHARED.")
 endif()
 # --- END STATIC BUILD OPTION ---
+
+# --- DEPENDENCIES (CONAN) ---
+find_package(libuv REQUIRED)
+find_package(hiredis REQUIRED)
+find_package(PostgreSQL REQUIRED)
+find_package(CURL REQUIRED)
+# find_package(criterion REQUIRED) # Not available in Conan Center
+
+# --- REDIS CONFIGURATION ---
+option(USE_REDIS "Use Redis for template storage" ON)
+if (USE_REDIS)
+    message(STATUS "Building with Redis support")
+    add_compile_definitions(USE_REDIS=1)
+    # Hiredis found via Conan
+else()
+    message(STATUS "Building without Redis support (using internal Hashmap)")
+endif()
+# --- END REDIS CONFIGURATION ---
 
 
 # Rest of the initial configuration remains the same
@@ -34,7 +51,7 @@ SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-O3 -flto")
 SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-O3 -flto")
 SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -Wall -Wextra ")
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-set(CMAKE_INCLUDE_PATH "/usr/include/postgresql/17/server/libpq/")
+# set(CMAKE_INCLUDE_PATH "/usr/include/postgresql/17/server/libpq/") # Handled by Conan
 option(BUILD__LIBS "Build shared libraries" ON) # Kept but potentially overridden by BUILD_STATIC
 set(CMAKE_C_STANDARD 99)
 
@@ -78,24 +95,38 @@ add_library(netflow_v5 ${INTERNAL_LIBRARY_TYPE} src/netflow_v5.c)
 add_library(netflow_v9 ${INTERNAL_LIBRARY_TYPE} src/netflow_v9.c)
 add_library(netflow_ipfix ${INTERNAL_LIBRARY_TYPE} src/netflow_ipfix.c)
 add_library(hashmap ${INTERNAL_LIBRARY_TYPE} src/hashmap.c)
+if (USE_REDIS)
+    add_library(redis_handler ${INTERNAL_LIBRARY_TYPE} src/redis_handler.c)
+    target_link_libraries(redis_handler hiredis::hiredis)
+endif()
 
 # Database backend libraries
 if (USE_CLICKHOUSE)
     add_library(db_clickhouse ${INTERNAL_LIBRARY_TYPE} src/db_clickhouse.c)
-    target_link_libraries(db_clickhouse curl)
+    target_link_libraries(db_clickhouse CURL::libcurl)
     set(DB_LIBRARY db_clickhouse)
-    set(DB_LINK_LIBRARIES curl)
+    set(DB_LINK_LIBRARIES CURL::libcurl)
 else()
     add_library(db_psql ${INTERNAL_LIBRARY_TYPE} src/db_psql.c)
-    target_link_libraries(db_psql pq)
+    target_link_libraries(db_psql PostgreSQL::PostgreSQL)
     set(DB_LIBRARY db_psql)
-    set(DB_LINK_LIBRARIES pq)
+    set(DB_LINK_LIBRARIES PostgreSQL::PostgreSQL)
 endif()
 
 # Link the libraries
-target_link_libraries(netflow_v9 arena netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} )
-target_link_libraries(collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
-target_link_libraries(cnetflow collector uv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
+if (USE_REDIS)
+    set(REDIS_LIB redis_handler)
+else()
+    set(REDIS_LIB "")
+endif()
+
+target_link_libraries(netflow_v9 arena netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} ${REDIS_LIB})
+target_link_libraries(collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${REDIS_LIB})
+target_link_libraries(cnetflow collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
+
+if (BUILD_STATIC)
+    target_link_options(cnetflow PRIVATE -static)
+endif()
 
 # If building static, remove installation of internal libraries
 if (NOT BUILD_STATIC)
@@ -167,7 +198,7 @@ if (CRITERION_FOUND)
             collector
             ${DB_LIBRARY}
             ${DB_LINK_LIBRARIES}
-            uv
+            libuv::uv_a
             ${CRITERION_LDFLAGS}
     )
     # Aggregate test (all suites)
