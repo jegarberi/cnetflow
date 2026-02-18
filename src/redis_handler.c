@@ -3,32 +3,51 @@
 #include <string.h>
 #include "log.h"
 
-static redisContext *redis_conn = NULL;
+// Thread-local connection
+static __thread redisContext *redis_conn = NULL;
+
+// Global configuration
+static char g_redis_host[256] = "127.0.0.1";
+static int g_redis_port = 6379;
+static char g_redis_user[128] = {0};
+static char g_redis_password[128] = {0};
 
 int init_redis(const char *hostname, int port, const char *user, const char *password) {
+  // Store configuration for lazy connection by threads
+  if (hostname) {
+    strncpy(g_redis_host, hostname, sizeof(g_redis_host) - 1);
+  }
+  g_redis_port = port;
+
+  if (user) {
+    strncpy(g_redis_user, user, sizeof(g_redis_user) - 1);
+  } else {
+    g_redis_user[0] = '\0';
+  }
+
+  if (password) {
+    strncpy(g_redis_password, password, sizeof(g_redis_password) - 1);
+  } else {
+    g_redis_password[0] = '\0';
+  }
+
+  return 0;
+}
+
+static int connect_thread_local_redis(void) {
   if (redis_conn != NULL) {
     redisFree(redis_conn);
+    redis_conn = NULL;
   }
 
   struct timeval timeout = {1, 500000}; // 1.5 seconds
 
-  if (user || password) {
-    redisOptions options = {0};
-    REDIS_OPTIONS_SET_TCP(&options, hostname, port);
-    options.connect_timeout = &timeout;
-    if (user) {
-      // hiredis < 1.0.0 might not have options.user.
-      // But we are on 1.2.0 according to conanfile.
-      // However, to be safe and simple, let's use redisConnectWithTimeout and then AUTH.
-      // Actually, redisConnectWithOptions is cleaner if available.
-      // Let's stick to redisConnectWithTimeout + manual AUTH for maximum compatibility if we are unsure about hiredis
-      // version details in code, but conan says 1.2.0 which definitely has ACL support. Let's use
-      // redisConnectWithOptions? No, let's keep it simple first. If we use redisConnectWithOptions we need to init
-      // options properly.
-    }
-  }
+  // Use globals
+  const char *hostname = g_redis_host;
+  int port = g_redis_port;
+  const char *user = g_redis_user[0] ? g_redis_user : NULL;
+  const char *password = g_redis_password[0] ? g_redis_password : NULL;
 
-  // Revised approach: Connect first, then AUTH. This is standard and works everywhere.
   redis_conn = redisConnectWithTimeout(hostname, port, timeout);
 
   if (redis_conn == NULL || redis_conn->err) {
@@ -68,11 +87,18 @@ int init_redis(const char *hostname, int port, const char *user, const char *pas
     freeReplyObject(reply);
   }
 
-  LOG_INFO("Connected to Redis at %s:%d\n", hostname, port);
+  LOG_INFO("Connected to Redis at %s:%d (Thread Local)\n", hostname, port);
   return 0;
 }
 
-redisContext *get_redis_conn(void) { return redis_conn; }
+redisContext *get_redis_conn(void) {
+  if (!redis_conn) {
+    if (connect_thread_local_redis() != 0) {
+      return NULL;
+    }
+  }
+  return redis_conn;
+}
 
 void close_redis(void) {
   if (redis_conn != NULL) {
@@ -82,13 +108,22 @@ void close_redis(void) {
 }
 
 void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
-  if (!redis_conn)
-    return NULL;
+  if (!redis_conn) {
+    if (connect_thread_local_redis() != 0) {
+      return NULL;
+    }
+  }
 
   redisReply *reply = redisCommand(redis_conn, "GET %b", key, key_len);
   if (!reply) {
     LOG_ERROR("Redis error: %s\n", redis_conn->errstr);
-    // Attempt reconnect?
+    // Attempt reconnect on next call by implementation logic if needed,
+    // or we could force a reconnect here. For now, just return NULL.
+    // If connection is dead, hiredis usually sets context err.
+    if (redis_conn->err) {
+      redisFree(redis_conn);
+      redis_conn = NULL;
+    }
     return NULL;
   }
 
@@ -107,12 +142,19 @@ void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
 }
 
 int redis_set_template(const char *key, size_t key_len, void *data, size_t len) {
-  if (!redis_conn)
-    return -1;
+  if (!redis_conn) {
+    if (connect_thread_local_redis() != 0) {
+      return -1;
+    }
+  }
 
   redisReply *reply = redisCommand(redis_conn, "SET %b %b", key, key_len, data, len);
   if (!reply) {
     LOG_ERROR("Redis error: %s\n", redis_conn->errstr);
+    if (redis_conn->err) {
+      redisFree(redis_conn);
+      redis_conn = NULL;
+    }
     return -1;
   }
 
