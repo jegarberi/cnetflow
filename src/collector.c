@@ -16,7 +16,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <sys/resource.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 #include <uv.h>
 #include "arena.h"
 #include "dyn_array.h"
@@ -60,6 +65,7 @@ uv_loop_t *loop_timer_rss;
 size_t thread_counter;
 
 void print_rss_max_usage() {
+#ifndef _WIN32
   struct rusage usage;
   getrusage(RUSAGE_SELF, &usage);
   if ((float) usage.ru_maxrss / (1024 * 1024) > _MAX_ALLOWED_RAM) {
@@ -67,6 +73,7 @@ void print_rss_max_usage() {
     signal_handler(SIGINT);
   }
   LOG_DEBUG("%s %d %s ru_maxrss: %f GB\n", __FILE__, __LINE__, __func__, (float) (usage.ru_maxrss) / (1024 * 1024));
+#endif
 }
 
 /**
@@ -248,7 +255,10 @@ int8_t collector_start(collector_t *collector) {
   if (redis_port_str)
     redis_port = atoi(redis_port_str);
 
-  if (init_redis(redis_host, redis_port) != 0) {
+  const char *redis_user = getenv("REDIS_USER");
+  const char *redis_password = getenv("REDIS_PASSWORD");
+
+  if (init_redis(redis_host, redis_port, redis_user, redis_password) != 0) {
     LOG_ERROR("Failed to initialize Redis\n");
     return -1;
   }

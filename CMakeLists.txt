@@ -43,16 +43,21 @@ endif()
 if (NOT CMAKE_C_COMPILER)
     SET(CMAKE_C_COMPILER "/usr/bin/gcc")
 endif ()
-#SET (CMAKE_C_COMPILER             "/usr/bin/clang")
-SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -fsanitize=address   ")
-SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG -Wall -Wextra ")
-SET(CMAKE_C_FLAGS_RELEASE "-O3 -Wall -Wextra -flto")
-SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-O3 -flto")
-SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-O3 -flto")
-SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -Wall -Wextra ")
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-# set(CMAKE_INCLUDE_PATH "/usr/include/postgresql/17/server/libpq/") # Handled by Conan
-option(BUILD__LIBS "Build shared libraries" ON) # Kept but potentially overridden by BUILD_STATIC
+if(MSVC)
+    add_compile_options(/W4)
+    if(NOT CMAKE_C_COMPILER)
+        # Allow CMake to find the default MSVC compiler
+    endif()
+else()
+    #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
+    SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -fsanitize=address   ")
+    SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG -Wall -Wextra ")
+    SET(CMAKE_C_FLAGS_RELEASE "-O3 -Wall -Wextra -flto")
+    SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-O3 -flto")
+    SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-O3 -flto")
+    SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -Wall -Wextra ")
+endif()
+
 set(CMAKE_C_STANDARD 99)
 
 # Database backend selection
@@ -126,6 +131,14 @@ target_link_libraries(cnetflow collector libuv::uv_a arena hashmap netflow netfl
 
 if (BUILD_STATIC)
     target_link_options(cnetflow PRIVATE -static)
+endif()
+
+if(WIN32)
+    target_link_libraries(cnetflow PRIVATE Ws2_32)
+    if(USE_CLICKHOUSE)
+        target_link_libraries(db_clickhouse PRIVATE Ws2_32)
+    endif()
+    target_link_libraries(collector PRIVATE Ws2_32)
 endif()
 
 # If building static, remove installation of internal libraries

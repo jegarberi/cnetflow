@@ -3,12 +3,24 @@
 //
 #include "netflow.h"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#endif
+#endif
 #include <stdint.h>
 #include <string.h>
 #include "log.h"
 #include "netflow_v5.h"
+
+endianness_e endianness = 0;
 
 /**
  * Detects the NetFlow version from the provided data.
@@ -142,6 +154,12 @@ uint64_t swap_endian_64(uint64_t value) {
 }
 */
 uint128_t swap_endian_128(const uint128_t value) {
+#if defined(_MSC_VER)
+  uint128_t result;
+  result.low = swap_endian_64(value.high);
+  result.high = swap_endian_64(value.low);
+  return result;
+#else
   // Extract the high and low 64-bit parts
   uint64_t high = (uint64_t) (value >> 64);
   uint64_t low = (uint64_t) (value & 0xFFFFFFFFFFFFFFFFULL);
@@ -157,6 +175,7 @@ uint128_t swap_endian_128(const uint128_t value) {
 
   // Combine the swapped parts (low becomes high, high becomes low)
   return ((uint128_t) swapped_low << 64) | swapped_high;
+#endif
 }
 
 

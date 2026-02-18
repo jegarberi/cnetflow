@@ -8,9 +8,11 @@
  * Initialize Redis connection
  * @param hostname Redis host
  * @param port Redis port
+ * @param user Redis user (optional, can be NULL)
+ * @param password Redis password (optional, can be NULL)
  * @return 0 on success, -1 on failure
  */
-int init_redis(const char *hostname, int port);
+int init_redis(const char *hostname, int port, const char *user, const char *password);
 
 /**
  * Get internal Redis context
