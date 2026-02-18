@@ -96,11 +96,22 @@ add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c)
 add_library(arena ${INTERNAL_LIBRARY_TYPE} src/arena.c)
 target_link_libraries(arena PUBLIC libuv::uv_a)
 add_library(dyn_array ${INTERNAL_LIBRARY_TYPE} src/dyn_array.c)
+target_link_libraries(dyn_array arena)
+
 add_library(netflow ${INTERNAL_LIBRARY_TYPE} src/netflow.c)
 add_library(netflow_v5 ${INTERNAL_LIBRARY_TYPE} src/netflow_v5.c)
+
 add_library(netflow_v9 ${INTERNAL_LIBRARY_TYPE} src/netflow_v9.c)
+# netflow_v9 linked at bottom, but adding here for consistency/safety doesn't hurt, 
+# though duplicate linking is usually fine in cmake, better to rely on the bottom one or move it up.
+# The user's build failed on dyn_array. Let's fix dyn_array first.
+# netflow_v9 is linked at the end of the file, let's leave it.
+
 add_library(netflow_ipfix ${INTERNAL_LIBRARY_TYPE} src/netflow_ipfix.c)
+target_link_libraries(netflow_ipfix arena)
+
 add_library(hashmap ${INTERNAL_LIBRARY_TYPE} src/hashmap.c)
+target_link_libraries(hashmap arena)
 if (USE_REDIS)
     add_library(redis_handler ${INTERNAL_LIBRARY_TYPE} src/redis_handler.c)
     target_link_libraries(redis_handler hiredis::hiredis)
