@@ -117,7 +117,8 @@ add_library(hashmap ${INTERNAL_LIBRARY_TYPE} src/hashmap.c)
 target_link_libraries(hashmap arena)
 if (USE_REDIS)
     add_library(redis_handler ${INTERNAL_LIBRARY_TYPE} src/redis_handler.c)
-    target_link_libraries(redis_handler hiredis::hiredis)
+    target_link_libraries(redis_handler PUBLIC hiredis::hiredis)
+    target_link_libraries(netflow_ipfix redis_handler)
 endif()
 
 # Database backend libraries

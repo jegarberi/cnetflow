@@ -45,7 +45,7 @@ typedef enum {
   IPFIX_Template = 5,
 } netflow_ipfix_scope_field_type_enum;
 
-typedef enum {
+enum {
   IPFIX_TEMPLATE_SET = 2,
   IPFIX_OPTION_SET = 3,
 };
