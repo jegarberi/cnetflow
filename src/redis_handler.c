@@ -2,9 +2,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include "log.h"
+#if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+#if defined(__GNUC__) || defined(__clang__)
+#define THREAD_LOCAL __thread
+#else
+#define THREAD_LOCAL
+#endif
+#else
+#include <threads.h>
+#define THREAD_LOCAL thread_local
+#endif
 
 // Thread-local connection
-static __thread redisContext *redis_conn = NULL;
+static THREAD_LOCAL redisContext *redis_conn = NULL;
 
 // Global configuration
 static char g_redis_host[256] = "127.0.0.1";
