@@ -99,7 +99,10 @@ add_library(dyn_array ${INTERNAL_LIBRARY_TYPE} src/dyn_array.c)
 target_link_libraries(dyn_array arena)
 
 add_library(netflow ${INTERNAL_LIBRARY_TYPE} src/netflow.c)
+target_link_libraries(netflow arena)
+
 add_library(netflow_v5 ${INTERNAL_LIBRARY_TYPE} src/netflow_v5.c)
+target_link_libraries(netflow_v5 arena)
 
 add_library(netflow_v9 ${INTERNAL_LIBRARY_TYPE} src/netflow_v9.c)
 # netflow_v9 linked at bottom, but adding here for consistency/safety doesn't hurt, 
