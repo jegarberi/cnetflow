@@ -7,11 +7,13 @@ SET(CMAKE_PROJECT_NAME "cnetflow")
 option(BUILD_STATIC "Build cnetflow as a static executable" OFF)
 
 # Determine the type for internal libraries: STATIC or SHARED
-if (BUILD_STATIC)
+if (BUILD_STATIC OR COMPAT_CENTOS6)
     set(INTERNAL_LIBRARY_TYPE STATIC)
     message(STATUS "Building internal libraries as STATIC.")
-    # Global -static flag removed to allow tests to link dynamically
-    set(CMAKE_SHARED_LINKER_FLAGS "") # Clear shared linker flags if not needed
+    if (BUILD_STATIC)
+        # Global -static flag removed to allow tests to link dynamically
+        set(CMAKE_SHARED_LINKER_FLAGS "") # Clear shared linker flags if not needed
+    endif()
 else()
     set(INTERNAL_LIBRARY_TYPE SHARED)
     message(STATUS "Building internal libraries as SHARED.")
