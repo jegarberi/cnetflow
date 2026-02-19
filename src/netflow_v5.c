@@ -64,55 +64,58 @@ void *parse_v5(uv_work_t *req) {
   // memcpy(records, args->data + sizeof(netflow_v5_header_t), args->len - (sizeof(netflow_v5_header_t)));
   // memcpy(&netflow_packet_ptr, args->data, args->len);
   for (int record_counter = 0; record_counter < netflow_packet_ptr->header.count; record_counter++) {
-    /*
-    swap_endianness((void*)&(records[i].srcaddr), sizeof((records[i].srcaddr)));
-    swap_endianness((void*)&(records[i].dstaddr), sizeof((records[i].dstaddr)));
-    swap_endianness((void *) &(records[i].nexthop), sizeof((records[i].nexthop)));
-    swap_endianness((void *) &(records[i].input), sizeof((records[i].input)));
-    swap_endianness((void *) &(records[i].output), sizeof((records[i].output)));
-    swap_endianness((void *) &(records[i].dPkts), sizeof((records[i].dPkts)));
-    swap_endianness((void *) &(records[i].dOctets), sizeof((records[i].dOctets)));
-    */
+
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].srcaddr),
+                    sizeof((netflow_packet_ptr->records[record_counter].srcaddr)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dstaddr),
+                    sizeof((netflow_packet_ptr->records[record_counter].dstaddr)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].nexthop),
+                    sizeof((netflow_packet_ptr->records[record_counter].nexthop)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].input),
+                    sizeof((netflow_packet_ptr->records[record_counter].input)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].output),
+                    sizeof((netflow_packet_ptr->records[record_counter].output)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dPkts),
+                    sizeof((netflow_packet_ptr->records[record_counter].dPkts)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dOctets),
+                    sizeof((netflow_packet_ptr->records[record_counter].dOctets)));
+
     swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].First),
                     sizeof((netflow_packet_ptr->records[record_counter].First)));
     swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].Last),
                     sizeof((netflow_packet_ptr->records[record_counter].Last)));
     netflow_packet_ptr->records[record_counter].First = netflow_packet_ptr->records[record_counter].First / 1000 + diff;
     netflow_packet_ptr->records[record_counter].Last = netflow_packet_ptr->records[record_counter].Last / 1000 + diff;
-    /*
-    swap_endianness((void *) &(records[record_counter].srcport), sizeof((records[record_counter].srcport)));
-    swap_endianness((void *) &(records[record_counter].dstport), sizeof((records[record_counter].dstport)));
+
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].srcport),
+                    sizeof((netflow_packet_ptr->records[record_counter].srcport)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dstport),
+                    sizeof((netflow_packet_ptr->records[record_counter].dstport)));
     // pad1
     // tcp_flags
     // prot
     // tos
-    swap_endianness((void *) &(records[record_counter].src_as), sizeof((records[record_counter].src_as)));
-    swap_endianness((void *) &(records[record_counter].dst_as), sizeof((records[record_counter].dst_as)));
-    swap_endianness((void *) &(records[record_counter].src_mask), sizeof((records[record_counter].src_mask)));
-    swap_endianness((void *) &(records[record_counter].dst_mask), sizeof((records[record_counter].dst_mask)));
-    */
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].src_as),
+                    sizeof((netflow_packet_ptr->records[record_counter].src_as)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dst_as),
+                    sizeof((netflow_packet_ptr->records[record_counter].dst_as)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].src_mask),
+                    sizeof((netflow_packet_ptr->records[record_counter].src_mask)));
+    swap_endianness((void *) &(netflow_packet_ptr->records[record_counter].dst_mask),
+                    sizeof((netflow_packet_ptr->records[record_counter].dst_mask)));
 
 
     // Note: We do NOT swap First/Last back to network order here.
     // We also do not swap other fields in place here; copy_v5_to_flow handles that non-destructively.
 
-    swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-                    sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-    swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-                    sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
     swap_src_dst_v5_ipv4(&netflow_packet_ptr->records[record_counter]);
-    swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-                    sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-    swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-                    sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
-
 
     if (netflow_packet_ptr->records[record_counter].Last != 0 &&
         netflow_packet_ptr->records[record_counter].First != 0) {
-      swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
-                      sizeof(netflow_packet_ptr->records[record_counter].Last));
-      swap_endianness(&netflow_packet_ptr->records[record_counter].First,
-                      sizeof(netflow_packet_ptr->records[record_counter].First));
+      // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+      //                 sizeof(netflow_packet_ptr->records[record_counter].Last));
+      // swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+      //                 sizeof(netflow_packet_ptr->records[record_counter].First));
       uint32_t duration =
           netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
       netflow_packet_ptr->records[record_counter].Last = now;
@@ -153,47 +156,47 @@ void copy_v5_to_flow(netflow_v5_flowset_t *in, netflow_v9_uint128_flowset_t *out
     // LOG_ERROR("%s %d %s copy_v9_to_flow loop\n", __FILE__, __LINE__, __func__);
 
     out->records[i].srcaddr = in->records[i].srcaddr;
-    swap_endianness(&out->records[i].srcaddr, 4);
+    // swap_endianness(&out->records[i].srcaddr, 4);
 
     out->records[i].dstaddr = in->records[i].dstaddr;
-    swap_endianness(&out->records[i].dstaddr, 4);
+    // swap_endianness(&out->records[i].dstaddr, 4);
 
     out->records[i].nexthop = in->records[i].nexthop;
-    swap_endianness(&out->records[i].nexthop, 4);
+    // swap_endianness(&out->records[i].nexthop, 4);
 
     out->records[i].srcport = in->records[i].srcport;
-    swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
+    // swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
 
     out->records[i].dstport = in->records[i].dstport;
-    swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
+    // swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
 
     // First and Last are already Host Order from parse_v5
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;
 
     out->records[i].input = in->records[i].input;
-    swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
+    // swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
 
     out->records[i].output = in->records[i].output;
-    swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
+    // swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
 
     out->records[i].src_as = in->records[i].src_as;
-    swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
+    // swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
 
     out->records[i].dst_as = in->records[i].dst_as;
-    swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
+    // swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
 
     out->records[i].src_mask = in->records[i].src_mask;
-    swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
+    // swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
 
     out->records[i].dst_mask = in->records[i].dst_mask;
-    swap_endianness(&out->records[i].dst_mask, sizeof(out->records[i].dst_mask));
+    // swap_endianness(&out->records[i].dst_mask, sizeof(out->records[i].dst_mask));
 
     out->records[i].dPkts = in->records[i].dPkts;
-    swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts)); // Previously commented out
+    // swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts)); // Previously commented out
 
     out->records[i].dOctets = in->records[i].dOctets;
-    swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
+    // swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
 
     out->records[i].tcp_flags = in->records[i].tcp_flags;
     out->records[i].prot = in->records[i].prot;

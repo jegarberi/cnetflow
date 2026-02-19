@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "db.h"
 #include "log.h"
+#include "netflow.h"
 #include "netflow_v5.h"
 #ifdef USE_REDIS
 #include "redis_handler.h"
@@ -291,25 +292,28 @@ void *parse_ipfix(uv_work_t *req) {
               case 2:
                 tmp16 = (uint16_t *) pointer;
                 val_tmp16 = *tmp16;
+                swap_endianness(&val_tmp16, sizeof(val_tmp16));
                 break;
               case 4:
                 tmp32 = (uint32_t *) pointer;
                 val_tmp32 = *tmp32;
+                swap_endianness(&val_tmp32, sizeof(val_tmp32));
                 break;
               case 6:
                 tmp64 = (uint64_t *) pointer;
                 val_tmp64 = *tmp64;
+                swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 val_tmp64 &= 0x0000ffffffffffff;
-                val_tmp64 = val_tmp64 >> 16;
-
                 break;
               case 8:
                 tmp64 = (uint64_t *) pointer;
                 val_tmp64 = *tmp64;
+                swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 break;
               case 16:
                 tmp128 = (uint128_t *) pointer;
                 memcpy(&val_tmp128, tmp128, sizeof(uint128_t));
+                swap_endianness(&val_tmp128, sizeof(val_tmp128));
                 break;
             }
 
@@ -317,13 +321,13 @@ void *parse_ipfix(uv_work_t *req) {
             switch (field_type) {
               case IPFIX_FT_SYSTEMINITTIMEMILLISECONDS:
                 if (record_length == 8) {
-                  swap_endianness(tmp64, sizeof(*tmp64));
-                  sysUptimeMillis = *tmp64;
+                  // swap_endianness(tmp64, sizeof(*tmp64));
+                  sysUptimeMillis = val_tmp64;
                 }
                 break;
               case IPFIX_FT_FLOWENDSYSUPTIME:
                 if (record_length == 4) {
-                  swap_endianness(&val_tmp32, sizeof(val_tmp32));
+                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].Last = val_tmp32;
@@ -339,12 +343,12 @@ void *parse_ipfix(uv_work_t *req) {
                 break;
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
                 if (record_length == 4) {
-                  swap_endianness(&val_tmp32, sizeof(val_tmp32));
+                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].First = val_tmp32;
                 } else if (record_length == 8) {
-                  swap_endianness(&val_tmp64, sizeof(val_tmp64));
+                  // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
                   // swap_endianness(&val32, sizeof(val32));
@@ -354,7 +358,7 @@ void *parse_ipfix(uv_work_t *req) {
                 }
                 break;
               case IPFIX_FT_FLOWSTARTMILLISECONDS:
-                swap_endianness(&val_tmp64, sizeof(val_tmp64));
+                // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
@@ -363,7 +367,7 @@ void *parse_ipfix(uv_work_t *req) {
                 }
                 break;
               case IPFIX_FT_FLOWENDMILLISECONDS:
-                swap_endianness(&val_tmp64, sizeof(val_tmp64));
+                // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
@@ -563,10 +567,10 @@ void *parse_ipfix(uv_work_t *req) {
                     netflow_packet_ptr->records[record_counter].Last);
           LOG_ERROR("%s %d %s: First = %u\n", __FILE__, __LINE__, __func__,
                     netflow_packet_ptr->records[record_counter].First);
-          swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
-                          sizeof(netflow_packet_ptr->records[record_counter].Last));
-          swap_endianness(&netflow_packet_ptr->records[record_counter].First,
-                          sizeof(netflow_packet_ptr->records[record_counter].First));
+          // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+          //               sizeof(netflow_packet_ptr->records[record_counter].Last));
+          // swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+          //               sizeof(netflow_packet_ptr->records[record_counter].First));
           uint32_t duration =
               netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
           netflow_packet_ptr->records[record_counter].Last = now;
@@ -576,32 +580,32 @@ void *parse_ipfix(uv_work_t *req) {
           // (sysUptimeMillis/1000) + netflow_packet_ptr->records[record_counter].Last;
           // netflow_packet_ptr->records[record_counter].First = (sysUptimeMillis/1000) +
           // netflow_packet_ptr->records[record_counter].First;
-          swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
-                          sizeof(netflow_packet_ptr->records[record_counter].Last));
-          swap_endianness(&netflow_packet_ptr->records[record_counter].First,
-                          sizeof(netflow_packet_ptr->records[record_counter].First));
+          // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
+          // sizeof(netflow_packet_ptr->records[record_counter].Last));
+          // swap_endianness(&netflow_packet_ptr->records[record_counter].First,
+          //               sizeof(netflow_packet_ptr->records[record_counter].First));
           //}
           if (!is_ipv6) {
 
-            swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
-                            sizeof(netflow_packet_ptr->records[record_counter].srcport));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
-                            sizeof(netflow_packet_ptr->records[record_counter].dstport));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-                            sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-                            sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
+            // sizeof(netflow_packet_ptr->records[record_counter].srcport));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
+            // sizeof(netflow_packet_ptr->records[record_counter].dstport));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+            // sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+            // sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
 
             swap_src_dst_ipfix_ipv4(&netflow_packet_ptr->records[record_counter]);
 
-            swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
-                            sizeof(netflow_packet_ptr->records[record_counter].srcport));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
-                            sizeof(netflow_packet_ptr->records[record_counter].dstport));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-                            sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-            swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-                            sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
+            // sizeof(netflow_packet_ptr->records[record_counter].srcport));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
+            // sizeof(netflow_packet_ptr->records[record_counter].dstport));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
+            // sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
+            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
+            // sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
           }
 
           record_counter++;
@@ -619,8 +623,8 @@ void *parse_ipfix(uv_work_t *req) {
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
-        LOG_ERROR("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
-                  is_ipv6 ? "IPv6" : "IPv4");
+        LOG_INFO("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
+                 is_ipv6 ? "IPv6" : "IPv4");
         insert_flows(exporter_host, &flows_to_insert);
       }
     } else if (flowset_id == IPFIX_OPTION_SET) {
@@ -633,8 +637,8 @@ void *parse_ipfix(uv_work_t *req) {
     record_counter = 0;
   }
 
-  LOG_ERROR("%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,
-            total_record_counter, template_counter, record_counter);
+  LOG_INFO("%s %d %s: Processed %lu sets, %lu templates, %lu records\n", __FILE__, __LINE__, __func__,
+           total_record_counter, template_counter, record_counter);
 
 cleanup_ipfix_and_unlock:
 #ifdef USE_REDIS

@@ -417,11 +417,11 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   if (max_diff == 0) {
     const char *max_diff_str = getenv("CNETFLOW_MAX_DIFF");
-    max_diff = (int)strtoul(max_diff_str, NULL, 10);
+    max_diff = (int) strtoul(max_diff_str, NULL, 10);
   }
   if (max_flows == 0) {
     const char *max_flows_str = getenv("CNETFLOW_MAX_FLOWS");
-    max_flows = (int)strtoul(max_flows_str, NULL, 10);
+    max_flows = (int) strtoul(max_flows_str, NULL, 10);
   }
 
   ch_db_connect(&conn);
@@ -439,8 +439,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     query_size = 65536; // Start with 64KB
   }
   if (query == NULL) {
-    query = calloc(query_size,1);
-
+    query = calloc(query_size, 1);
   }
   if (!query) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n", __FILE__, __LINE__, __func__);
@@ -457,38 +456,45 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     if (flows->records[i].dOctets == 0 || flows->records[i].dPkts == 0 ||
         flows->records[i].First > flows->records[i].Last || flows->records[i].First == 0 ||
         flows->records[i].Last == 0 ||
-        //TO-DO Averiguar porque pasa esto.
-        (flows->records[i].prot == 6 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0) ||  //TCP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
-        (flows->records[i].prot == 17 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0) //UDP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
-      ){
+        // TO-DO Averiguar porque pasa esto.
+        (flows->records[i].prot == 6 && flows->records[i].srcport == 0 &&
+         flows->records[i].dstport == 0) || // TCP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
+        (flows->records[i].prot == 17 && flows->records[i].srcport == 0 &&
+         flows->records[i].dstport == 0) // UDP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
+    ) {
       CH_LOG_INFO("%s %d %s: Ignoring flow values set to 0 when it shouldnt be\n", __FILE__, __LINE__, __func__);
 
       continue;
     }
-    uint32_t dur =  flows->records[i].Last - flows->records[i].First;
-    /*if (dur > 0 &&
-      (flows->records[i].dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG)){
-        CH_LOG_INFO("%s %d %s: Ignoring flow dur > 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
-        continue;
+    uint32_t dur = flows->records[i].Last - flows->records[i].First;
+    if (dur > 0 && (flows->records[i].dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG ||
+                    flows->records[i].dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG)) {
+      CH_LOG_INFO("%s %d %s: Ignoring flow dur > 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur "
+                  "> _MAX_PACKETS_TO_CONSIDER_WRONG\n",
+                  __FILE__, __LINE__, __func__);
+      continue;
+    }
+    if (dur == 0 && (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG ||
+                     flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)) {
+      CH_LOG_INFO("%s %d %s: Ignoring flow dur == 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur "
+                  "> _MAX_PACKETS_TO_CONSIDER_WRONG\n",
+                  __FILE__, __LINE__, __func__);
+      continue;
+    }
 
-    }
-    if (dur == 0 && (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
-      CH_LOG_INFO("%s %d %s: Ignoring flow dur == 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
-      continue;
-    }
-    */
     /*
-     if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)){
-      CH_LOG_INFO("%s %d %s: Ignoring flow dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__);
-      continue;
+     if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts >
+    _MAX_PACKETS_TO_CONSIDER_WRONG)){ CH_LOG_INFO("%s %d %s: Ignoring flow dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG ||
+    dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__); continue;
     }
     */
     if (flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0) {
-      CH_LOG_INFO("%s %d %s: Ignoring flow flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0\n", __FILE__, __LINE__, __func__);
+      CH_LOG_INFO("%s %d %s: Ignoring flow flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0\n",
+                  __FILE__, __LINE__, __func__);
       continue;
     }
     records_to_insert++;
-    if (records_to_insert == 0 ) {
+    if (records_to_insert == 0) {
       CH_LOG_ERROR("%s %d %s: No Valid records to insert...\n", __FILE__, __LINE__, __func__);
       memset(query, 0, query_size);
       free(query);

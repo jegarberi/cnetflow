@@ -130,7 +130,6 @@ typedef struct {
   netflow_v9_record_insert_uint128_t records[60];
 } netflow_v9_uint128_flowset_t;
 
-typedef __uint128_t uint128_t;
 typedef enum {
   NETFLOW_NO_ENDIAN = 0,
   NETFLOW_BIG_ENDIAN = 1,

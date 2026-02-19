@@ -50,7 +50,10 @@ if(MSVC)
     endif()
 else()
     #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
-    SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -fsanitize=address   ")
+    SET(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra")
+    if (NOT BUILD_STATIC AND NOT COMPAT_CENTOS6)
+        string(APPEND CMAKE_C_FLAGS_DEBUG " -fsanitize=address")
+    endif()
     SET(CMAKE_C_FLAGS_MINSIZEREL "-Os -DNDEBUG -Wall -Wextra ")
     SET(CMAKE_C_FLAGS_RELEASE "-O3 -Wall -Wextra -flto")
     SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-O3 -flto")
@@ -67,6 +70,11 @@ option(USE_ARENA "Use arena allocator" ON)
 
 if (ENABLE_LOGGING)
     add_compile_definitions(ENABLE_LOGGING=1)
+endif()
+
+if (COMPAT_CENTOS6)
+    add_compile_definitions(COMPAT_CENTOS6=1)
+    message(STATUS "CentOS 6 compatibility shim enabled.")
 endif()
 
 if (USE_CLICKHOUSE)
@@ -91,7 +99,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif ()
 
 # 2. Use the determined library type (INTERNAL_LIBRARY_TYPE) for all internal libraries
-add_executable(cnetflow src/main.c)
+add_executable(cnetflow src/main.c src/compat.c)
 add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c)
 add_library(arena ${INTERNAL_LIBRARY_TYPE} src/arena.c)
 target_link_libraries(arena PUBLIC libuv::uv_a)
@@ -111,7 +119,7 @@ add_library(netflow_v9 ${INTERNAL_LIBRARY_TYPE} src/netflow_v9.c)
 # netflow_v9 is linked at the end of the file, let's leave it.
 
 add_library(netflow_ipfix ${INTERNAL_LIBRARY_TYPE} src/netflow_ipfix.c)
-target_link_libraries(netflow_ipfix arena)
+target_link_libraries(netflow_ipfix arena hashmap)
 
 add_library(hashmap ${INTERNAL_LIBRARY_TYPE} src/hashmap.c)
 target_link_libraries(hashmap arena)
@@ -141,7 +149,9 @@ else()
     set(REDIS_LIB "")
 endif()
 
-target_link_libraries(netflow_v9 arena netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} ${REDIS_LIB})
+target_link_libraries(netflow_v9 arena hashmap netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} ${REDIS_LIB})
+target_link_libraries(netflow_v5 ${DB_LINK_LIBRARIES})
+target_link_libraries(netflow_ipfix ${DB_LINK_LIBRARIES})
 target_link_libraries(collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${REDIS_LIB})
 target_link_libraries(cnetflow collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
 
@@ -215,6 +225,7 @@ if (CRITERION_FOUND)
             tests/tests.c
             tests/test_netflow.c
             tests/test_ipfix.c
+            src/compat.c
     )
     target_include_directories(cnetflow_tests PRIVATE ${CRITERION_INCLUDE_DIRS})
     target_link_libraries(cnetflow_tests

@@ -5,7 +5,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Define output directory for binaries
-OUTPUT_BIN_DIR="${PROJECT_ROOT}/bin"
+OUTPUT_BIN_DIR="${PROJECT_ROOT}/bin/centos6"
+CONAN_PROFILE="${SCRIPT_DIR}/centos6_profile"
 
 mkdir -p "$OUTPUT_BIN_DIR"
 echo "Cleaning output directory: $OUTPUT_BIN_DIR"
@@ -18,9 +19,32 @@ elif [ -f "$PROJECT_ROOT/.venv/bin/conan" ]; then
     CONAN_CMD="$PROJECT_ROOT/.venv/bin/conan"
 else
     echo "ERROR: 'conan' command not found."
-    echo "Checked: globally and at $PROJECT_ROOT/.venv/bin/conan"
     exit 1
 fi
+
+# Detect Zig executable
+if ! command -v zig &> /dev/null; then
+    echo "ERROR: 'zig' command not found. It is required for cross-compilation."
+    exit 1
+fi
+
+# Create Conan profile for Zig Cross-Compilation (glibc 2.12)
+echo "Generating Conan profile for CentOS 6 (glibc 2.12)..."
+cat > "$CONAN_PROFILE" <<EOF
+[settings]
+os=Linux
+arch=x86_64
+compiler=clang
+compiler.version=15
+compiler.libcxx=libstdc++11
+compiler.libcxx=libstdc++11
+
+[conf]
+tools.build:compiler_executables={"c": "${SCRIPT_DIR}/zig-cc", "cpp": "${SCRIPT_DIR}/zig-cxx"}
+tools.build:cflags=["-target", "x86_64-linux-gnu.2.12"]
+tools.build:cxxflags=["-target", "x86_64-linux-gnu.2.12"]
+tools.build:exelinkflags=["-target", "x86_64-linux-gnu.2.12"]
+EOF
 
 build_config() {
     local config_name="$1"
@@ -47,7 +71,7 @@ build_config() {
     fi
 
     echo "========================================"
-    echo "Building ${lengthy_build_type:-$build_type} $([ "$static_build" == "ON" ] && echo "STATIC" || echo "DYNAMIC"): $config_name"
+    echo "Building ${lengthy_build_type:-$build_type} $([ "$static_build" == "ON" ] && echo "STATIC" || echo "DYNAMIC") (CentOS 6): $config_name"
     echo "========================================"
 
     # Sanitize config_name for directory use
@@ -59,7 +83,7 @@ build_config() {
     
     # Create build directory in PROJECT_ROOT
     # Create build directory in PROJECT_ROOT
-    local build_dir="${PROJECT_ROOT}/cmake-build-${build_type,,}-${safe_config_name}${static_suffix}"
+    local build_dir="${PROJECT_ROOT}/cmake-build-centos6-${build_type,,}-${safe_config_name}${static_suffix}"
     
     # Clean up previous build to ensure CMake uses the new toolchain and options
     if [ -d "$build_dir" ]; then
@@ -71,8 +95,13 @@ build_config() {
     # Install Conan dependencies for this specific build config
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
+    # Use the custom profile and force build to ensure linking against old glibc
     # shellcheck disable=SC2086
-    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option > /dev/null; then
+    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing \
+        -pr:h "$CONAN_PROFILE" -pr:b default \
+        -s build_type="$build_type" \
+        -c "tools.build:cflags=['-target', 'x86_64-linux-gnu.2.12']" \
+        $conan_shared_option > /dev/null; then
         echo "ERROR: Conan install failed for: $config_name (Static: $static_build, Type: $build_type)"
         exit 1
     fi
@@ -84,6 +113,7 @@ build_config() {
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
               -DBUILD_STATIC="$cmake_static_flag" \
+              -DCOMPAT_CENTOS6=ON \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
               "$PROJECT_ROOT" > /dev/null; then
@@ -96,6 +126,7 @@ build_config() {
         exit 1
     fi
 
+    # Copy binary to output folder
     # Copy binary to output folder
     local output_name="cnetflow_${safe_config_name}${static_suffix}${debug_suffix}"
     if [ -f "cnetflow" ]; then
@@ -115,12 +146,14 @@ run_builds() {
     local log="$4"
     local rd="$5"
     
-    # Release
+    # Release Dynamic
     build_config "$name" "$ch" "$ar" "$log" "$rd" "OFF" "Release"
+    # Release Static
     build_config "$name" "$ch" "$ar" "$log" "$rd" "ON" "Release"
 
-    # Debug
+    # Debug Dynamic
     build_config "$name" "$ch" "$ar" "$log" "$rd" "OFF" "Debug"
+    # Debug Static
     build_config "$name" "$ch" "$ar" "$log" "$rd" "ON" "Debug"
 }
 
@@ -151,8 +184,10 @@ run_builds "All_ON" ON ON ON ON
 # 9. Redis OFF (Hashmap fallback)
 run_builds "No_Redis" OFF ON ON OFF
 
+rm -f "$CONAN_PROFILE"
+
 echo ""
 echo "###############################################"
-echo "# Release builds complete. Binaries in ${OUTPUT_BIN_DIR}"
+echo "# CentOS 6 builds complete. Binaries in ${OUTPUT_BIN_DIR}"
 echo "###############################################"
 ls -lh "${OUTPUT_BIN_DIR}"
