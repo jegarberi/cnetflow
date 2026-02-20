@@ -7,26 +7,27 @@
 #include <stdint.h>
 
 
-#include "arena.h"
 #include <uv.h>
+#include "arena.h"
 #define HASH_SEED 123456789
 
-//#define BUCKETS (1000*10)
+// #define BUCKETS (1000*10)
 typedef struct {
-  char* key;
-  void* value;
+  char *key;
+  void *value;
   uint8_t occupied;
   uint8_t deleted;
 } bucket_t;
 
 typedef struct {
-  void * buckets;
+  void *buckets;
   uint32_t bucket_count;
   uint32_t size;
   uint32_t capacity;
-  uint32_t (*hash)(void*);
-  int (*compare)(void*, void*);
+  uint32_t (*hash)(void *);
+  int (*compare)(void *, void *);
   uv_mutex_t *mutex;
+  arena_struct_t *arena;
 } hashmap_t;
 
 hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count);

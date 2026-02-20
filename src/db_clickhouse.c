@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <uv.h>
 #include "arena.h"
 #include "log.h"
 #include "netflow.h"
@@ -57,6 +58,54 @@ static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, 
   mem->data[mem->size] = 0;
 
   return realsize;
+}
+
+// Global cleanup tracking for thread locals
+static uv_mutex_t cleanup_mutex;
+static int cleanup_mutex_init = 0;
+
+#define MAX_THREADS 128
+static ch_conn_t **ch_conns_ptrs[MAX_THREADS] = {0};
+static int ch_conns_count = 0;
+
+static char **ch_queries_ptrs[MAX_THREADS] = {0};
+static int ch_queries_count = 0;
+
+void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
+  if (!cleanup_mutex_init) {
+    uv_mutex_init(&cleanup_mutex);
+    cleanup_mutex_init = 1;
+  }
+  uv_mutex_lock(&cleanup_mutex);
+  if (conn_ptr && ch_conns_count < MAX_THREADS) {
+    ch_conns_ptrs[ch_conns_count++] = conn_ptr;
+  }
+  if (query_ptr && ch_queries_count < MAX_THREADS) {
+    ch_queries_ptrs[ch_queries_count++] = query_ptr;
+  }
+  uv_mutex_unlock(&cleanup_mutex);
+}
+
+void ch_db_cleanup_all(void) {
+  if (!cleanup_mutex_init)
+    return;
+  uv_mutex_lock(&cleanup_mutex);
+  for (int i = 0; i < ch_conns_count; i++) {
+    if (ch_conns_ptrs[i] && *ch_conns_ptrs[i]) {
+      ch_disconnect(*ch_conns_ptrs[i]);
+      *ch_conns_ptrs[i] = NULL;
+    }
+  }
+  ch_conns_count = 0;
+
+  for (int i = 0; i < ch_queries_count; i++) {
+    if (ch_queries_ptrs[i] && *ch_queries_ptrs[i]) {
+      free(*ch_queries_ptrs[i]);
+      *ch_queries_ptrs[i] = NULL;
+    }
+  }
+  ch_queries_count = 0;
+  uv_mutex_unlock(&cleanup_mutex);
 }
 
 char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
@@ -187,6 +236,12 @@ void ch_db_connect(ch_conn_t **conn) {
   uint16_t port = atoi(port_str);
   *conn = ch_connect(host, port, database, user, password);
   free(conn_str_copy);
+
+  static THREAD_LOCAL bool registered = false;
+  if (!registered && *conn) {
+    register_ch_cleanup(conn, NULL);
+    registered = true;
+  }
 
   if (!*conn) {
     CH_LOG_ERROR("Failed to connect to ClickHouse\n");
@@ -440,6 +495,11 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   }
   if (query == NULL) {
     query = calloc(query_size, 1);
+    static THREAD_LOCAL bool query_registered = false;
+    if (!query_registered) {
+      register_ch_cleanup(NULL, &query);
+      query_registered = true;
+    }
   }
   if (!query) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n", __FILE__, __LINE__, __func__);

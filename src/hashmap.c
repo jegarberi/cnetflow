@@ -20,8 +20,8 @@
  */
 hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
   if (arena == NULL || bucket_count == 0) {
-    LOG_ERROR("%s %d %s: Invalid parameters (arena=%p, bucket_count=%lu)\n",
-              __FILE__, __LINE__, __func__, arena, bucket_count);
+    LOG_ERROR("%s %d %s: Invalid parameters (arena=%p, bucket_count=%lu)\n", __FILE__, __LINE__, __func__, arena,
+              bucket_count);
     return NULL;
   }
 
@@ -38,6 +38,7 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
   }
 
   hashmap->bucket_count = bucket_count;
+  hashmap->arena = arena;
   hashmap->mutex = arena_alloc(arena, sizeof(uv_mutex_t));
   if (hashmap->mutex == NULL) {
     LOG_ERROR("%s %d %s: Failed to allocate mutex\n", __FILE__, __LINE__, __func__);
@@ -141,16 +142,15 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       if (!buckets[index].occupied) {
         break;
       }
-    } else if (buckets[index].occupied && buckets[index].key != NULL &&
-               strlen(buckets[index].key) == key_len &&
+    } else if (buckets[index].occupied && buckets[index].key != NULL && strlen(buckets[index].key) == key_len &&
                memcmp(buckets[index].key, key, key_len) == 0) {
       // Found existing key, update value
 #ifdef USE_ARENA_ALLOCATOR
 #else
-  //free(buckets[index].key);  // FREE THE KEY!
-  //free(buckets[index].value);
+      // free(buckets[index].key);  // FREE THE KEY!
+      // free(buckets[index].value);
 #endif
-buckets[index].value = value;
+      buckets[index].value = value;
       goto hashmap_set_success;
     }
 
@@ -301,11 +301,15 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
       // Mark as deleted
       buckets[index].deleted = 1;
 #ifdef USE_ARENA_ALLOCATOR
+      if (buckets[index].key) {
+        arena_free(hashmap->arena, buckets[index].key);
+        buckets[index].key = NULL;
+      }
 #else
-  free(buckets[index].key);    // FREE THE KEY!
-  free(buckets[index].value);
-  buckets[index].key = NULL;
-  buckets[index].value = NULL;
+      free(buckets[index].key); // FREE THE KEY!
+      free(buckets[index].value);
+      buckets[index].key = NULL;
+      buckets[index].value = NULL;
 #endif
       hashmap->size--;
       goto hashmap_delete_success;

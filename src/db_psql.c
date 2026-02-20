@@ -3,9 +3,9 @@
 //
 
 #include "db_psql.h"
-#include "log.h"
 #include <stdlib.h>
 #include <string.h>
+#include "log.h"
 #if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
 // If <threads.h> is missing (C11), some compilers support __thread, or _Thread_local, or nothing.
 #if defined(__GNUC__) || defined(__clang__)
@@ -17,8 +17,45 @@
 #include <threads.h>
 #define THREAD_LOCAL thread_local
 #endif
+#include <stdbool.h>
+#include <uv.h>
 #include "arena.h"
 #define BUFFLEN 10000
+
+// Global cleanup tracking for thread locals
+static uv_mutex_t psql_cleanup_mutex;
+static int psql_cleanup_mutex_init = 0;
+
+#define MAX_THREADS 128
+static PGconn **psql_conns_ptrs[MAX_THREADS] = {0};
+static int psql_conns_count = 0;
+
+void register_psql_cleanup(PGconn **conn_ptr) {
+  if (!psql_cleanup_mutex_init) {
+    uv_mutex_init(&psql_cleanup_mutex);
+    psql_cleanup_mutex_init = 1;
+  }
+  uv_mutex_lock(&psql_cleanup_mutex);
+  if (conn_ptr && psql_conns_count < MAX_THREADS) {
+    psql_conns_ptrs[psql_conns_count++] = conn_ptr;
+  }
+  uv_mutex_unlock(&psql_cleanup_mutex);
+}
+
+void psql_db_cleanup_all(void) {
+  if (!psql_cleanup_mutex_init)
+    return;
+  uv_mutex_lock(&psql_cleanup_mutex);
+  for (int i = 0; i < psql_conns_count; i++) {
+    if (psql_conns_ptrs[i] && *psql_conns_ptrs[i]) {
+      PQfinish(*psql_conns_ptrs[i]);
+      *psql_conns_ptrs[i] = NULL;
+    }
+  }
+  psql_conns_count = 0;
+  uv_mutex_unlock(&psql_cleanup_mutex);
+}
+
 char *read_snmp_config(PGconn *conn, arena_struct_t *arena) {
   char *config;
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
@@ -108,7 +145,7 @@ prepare_statement_v5_exit_nicely:
 void prepare_statement_insert_flows(PGconn *conn) {
   if (conn == NULL || PQstatus(conn) != CONNECTION_OK) {
     LOG_ERROR("%s %d %s: Connection to database failed: %s\n", __FILE__, __LINE__, __func__,
-            conn ? PQerrorMessage(conn) : "NULL connection");
+              conn ? PQerrorMessage(conn) : "NULL connection");
     goto prepare_statement_insert_flows_exit_nicely;
   }
 
@@ -525,8 +562,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     const char *const *ptr_values = (const char *const *) &paramValuesAsString;
     res = PQexecPrepared(conn, "insert_flows", nParams, (const char *const *) paramValues, NULL, NULL, resultFormat);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-      LOG_ERROR("%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
-              PQresultErrorMessage(res));
+      LOG_ERROR("%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__, PQresultErrorMessage(res));
       for (int k = 0; k < _N_PARAMS; k++) {
         LOG_ERROR("%s[%d] %s: paramValues[%d] = %s\n", __FILE__, __LINE__, __func__, k, paramValuesAsString[k]);
       }
@@ -535,8 +571,7 @@ void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       res = PQexecPrepared(conn, "insert_flows", nParams, (const char *const *) paramValues, NULL, NULL, resultFormat);
       if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
-        LOG_ERROR("%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__,
-                PQresultErrorMessage(res));
+        LOG_ERROR("%s[%d] %s: PQexecPrepared failed: %s\n", __FILE__, __LINE__, __func__, PQresultErrorMessage(res));
         goto insert_flows_exit_nicely;
       } else {
         PQclear(res);
@@ -711,6 +746,13 @@ void db_connect(PGconn **conn) {
   PGconn *conn_ptr;
   conn_ptr = PQconnectdb(static_conn_string);
   *conn = conn_ptr;
+
+  static THREAD_LOCAL bool registered = false;
+  if (!registered && *conn) {
+    register_psql_cleanup(conn);
+    registered = true;
+  }
+
   /* Check to see that the backend connection was successfully made */
   if (PQstatus(*conn) != CONNECTION_OK) {
     LOG_ERROR("%s", PQerrorMessage(*conn));
@@ -796,18 +838,14 @@ void db_connect(PGconn **conn) {
   return;
 db_connect_exit_nicely:
   if (*conn != NULL) {
-    LOG_ERROR("%s %d %s %s",__FILE__, __LINE__, __func__,PQerrorMessage(*conn));
+    LOG_ERROR("%s %d %s %s", __FILE__, __LINE__, __func__, PQerrorMessage(*conn));
     PQfinish(*conn);
   }
   EXIT_WITH_MSG(-1, "%s %d %s", __FILE__, __LINE__, __func__);
 }
 
-int insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) {
-
-}
-int insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) {
-
-}
+int insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {}
+int insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {}
 
 void swap_src_dst(netflow_v9_uint128_flowset_t *flows) {
   for (int i = 0; i < flows->header.count; ++i) {

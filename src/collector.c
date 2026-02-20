@@ -26,10 +26,12 @@
 #include "arena.h"
 #include "dyn_array.h"
 #include "log.h"
-#include "netflow.h"
 #include "netflow_ipfix.h"
 #include "netflow_v5.h"
 #include "netflow_v9.h"
+
+extern void ch_db_cleanup_all(void);
+extern void psql_db_cleanup_all(void);
 
 // Include PostgreSQL headers only when using PostgreSQL backend
 #ifndef USE_CLICKHOUSE
@@ -348,21 +350,40 @@ ok:
 #ifdef USE_REDIS
   close_redis();
 #endif
-  arena_destroy(arena_collector);
+
+  uv_close((uv_handle_t *) udp_server, NULL);
+  uv_close((uv_handle_t *) &timer_req_rss, NULL);
+  uv_run(loop_udp, UV_RUN_ONCE);
+  uv_run(loop_timer_rss, UV_RUN_ONCE);
+
+#ifdef USE_CLICKHOUSE
+  ch_db_cleanup_all();
+#else
+  psql_db_cleanup_all();
+#endif
 
   arena_destroy(arena_hashmap_ipfix);
+  free(arena_hashmap_ipfix);
   arena_destroy(arena_hashmap_nf9);
+  free(arena_hashmap_nf9);
   arena_destroy(arena_udp_handle);
+  free(arena_udp_handle);
   arena_destroy(arena_collector);
+  free(arena_collector);
+
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   LOG_ERROR("exit collector_thread\n");
   return 0;
 
 error_destroy_arena:
   arena_destroy(arena_hashmap_ipfix);
+  free(arena_hashmap_ipfix);
   arena_destroy(arena_hashmap_nf9);
+  free(arena_hashmap_nf9);
   arena_destroy(arena_udp_handle);
+  free(arena_udp_handle);
   arena_destroy(arena_collector);
+  free(arena_collector);
 error_no_arena:
   LOG_ERROR("%s %d %s: exit collector_thread\n", __FILE__, __LINE__, __func__);
   return -1;
