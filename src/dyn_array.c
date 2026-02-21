@@ -57,6 +57,7 @@ int dyn_array_push(dyn_array_t *arr, void *data) {
     memcpy(new_data, arr->data, arr->len * arr->elem_size);
 
     // Update array struct
+    arena_free(arr->arena, arr->data);
     arr->data = new_data;
     arr->cap = new_cap;
   }
@@ -88,4 +89,12 @@ void *dyn_array_get(dyn_array_t *arr, size_t index) {
   if (arr == NULL || index >= arr->len)
     return NULL;
   return (char *) arr->data + (index * arr->elem_size);
+}
+void dyn_array_free(dyn_array_t *arr) {
+  if (arr == NULL)
+    return;
+  if (arr->data != NULL) {
+    arena_free(arr->arena, arr->data);
+  }
+  arena_free(arr->arena, arr);
 }

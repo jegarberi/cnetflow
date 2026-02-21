@@ -307,7 +307,6 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
       }
 #else
       free(buckets[index].key); // FREE THE KEY!
-      free(buckets[index].value);
       buckets[index].key = NULL;
       buckets[index].value = NULL;
 #endif

@@ -13,11 +13,11 @@
 // Provide minimal implementations to avoid bringing database or collector modules into the test binary.
 #include <netinet/in.h>
 
-void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
+__attribute__((weak)) void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   (void) exporter;
   (void) flows; // no-op stub
 }
-int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
+__attribute__((weak)) int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   (void) exporter;
   (void) flows;
   return 0;

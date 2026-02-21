@@ -301,9 +301,6 @@ int8_t collector_start(collector_t *collector) {
   init_v9(arena_hashmap_nf9, 1000000);
   LOG_ERROR("%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_ipfix(arena_hashmap_ipfix, 1000000);
-  dyn_array_t *dyn_arr;
-  LOG_ERROR("%s %d %s dyn_array_create(arena_collector, 1024, sizeof(int8_t));\n", __FILE__, __LINE__, __func__);
-  dyn_array_create(arena_collector, 1024, sizeof(int8_t));
   LOG_ERROR("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
   loop_timer_snmp = uv_default_loop();

@@ -808,6 +808,12 @@ void *parse_v9(uv_work_t *req) {
         }
 
         // fclose(ftemplate);
+#ifdef USE_REDIS
+        if (template_hashmap) {
+          free(template_hashmap);
+          template_hashmap = NULL;
+        }
+#endif
       }
       // TODO
       //  IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
@@ -827,8 +833,10 @@ void *parse_v9(uv_work_t *req) {
 
 cleanup_template_and_unlock:
 #ifdef USE_REDIS
-  if (template_hashmap)
+  if (template_hashmap) {
     free(template_hashmap);
+    template_hashmap = NULL;
+  }
 #endif
 
 unlock_mutex_parse_v9:

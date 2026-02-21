@@ -626,6 +626,12 @@ void *parse_ipfix(uv_work_t *req) {
         LOG_INFO("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
                  is_ipv6 ? "IPv6" : "IPv4");
         insert_flows(exporter_host, &flows_to_insert);
+#ifdef USE_REDIS
+        if (template_hashmap) {
+          free(template_hashmap);
+          template_hashmap = NULL;
+        }
+#endif
       }
     } else if (flowset_id == IPFIX_OPTION_SET) {
       // Options Template Set (ID = 3)
@@ -642,8 +648,10 @@ void *parse_ipfix(uv_work_t *req) {
 
 cleanup_ipfix_and_unlock:
 #ifdef USE_REDIS
-  if (template_hashmap)
+  if (template_hashmap) {
     free(template_hashmap);
+    template_hashmap = NULL;
+  }
 #endif
 
 unlock_mutex_parse_ipfix:
