@@ -176,6 +176,8 @@ void *parse_ipfix(uv_work_t *req) {
           } else {
             LOG_ERROR("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, key);
           }
+          // Free the temporary buffer allocated by arena_alloc
+          arena_free(arena_hashmap_ipfix, temp);
 #else
           hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp);
           LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, key);

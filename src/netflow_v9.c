@@ -189,6 +189,8 @@ void *parse_v9(uv_work_t *req) {
         } else {
           LOG_ERROR("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
         }
+        // Free the temporary buffer allocated by arena_alloc
+        arena_free(arena_hashmap_nf9, temp);
 #else
         hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp);
         LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);

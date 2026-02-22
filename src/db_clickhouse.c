@@ -208,8 +208,13 @@ error:
 }
 
 void ch_db_connect(ch_conn_t **conn) {
-  if (*conn != NULL && (*conn)->connected) {
-    return;
+  if (*conn != NULL) {
+    if ((*conn)->connected) {
+      return;
+    }
+    // Connection object exists but is disconnected. Free it before reconnecting to prevent leaks.
+    ch_disconnect(*conn);
+    *conn = NULL;
   }
 
   const char *conn_string = getenv("CH_CONN_STRING");
