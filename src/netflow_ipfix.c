@@ -412,7 +412,7 @@ void *parse_ipfix(uv_work_t *req) {
               case IPFIX_FT_OCTETDELTACOUNT:
                 switch (record_length) {
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dOctets = ((uint64_t) val_tmp32) << 32;
+                    netflow_packet_ptr->records[record_counter].dOctets = ((uint64_t) val_tmp32);
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) val_tmp64;
@@ -425,7 +425,7 @@ void *parse_ipfix(uv_work_t *req) {
               case IPFIX_FT_PACKETDELTACOUNT:
                 switch (record_length) {
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dPkts = ((uint64_t) val_tmp32) << 32;
+                    netflow_packet_ptr->records[record_counter].dPkts = ((uint64_t) val_tmp32);
                     break;
                   case 8:
                     netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) val_tmp64;
@@ -673,35 +673,35 @@ void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *
   for (int i = 0; i < in->header.count; i++) {
     // Non-destructive copy & swap common fields
     out->records[i].srcport = in->records[i].srcport;
-    swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
+    // swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
 
     out->records[i].dstport = in->records[i].dstport;
-    swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
+    // swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
 
     out->records[i].dPkts = in->records[i].dPkts;
-    swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts));
+    // swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts));
 
     out->records[i].dOctets = in->records[i].dOctets;
-    swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
+    // swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
 
     // First and Last are already Host Order from parse_ipfix
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;
 
     out->records[i].input = in->records[i].input;
-    swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
+    // swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
 
     out->records[i].output = in->records[i].output;
-    swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
+    // swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
 
     out->records[i].src_as = in->records[i].src_as;
-    swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
+    // swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
 
     out->records[i].dst_as = in->records[i].dst_as;
-    swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
+    // swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
 
     out->records[i].src_mask = in->records[i].src_mask;
-    swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
+    // swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
 
     out->records[i].dst_mask = in->records[i].dst_mask;
 
@@ -711,28 +711,28 @@ void copy_ipfix_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *
 
     if (is_ipv6) {
       out->records[i].srcaddr = in->records[i].ipv6srcaddr;
-      swap_endianness(&out->records[i].srcaddr, sizeof(out->records[i].srcaddr));
+      // swap_endianness(&out->records[i].srcaddr, sizeof(out->records[i].srcaddr));
 
       out->records[i].dstaddr = in->records[i].ipv6dstaddr;
-      swap_endianness(&out->records[i].dstaddr, sizeof(out->records[i].dstaddr));
+      // swap_endianness(&out->records[i].dstaddr, sizeof(out->records[i].dstaddr));
 
       out->records[i].nexthop = in->records[i].ipv6nexthop;
-      swap_endianness(&out->records[i].nexthop, sizeof(out->records[i].nexthop));
+      // swap_endianness(&out->records[i].nexthop, sizeof(out->records[i].nexthop));
 
       out->records[i].ip_version = 6;
     } else {
       uint32_t tmp;
 
       tmp = in->records[i].srcaddr;
-      swap_endianness(&tmp, sizeof(tmp));
+      // swap_endianness(&tmp, sizeof(tmp));
       out->records[i].srcaddr = tmp;
 
       tmp = in->records[i].dstaddr;
-      swap_endianness(&tmp, sizeof(tmp));
+      // swap_endianness(&tmp, sizeof(tmp));
       out->records[i].dstaddr = tmp;
 
       tmp = in->records[i].nexthop;
-      swap_endianness(&tmp, sizeof(tmp));
+      // swap_endianness(&tmp, sizeof(tmp));
       out->records[i].nexthop = tmp;
 
       out->records[i].ip_version = 4;
