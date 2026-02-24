@@ -203,6 +203,10 @@ void *parse_v9(uv_work_t *req) {
         g_metrics.v9_templates_received++;
         uv_mutex_unlock(&g_metrics.mutex);
 
+        // Track the exporter and flowsets
+        metrics_track_exporter(args->exporter);
+        metrics_inc_flowsets(1);
+
         template_counter++;
         total_flowsets++;
         if (pos >= flowset_length) {
@@ -272,6 +276,11 @@ void *parse_v9(uv_work_t *req) {
         netflow_v9_record_insert_t empty_record = {0};
         memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
         int is_ipv6 = 0;
+
+        // Track the exporter and flowsets per completely parsed template loop
+        metrics_track_exporter(args->exporter);
+        metrics_inc_flowsets(1);
+
         while (has_more_records) {
           if (record_counter >= 60) {
             LOG_ERROR("%s %d %s: Too many records in FlowSet (> 60), truncating\n", __FILE__, __LINE__, __func__);

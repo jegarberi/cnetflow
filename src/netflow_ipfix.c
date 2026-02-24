@@ -192,6 +192,10 @@ void *parse_ipfix(uv_work_t *req) {
         g_metrics.ipfix_templates_received++;
         uv_mutex_unlock(&g_metrics.mutex);
 
+        // Track the exporter
+        metrics_track_exporter(args->exporter);
+        metrics_inc_flowsets(1);
+
         pos += template_size;
         template_counter++;
       }
@@ -245,6 +249,11 @@ void *parse_ipfix(uv_work_t *req) {
 #endif
 
           size_t reading_field = 0;
+
+          // Track exporter and flowset per valid data loop entry
+          metrics_track_exporter(args->exporter);
+          metrics_inc_flowsets(1);
+
           uint64_t sysUptimeMillis = 0;
           netflow_v9_record_insert_t empty_record = {0};
           memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));

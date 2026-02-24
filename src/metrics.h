@@ -57,4 +57,31 @@ void metrics_init(void);
  */
 void metrics_tcp_start(uv_loop_t *loop, int port);
 
+/**
+ * @brief Starts the rate-calculation timer for metrics.
+ *
+ * @param loop The libuv loop to attach the timer to.
+ */
+void metrics_timer_start(uv_loop_t *loop);
+
+/**
+ * @brief Increments processed byte count tracking for rate calculation.
+ */
+void metrics_inc_bytes(uint64_t bytes);
+
+/**
+ * @brief Increments processed flowsets count tracking for rate calculation.
+ */
+void metrics_inc_flowsets(uint64_t flowsets);
+
+/**
+ * @brief Tracks unique exporter IPs.
+ */
+void metrics_track_exporter(uint32_t exporter_ip);
+
+/**
+ * @brief Tracks unique interface IDs.
+ */
+void metrics_track_interface(uint16_t interface_id);
+
 #endif // CNETFLOW_METRICS_H

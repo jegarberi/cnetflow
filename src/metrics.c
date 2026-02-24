@@ -7,6 +7,23 @@
 // The single global metrics variable
 cnetflow_metrics_t g_metrics;
 
+// Rate Tracking Accumulators
+static uint64_t total_bytes_accum = 0;
+static uint64_t total_pkts_accum = 0;
+static uint64_t total_flowsets_accum = 0;
+
+static uint64_t last_bytes = 0;
+static uint64_t last_pkts = 0;
+static uint64_t last_flowsets = 0;
+
+static uint32_t *exporters_array = NULL;
+static size_t exporters_count = 0;
+static size_t exporters_capacity = 0;
+
+static uint16_t *interfaces_array = NULL;
+static size_t interfaces_count = 0;
+static size_t interfaces_capacity = 0;
+
 void metrics_init(void) {
   // Zero out the struct correctly
   g_metrics.packets_received = 0;
@@ -30,6 +47,13 @@ void metrics_init(void) {
   g_metrics.bytes_per_sec = 0;
   g_metrics.pkts_per_sec = 0;
   g_metrics.flowsets_per_sec = 0;
+
+  total_bytes_accum = 0;
+  total_pkts_accum = 0;
+  total_flowsets_accum = 0;
+  last_bytes = 0;
+  last_pkts = 0;
+  last_flowsets = 0;
 
   // Initialize the mutex
   uv_mutex_init(&g_metrics.mutex);
@@ -147,4 +171,74 @@ void metrics_tcp_start(uv_loop_t *loop, int port) {
   }
 
   LOG_INFO("Metrics TCP API listening on 0.0.0.0:%d\n", port);
+}
+
+static void on_metrics_timer(uv_timer_t *handle) {
+  uv_mutex_lock(&g_metrics.mutex);
+  g_metrics.bytes_per_sec = total_bytes_accum - last_bytes;
+  g_metrics.pkts_per_sec = total_pkts_accum - last_pkts;
+  g_metrics.flowsets_per_sec = total_flowsets_accum - last_flowsets;
+
+  last_bytes = total_bytes_accum;
+  last_pkts = total_pkts_accum;
+  last_flowsets = total_flowsets_accum;
+  uv_mutex_unlock(&g_metrics.mutex);
+}
+
+void metrics_timer_start(uv_loop_t *loop) {
+  uv_timer_t *timer = malloc(sizeof(uv_timer_t));
+  uv_timer_init(loop, timer);
+  // Calculate rate every 1000ms
+  uv_timer_start(timer, on_metrics_timer, 1000, 1000);
+}
+
+void metrics_inc_bytes(uint64_t bytes) {
+  uv_mutex_lock(&g_metrics.mutex);
+  total_bytes_accum += bytes;
+  total_pkts_accum++;
+  uv_mutex_unlock(&g_metrics.mutex);
+}
+
+void metrics_inc_flowsets(uint64_t flowsets) {
+  uv_mutex_lock(&g_metrics.mutex);
+  total_flowsets_accum += flowsets;
+  uv_mutex_unlock(&g_metrics.mutex);
+}
+
+void metrics_track_exporter(uint32_t exporter_ip) {
+  uv_mutex_lock(&g_metrics.mutex);
+  for (size_t i = 0; i < exporters_count; i++) {
+    if (exporters_array[i] == exporter_ip) {
+      uv_mutex_unlock(&g_metrics.mutex);
+      return;
+    }
+  }
+
+  if (exporters_count == exporters_capacity) {
+    exporters_capacity = exporters_capacity == 0 ? 16 : exporters_capacity * 2;
+    exporters_array = realloc(exporters_array, exporters_capacity * sizeof(uint32_t));
+  }
+
+  exporters_array[exporters_count++] = exporter_ip;
+  g_metrics.collectors_detected = exporters_count;
+  uv_mutex_unlock(&g_metrics.mutex);
+}
+
+void metrics_track_interface(uint16_t interface_id) {
+  uv_mutex_lock(&g_metrics.mutex);
+  for (size_t i = 0; i < interfaces_count; i++) {
+    if (interfaces_array[i] == interface_id) {
+      uv_mutex_unlock(&g_metrics.mutex);
+      return;
+    }
+  }
+
+  if (interfaces_count == interfaces_capacity) {
+    interfaces_capacity = interfaces_capacity == 0 ? 16 : interfaces_capacity * 2;
+    interfaces_array = realloc(interfaces_array, interfaces_capacity * sizeof(uint16_t));
+  }
+
+  interfaces_array[interfaces_count++] = interface_id;
+  g_metrics.interfaces_detected = interfaces_count;
+  uv_mutex_unlock(&g_metrics.mutex);
 }
