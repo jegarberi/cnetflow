@@ -535,15 +535,15 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     if (dur > 0 && (flows->records[i].dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG ||
                     flows->records[i].dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG)) {
       CH_LOG_INFO("%s %d %s: Ignoring flow dur > 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur "
-                  "> _MAX_PACKETS_TO_CONSIDER_WRONG\n",
-                  __FILE__, __LINE__, __func__);
+      "> _MAX_PACKETS_TO_CONSIDER_WRONG. dur: %u, octets: %lu, pkts: %lu \n",
+      __FILE__, __LINE__, __func__,dur,flows->records[i].dOctets,flows->records[i].dPkts);
       continue;
     }
     if (dur == 0 && (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG ||
                      flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)) {
       CH_LOG_INFO("%s %d %s: Ignoring flow dur == 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur "
-                  "> _MAX_PACKETS_TO_CONSIDER_WRONG\n",
-                  __FILE__, __LINE__, __func__);
+                  "> _MAX_PACKETS_TO_CONSIDER_WRONG dur: %u, octets: %lu, pkts: %lu \n",
+                  __FILE__, __LINE__, __func__,dur,flows->records[i].dOctets,flows->records[i].dPkts);
       continue;
     }
 
