@@ -102,7 +102,7 @@ endif ()
 
 # 2. Use the determined library type (INTERNAL_LIBRARY_TYPE) for all internal libraries
 add_executable(cnetflow src/main.c src/compat.c)
-add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c)
+add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c src/metrics.c)
 add_library(arena ${INTERNAL_LIBRARY_TYPE} src/arena.c)
 target_link_libraries(arena PUBLIC libuv::uv_a)
 add_library(dyn_array ${INTERNAL_LIBRARY_TYPE} src/dyn_array.c)

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "db.h"
 #include "log.h"
+#include "metrics.h"
 #include "netflow.h"
 #include "netflow_v5.h"
 #ifdef USE_REDIS
@@ -186,6 +187,10 @@ void *parse_ipfix(uv_work_t *req) {
           LOG_ERROR("%s %d %s: Failed to allocate memory for template copy\n", __FILE__, __LINE__, __func__);
           goto cleanup_ipfix_and_unlock;
         }
+
+        uv_mutex_lock(&g_metrics.mutex);
+        g_metrics.ipfix_templates_received++;
+        uv_mutex_unlock(&g_metrics.mutex);
 
         pos += template_size;
         template_counter++;
@@ -609,6 +614,10 @@ void *parse_ipfix(uv_work_t *req) {
             // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
             // sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
           }
+
+          uv_mutex_lock(&g_metrics.mutex);
+          g_metrics.ipfix_records_received++;
+          uv_mutex_unlock(&g_metrics.mutex);
 
           record_counter++;
 

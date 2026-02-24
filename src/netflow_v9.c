@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "db.h"
 #include "log.h"
+#include "metrics.h"
 #include "netflow_v5.h"
 #ifdef USE_REDIS
 #include "redis_handler.h"
@@ -197,6 +198,11 @@ void *parse_v9(uv_work_t *req) {
 #endif
 
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
+
+        uv_mutex_lock(&g_metrics.mutex);
+        g_metrics.v9_templates_received++;
+        uv_mutex_unlock(&g_metrics.mutex);
+
         template_counter++;
         total_flowsets++;
         if (pos >= flowset_length) {
@@ -727,6 +733,11 @@ void *parse_v9(uv_work_t *req) {
           } else {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
+
+          uv_mutex_lock(&g_metrics.mutex);
+          g_metrics.v9_records_received++;
+          uv_mutex_unlock(&g_metrics.mutex);
+
           record_counter++;
           if (has_padding == 0 && pos >= flowset_length) { // flowset_id + length + padding
             has_more_records = 0;

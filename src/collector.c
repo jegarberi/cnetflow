@@ -26,6 +26,7 @@
 #include "arena.h"
 #include "dyn_array.h"
 #include "log.h"
+#include "metrics.h"
 #include "netflow_ipfix.h"
 #include "netflow_v5.h"
 #include "netflow_v9.h"
@@ -301,11 +302,19 @@ int8_t collector_start(collector_t *collector) {
   init_v9(arena_hashmap_nf9, 1000000);
   LOG_ERROR("%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_ipfix(arena_hashmap_ipfix, 1000000);
+
+  // Initialize global metrics
+  metrics_init();
+
   LOG_ERROR("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
   loop_timer_snmp = uv_default_loop();
   loop_udp = uv_default_loop();
   loop_pool = uv_default_loop();
+
+  // Start TCP JSON metrics listener
+  metrics_tcp_start(loop_udp, 8085);
+
   uv_timer_t timer_req_snmp;
   uv_timer_t timer_req_rss;
   // uv_timer_init(loop_timer_snmp, &timer_req_snmp);
@@ -472,6 +481,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     LOG_DEBUG("%s %d %s packet too short for version detection: %ld bytes\n", __FILE__, __LINE__, __func__, nread);
     goto udp_handle_free_and_return;
   }
+
+  uv_mutex_lock(&g_metrics.mutex);
+  g_metrics.packets_received++;
+  uv_mutex_unlock(&g_metrics.mutex);
 
   NETFLOW_VERSION nf_version = collector_config->detect_version(buf->base);
   switch (nf_version) {

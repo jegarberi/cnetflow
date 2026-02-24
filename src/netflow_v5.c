@@ -9,6 +9,7 @@
 #include "collector.h"
 #include "db.h"
 #include "log.h"
+#include "metrics.h"
 
 extern arena_struct_t *arena_collector;
 
@@ -34,6 +35,9 @@ void *parse_v5(uv_work_t *req) {
 
   swap_endianness((void *) &(netflow_packet_ptr->header.version), sizeof(netflow_packet_ptr->header.version));
   if (netflow_packet_ptr->header.version != 5) {
+    uv_mutex_lock(&g_metrics.mutex);
+    g_metrics.netflow_v5_dropped++;
+    uv_mutex_unlock(&g_metrics.mutex);
     EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
     goto unlock_mutex_parse_v5;
   }
@@ -136,6 +140,10 @@ void *parse_v5(uv_work_t *req) {
   swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
   insert_flows(exporter_host, &flows_to_insert);
+
+  uv_mutex_lock(&g_metrics.mutex);
+  g_metrics.netflow_v5_parsed++;
+  uv_mutex_unlock(&g_metrics.mutex);
 
 unlock_mutex_parse_v5:
   // uv_mutex_unlock(lock);
