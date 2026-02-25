@@ -747,6 +747,13 @@ void *parse_v9(uv_work_t *req) {
           g_metrics.v9_records_received++;
           uv_mutex_unlock(&g_metrics.mutex);
 
+          if (netflow_packet_ptr->records[record_counter].input != 0) {
+            metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
+          }
+          if (netflow_packet_ptr->records[record_counter].output != 0) {
+            metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].output);
+          }
+
           record_counter++;
           if (has_padding == 0 && pos >= flowset_length) { // flowset_id + length + padding
             has_more_records = 0;

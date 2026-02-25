@@ -126,6 +126,13 @@ void *parse_v5(uv_work_t *req) {
       netflow_packet_ptr->records[record_counter].First = now - duration;
       // Do not swap back
     }
+    if (netflow_packet_ptr->records[record_counter].input != 0) {
+      metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
+    }
+    if (netflow_packet_ptr->records[record_counter].output != 0) {
+      metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].output);
+    }
+
 #ifdef CNETFLOW_DEBUG_BUILD
     printf_v5(stdout, netflow_packet_ptr, record_counter);
 #endif

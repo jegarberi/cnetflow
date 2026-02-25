@@ -80,8 +80,8 @@ void metrics_inc_flowsets(uint64_t flowsets);
 void metrics_track_exporter(uint32_t exporter_ip);
 
 /**
- * @brief Tracks unique interface IDs.
+ * @brief Tracks unique interface IDs per exporter.
  */
-void metrics_track_interface(uint16_t interface_id);
+void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id);
 
 #endif // CNETFLOW_METRICS_H

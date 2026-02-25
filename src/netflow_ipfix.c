@@ -628,6 +628,13 @@ void *parse_ipfix(uv_work_t *req) {
           g_metrics.ipfix_records_received++;
           uv_mutex_unlock(&g_metrics.mutex);
 
+          if (netflow_packet_ptr->records[record_counter].input != 0) {
+            metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
+          }
+          if (netflow_packet_ptr->records[record_counter].output != 0) {
+            metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].output);
+          }
+
           record_counter++;
 
           if (pos + 4 >= (size_t) flowset_length) {

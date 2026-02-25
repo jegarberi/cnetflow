@@ -20,7 +20,8 @@ static uint32_t *exporters_array = NULL;
 static size_t exporters_count = 0;
 static size_t exporters_capacity = 0;
 
-static uint16_t *interfaces_array = NULL;
+// Store combined exporter IP (32 bits) and interface ID (16 bits)
+static uint64_t *interfaces_array = NULL;
 static size_t interfaces_count = 0;
 static size_t interfaces_capacity = 0;
 
@@ -224,10 +225,12 @@ void metrics_track_exporter(uint32_t exporter_ip) {
   uv_mutex_unlock(&g_metrics.mutex);
 }
 
-void metrics_track_interface(uint16_t interface_id) {
+void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
+  uint64_t combined_key = ((uint64_t) exporter_ip << 32) | interface_id;
+
   uv_mutex_lock(&g_metrics.mutex);
   for (size_t i = 0; i < interfaces_count; i++) {
-    if (interfaces_array[i] == interface_id) {
+    if (interfaces_array[i] == combined_key) {
       uv_mutex_unlock(&g_metrics.mutex);
       return;
     }
@@ -235,10 +238,10 @@ void metrics_track_interface(uint16_t interface_id) {
 
   if (interfaces_count == interfaces_capacity) {
     interfaces_capacity = interfaces_capacity == 0 ? 16 : interfaces_capacity * 2;
-    interfaces_array = realloc(interfaces_array, interfaces_capacity * sizeof(uint16_t));
+    interfaces_array = realloc(interfaces_array, interfaces_capacity * sizeof(uint64_t));
   }
 
-  interfaces_array[interfaces_count++] = interface_id;
+  interfaces_array[interfaces_count++] = combined_key;
   g_metrics.interfaces_detected = interfaces_count;
   uv_mutex_unlock(&g_metrics.mutex);
 }
