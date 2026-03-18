@@ -44,4 +44,20 @@ void *redis_get_template(const char *key, size_t key_len, size_t *out_len);
  */
 int redis_set_template(const char *key, size_t key_len, void *data, size_t len);
 
+/**
+ * Get all keys matching a pattern
+ * @param pattern Glob pattern for keys
+ * @param keys Pointer to store array of keys (must be freed with redis_free_keys)
+ * @param count Pointer to store key count
+ * @return 0 on success, -1 on failure
+ */
+int redis_get_keys(const char *pattern, char ***keys, size_t *count);
+
+/**
+ * Free keys returned by redis_get_keys
+ * @param keys Array of keys
+ * @param count Key count
+ */
+void redis_free_keys(char **keys, size_t count);
+
 #endif // REDIS_HANDLER_H

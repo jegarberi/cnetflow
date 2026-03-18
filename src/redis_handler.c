@@ -23,48 +23,6 @@ static int g_redis_port = 6379;
 static char g_redis_user[128] = {0};
 static char g_redis_password[128] = {0};
 
-// Template cache structure
-typedef struct template_cache_entry {
-  char *key;
-  size_t key_len;
-  void *data;
-  size_t data_len;
-  time_t expiry;
-  struct template_cache_entry *next;
-} template_cache_entry_t;
-
-#define TEMPLATE_CACHE_SIZE 2560
-#define TEMPLATE_CACHE_EXPIRY 3600 // 1 HOUR
-
-static THREAD_LOCAL template_cache_entry_t *g_template_cache[TEMPLATE_CACHE_SIZE] = {NULL};
-
-static unsigned int template_cache_hash(const char *key, size_t len) {
-  const uint32_t FNV_OFFSET_BASIS = 2166136261u;
-  const uint32_t FNV_PRIME = 16777619u;
-  uint32_t hash = FNV_OFFSET_BASIS;
-  const unsigned char *bytes = (const unsigned char *) key;
-
-  for (size_t i = 0; i < len; i++) {
-    hash ^= bytes[i];
-    hash *= FNV_PRIME;
-  }
-  return hash % TEMPLATE_CACHE_SIZE;
-}
-
-static void clear_template_cache(void) {
-  for (int i = 0; i < TEMPLATE_CACHE_SIZE; i++) {
-    template_cache_entry_t *entry = g_template_cache[i];
-    while (entry) {
-      template_cache_entry_t *next = entry->next;
-      free(entry->key);
-      free(entry->data);
-      free(entry);
-      entry = next;
-    }
-    g_template_cache[i] = NULL;
-  }
-}
-
 int init_redis(const char *hostname, int port, const char *user, const char *password) {
   // Store configuration for lazy connection by threads
   if (hostname) {
@@ -163,32 +121,9 @@ void close_redis(void) {
     redisFree(redis_conn);
     redis_conn = NULL;
   }
-  clear_template_cache();
 }
 
 void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
-  time_t now = time(NULL);
-  unsigned int h = template_cache_hash(key, key_len);
-
-  // Check thread-local cache first
-  template_cache_entry_t *entry = g_template_cache[h];
-  while (entry) {
-    if (entry->key_len == key_len && memcmp(entry->key, key, key_len) == 0) {
-      if (now < entry->expiry) {
-        // Cache hit and not expired
-        void *copy = malloc(entry->data_len);
-        if (copy) {
-          memcpy(copy, entry->data, entry->data_len);
-          if (out_len)
-            *out_len = entry->data_len;
-          return copy;
-        }
-      }
-      break; // Found but expired, or malloc failed
-    }
-    entry = entry->next;
-  }
-
   if (!redis_conn) {
     if (connect_thread_local_redis() != 0) {
       return NULL;
@@ -212,48 +147,6 @@ void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
       memcpy(result, reply->str, reply->len);
       if (out_len)
         *out_len = reply->len;
-
-      // Update local cache
-      entry = g_template_cache[h];
-      while (entry) {
-        if (entry->key_len == key_len && memcmp(entry->key, key, key_len) == 0) {
-          // Update existing entry
-          void *new_data = malloc(reply->len);
-          if (new_data) {
-            free(entry->data);
-            entry->data = new_data;
-            memcpy(entry->data, reply->str, reply->len);
-            entry->data_len = reply->len;
-            entry->expiry = now + TEMPLATE_CACHE_EXPIRY;
-          }
-          break;
-        }
-        entry = entry->next;
-      }
-
-      if (!entry) {
-        // Create new entry
-        entry = malloc(sizeof(template_cache_entry_t));
-        if (entry) {
-          entry->key = malloc(key_len);
-          entry->data = malloc(reply->len);
-          if (entry->key && entry->data) {
-            memcpy(entry->key, key, key_len);
-            entry->key_len = key_len;
-            memcpy(entry->data, reply->str, reply->len);
-            entry->data_len = reply->len;
-            entry->expiry = now + TEMPLATE_CACHE_EXPIRY;
-            entry->next = g_template_cache[h];
-            g_template_cache[h] = entry;
-          } else {
-            if (entry->key)
-              free(entry->key);
-            if (entry->data)
-              free(entry->data);
-            free(entry);
-          }
-        }
-      }
     }
   }
 
@@ -268,8 +161,8 @@ int redis_set_template(const char *key, size_t key_len, void *data, size_t len) 
     }
   }
 
-  // Set in Redis with 5 minute expiration
-  redisReply *reply = redisCommand(redis_conn, "SET %b %b EX %d", key, key_len, data, len, TEMPLATE_CACHE_EXPIRY);
+  // Set in Redis with 1 hour expiration
+  redisReply *reply = redisCommand(redis_conn, "SET %b %b EX 3600", key, key_len, data, len);
   if (!reply) {
     LOG_ERROR("Redis error: %s\n", redis_conn->errstr);
     if (redis_conn->err) {
@@ -282,50 +175,47 @@ int redis_set_template(const char *key, size_t key_len, void *data, size_t len) 
   int ret = -1;
   if (reply->type != REDIS_REPLY_ERROR) {
     ret = 0;
-    // Update local cache as well
-    time_t now = time(NULL);
-    unsigned int h = template_cache_hash(key, key_len);
-    template_cache_entry_t *entry = g_template_cache[h];
-    while (entry) {
-      if (entry->key_len == key_len && memcmp(entry->key, key, key_len) == 0) {
-        void *new_data = malloc(len);
-        if (new_data) {
-          free(entry->data);
-          entry->data = new_data;
-          memcpy(entry->data, data, len);
-          entry->data_len = len;
-          entry->expiry = now + TEMPLATE_CACHE_EXPIRY;
-        }
-        break;
-      }
-      entry = entry->next;
-    }
-    if (!entry) {
-      entry = malloc(sizeof(template_cache_entry_t));
-      if (entry) {
-        entry->key = malloc(key_len);
-        entry->data = malloc(len);
-        if (entry->key && entry->data) {
-          memcpy(entry->key, key, key_len);
-          entry->key_len = key_len;
-          memcpy(entry->data, data, len);
-          entry->data_len = len;
-          entry->expiry = now + TEMPLATE_CACHE_EXPIRY;
-          entry->next = g_template_cache[h];
-          g_template_cache[h] = entry;
-        } else {
-          if (entry->key)
-            free(entry->key);
-          if (entry->data)
-            free(entry->data);
-          free(entry);
-        }
-      }
-    }
   } else {
     LOG_ERROR("Redis SET error: %s\n", reply->str);
   }
 
   freeReplyObject(reply);
   return ret;
+}
+
+int redis_get_keys(const char *pattern, char ***keys, size_t *count) {
+  if (!redis_conn) {
+    if (connect_thread_local_redis() != 0) {
+      return -1;
+    }
+  }
+
+  redisReply *reply = redisCommand(redis_conn, "KEYS %s", pattern);
+  if (!reply) {
+    LOG_ERROR("Redis error: %s\n", redis_conn->errstr);
+    return -1;
+  }
+
+  if (reply->type != REDIS_REPLY_ARRAY) {
+    freeReplyObject(reply);
+    return -1;
+  }
+
+  *count = reply->elements;
+  *keys = malloc(sizeof(char *) * (*count));
+  for (size_t i = 0; i < *count; i++) {
+    (*keys)[i] = strdup(reply->element[i]->str);
+  }
+
+  freeReplyObject(reply);
+  return 0;
+}
+
+void redis_free_keys(char **keys, size_t count) {
+  if (!keys)
+    return;
+  for (size_t i = 0; i < count; i++) {
+    free(keys[i]);
+  }
+  free(keys);
 }

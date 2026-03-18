@@ -12,20 +12,37 @@
 #include "netflow_v5.h"
 #ifdef USE_REDIS
 #include "redis_handler.h"
-#else
-static hashmap_t *templates_nfv9_hashmap;
 #endif
+static hashmap_t *templates_nfv9_hashmap;
 
 // static hashmap_t *templates_nfv9_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
 
 void init_v9(arena_struct_t *arena, const size_t cap) {
-#ifdef USE_REDIS
-  LOG_ERROR("%s %d %s: Initializing v9 (Redis)...\n", __FILE__, __LINE__, __func__);
-#else
   LOG_ERROR("%s %d %s: Initializing v9 (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
+
+#ifdef USE_REDIS
+  LOG_ERROR("%s %d %s: Loading templates from Redis...\n", __FILE__, __LINE__, __func__);
+  char **keys = NULL;
+  size_t count = 0;
+  if (redis_get_keys("*-9-*", &keys, &count) == 0) {
+    for (size_t i = 0; i < count; i++) {
+      size_t val_len = 0;
+      void *val = redis_get_template(keys[i], strlen(keys[i]), &val_len);
+      if (val) {
+        void *arena_val = arena_alloc(arena, val_len);
+        if (arena_val) {
+          memcpy(arena_val, val, val_len);
+          hashmap_set(templates_nfv9_hashmap, arena, keys[i], strlen(keys[i]), arena_val);
+          LOG_INFO("Loaded template %s from Redis\n", keys[i]);
+        }
+        free(val);
+      }
+    }
+    redis_free_keys(keys, count);
+  }
 #endif
 }
 
@@ -182,19 +199,16 @@ void *parse_v9(uv_work_t *req) {
         size_t template_init = (size_t) &template->templates[0].fields[0].field_type;
         memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), alloc_size);
 
-        // Store in Redis
-        // Store in Redis or Hashmap
+        // Store in Hashmap
+        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp);
+        LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
+
 #ifdef USE_REDIS
         if (redis_set_template(key, strlen(key), temp, alloc_size) != 0) {
           LOG_ERROR("%s %d %s Error saving template in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
         } else {
           LOG_ERROR("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
         }
-        // Free the temporary buffer allocated by arena_alloc
-        arena_free(arena_hashmap_nf9, temp);
-#else
-        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp);
-        LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
 #endif
 
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
@@ -242,12 +256,7 @@ void *parse_v9(uv_work_t *req) {
       snprintf(key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
       LOG_ERROR("%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
 
-      size_t t_len = 0;
-#ifdef USE_REDIS
-      template_hashmap = (uint16_t *) redis_get_template(key, strlen(key), &t_len);
-#else
       template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
-#endif
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
@@ -837,12 +846,6 @@ void *parse_v9(uv_work_t *req) {
         }
 
         // fclose(ftemplate);
-#ifdef USE_REDIS
-        if (template_hashmap) {
-          free(template_hashmap);
-          template_hashmap = NULL;
-        }
-#endif
       }
       // TODO
       //  IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
@@ -861,12 +864,6 @@ void *parse_v9(uv_work_t *req) {
   // insert_flows(exporter_host, &flows_to_insert);
 
 cleanup_template_and_unlock:
-#ifdef USE_REDIS
-  if (template_hashmap) {
-    free(template_hashmap);
-    template_hashmap = NULL;
-  }
-#endif
 
 unlock_mutex_parse_v9:
   // uv_mutex_unlock(lock);

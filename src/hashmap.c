@@ -219,17 +219,20 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     return NULL;
   }
 
+  uv_mutex_lock(hashmap->mutex);
+
   // Calculate hash
   size_t index = hashmap_hash(hashmap, key, key_len);
   bucket_t *buckets = (bucket_t *) hashmap->buckets;
 
   // Linear probing to find the key
   size_t original_index = index;
+  void *value = NULL;
 
   do {
     // Skip empty or deleted buckets
     if (!buckets[index].occupied) {
-      return NULL; // Key not found
+      break; // Key not found
     }
 
     // Skip deleted buckets but continue searching
@@ -241,20 +244,21 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     // CRITICAL FIX: Validate key pointer before strlen
     if (buckets[index].key == NULL) {
       LOG_ERROR("%s %d %s: Corrupt bucket key at index %lu\n", __FILE__, __LINE__, __func__, index);
-      return NULL;
+      break;
     }
 
     // Check if this is the key we're looking for
     if (strlen(buckets[index].key) == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
-      return buckets[index].value;
+      value = buckets[index].value;
+      break;
     }
 
     // Move to next bucket
     index = (index + 1) % hashmap->bucket_count;
   } while (index != original_index);
 
-  // If we've checked all buckets and found nothing
-  return NULL;
+  uv_mutex_unlock(hashmap->mutex);
+  return value;
 }
 
 /**
