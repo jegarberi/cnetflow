@@ -151,6 +151,9 @@ run_builds "All_ON" ON ON ON ON
 # 9. Redis OFF (Hashmap fallback)
 run_builds "No_Redis" OFF ON ON OFF
 
+# 10. ClickHouse Minimal (No Arena, No Redis, No Logging)
+run_builds "ClickHouse_Minimal" ON OFF OFF OFF
+
 echo ""
 echo "###############################################"
 echo "# Release builds complete. Binaries in ${OUTPUT_BIN_DIR}"
