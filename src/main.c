@@ -2,7 +2,56 @@
 #include <stdio.h>
 #include "collector.h"
 #include "log.h"
+#include <string.h>
 
+void print_compile_options(void) {
+    printf("cnetflow compile options:\n");
+#ifdef USE_CLICKHOUSE
+    printf("  Database: ClickHouse\n");
+#else
+    printf("  Database: PostgreSQL\n");
+#endif
+
+#ifdef USE_REDIS
+    printf("  Redis: ON\n");
+#else
+    printf("  Redis: OFF\n");
+#endif
+
+#ifdef USE_ARENA_ALLOCATOR
+    printf("  Arena Allocator: ON\n");
+#else
+    printf("  Arena Allocator: OFF\n");
+#endif
+
+#ifdef ENABLE_LOGGING
+    printf("  Logging: ON\n");
+#else
+    printf("  Logging: OFF\n");
+#endif
+
+#ifdef ENABLE_METRICS
+    printf("  Metrics: ON\n");
+#else
+    printf("  Metrics: OFF\n");
+#endif
+
+#ifdef BUILD_STATIC
+    printf("  Build type: STATIC\n");
+#else
+    printf("  Build type: DYNAMIC\n");
+#endif
+
+#ifdef COMPAT_CENTOS6
+    printf("  CentOS 6 Compatibility: ON\n");
+#endif
+
+#ifdef CNETFLOW_DEBUG_BUILD
+    printf("  Configuration: Debug\n");
+#elif defined(CNETFLOW_RELEASE_BUILD)
+    printf("  Configuration: Release\n");
+#endif
+}
 
 /**
  * The main entry point for the program.
@@ -14,7 +63,16 @@
  *
  * @return Returns 0 if the program completes successfully.
  */
-int main(void) {
+int main(int argc, char *argv[]) {
+  if (argc > 1) {
+    if (strcmp(argv[1], "--options") == 0 || strcmp(argv[1], "-o") == 0) {
+      print_compile_options();
+      return 0;
+    } else {
+      printf("Usage: %s [--options|-o]\n", argv[0]);
+      return 1;
+    }
+  }
   fprintf(stderr, "Starting main...\n");
   fprintf(stdout, "Starting main...\n");
   //fflush(stderr);

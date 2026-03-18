@@ -24,17 +24,18 @@
 
 // Global cleanup tracking for thread locals
 static uv_mutex_t psql_cleanup_mutex;
-static int psql_cleanup_mutex_init = 0;
+static uv_once_t psql_cleanup_once = UV_ONCE_INIT;
+
+static void init_psql_cleanup_mutex(void) {
+  uv_mutex_init(&psql_cleanup_mutex);
+}
 
 #define MAX_THREADS 128
 static PGconn **psql_conns_ptrs[MAX_THREADS] = {0};
 static int psql_conns_count = 0;
 
 void register_psql_cleanup(PGconn **conn_ptr) {
-  if (!psql_cleanup_mutex_init) {
-    uv_mutex_init(&psql_cleanup_mutex);
-    psql_cleanup_mutex_init = 1;
-  }
+  uv_once(&psql_cleanup_once, init_psql_cleanup_mutex);
   uv_mutex_lock(&psql_cleanup_mutex);
   if (conn_ptr && psql_conns_count < MAX_THREADS) {
     psql_conns_ptrs[psql_conns_count++] = conn_ptr;
@@ -43,8 +44,6 @@ void register_psql_cleanup(PGconn **conn_ptr) {
 }
 
 void psql_db_cleanup_all(void) {
-  if (!psql_cleanup_mutex_init)
-    return;
   uv_mutex_lock(&psql_cleanup_mutex);
   for (int i = 0; i < psql_conns_count; i++) {
     if (psql_conns_ptrs[i] && *psql_conns_ptrs[i]) {
@@ -375,15 +374,20 @@ insert_v5_exit_nicely : if (conn != NULL) {
 }
 */
 char *ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
-  // NOTE: Make the output buffer STATIC so it's not invalid after returning!
-  // This makes this function NOT thread-safe. (Can be improved.)
+  // NOTE: Use a ring of thread-local buffers to allow multiple concurrent calls
+  // in the same thread (e.g. in snprintf).
 #define _MAX_LEN 50
-  static THREAD_LOCAL char ret_string[_MAX_LEN] = {0};
+  static THREAD_LOCAL char ret_string[4][_MAX_LEN];
+  static THREAD_LOCAL int buffer_idx = 0;
+  char *buf = ret_string[buffer_idx];
+  buffer_idx = (buffer_idx + 1) % 4;
+
+  memset(buf, 0, _MAX_LEN);
 
   if (ip_version == 4) {
     // IPv4 is in 32 bits of value, print as dotted quad
     uint32_t ip = (uint32_t) value;
-    snprintf(ret_string, _MAX_LEN, "%u.%u.%u.%u", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
+    snprintf(buf, _MAX_LEN, "%u.%u.%u.%u", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
   } else if (ip_version == 6) {
     // IPv6: print as canonical x:x:x:x:x:x:x:x (eight 16-bit hex groups)
     uint16_t parts[8];
@@ -394,12 +398,12 @@ char *ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
       v >>= 16;
     }
     // Print groups as hex, compact representation with leading zeros, not handling ::
-    snprintf(ret_string, _MAX_LEN, "%x:%x:%x:%x:%x:%x:%x:%x", parts[0], parts[1], parts[2], parts[3], parts[4],
+    snprintf(buf, _MAX_LEN, "%x:%x:%x:%x:%x:%x:%x:%x", parts[0], parts[1], parts[2], parts[3], parts[4],
              parts[5], parts[6], parts[7]);
   } else {
-    snprintf(ret_string, _MAX_LEN, "INVALID_IP_VERSION");
+    snprintf(buf, _MAX_LEN, "INVALID_IP_VERSION");
   }
-  return ret_string;
+  return buf;
 #undef _MAX_LEN
 }
 

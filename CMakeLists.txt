@@ -11,6 +11,7 @@ if (BUILD_STATIC OR COMPAT_CENTOS6)
     set(INTERNAL_LIBRARY_TYPE STATIC)
     message(STATUS "Building internal libraries as STATIC.")
     if (BUILD_STATIC)
+        add_compile_definitions(BUILD_STATIC=1)
         # Global -static flag removed to allow tests to link dynamically
         set(CMAKE_SHARED_LINKER_FLAGS "") # Clear shared linker flags if not needed
     endif()

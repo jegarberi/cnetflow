@@ -62,7 +62,11 @@ static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, 
 
 // Global cleanup tracking for thread locals
 static uv_mutex_t cleanup_mutex;
-static int cleanup_mutex_init = 0;
+static uv_once_t cleanup_mutex_once = UV_ONCE_INIT;
+
+static void init_cleanup_mutex(void) {
+  uv_mutex_init(&cleanup_mutex);
+}
 
 #define MAX_THREADS 128
 static ch_conn_t **ch_conns_ptrs[MAX_THREADS] = {0};
@@ -72,10 +76,7 @@ static char **ch_queries_ptrs[MAX_THREADS] = {0};
 static int ch_queries_count = 0;
 
 void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
-  if (!cleanup_mutex_init) {
-    uv_mutex_init(&cleanup_mutex);
-    cleanup_mutex_init = 1;
-  }
+  uv_once(&cleanup_mutex_once, init_cleanup_mutex);
   uv_mutex_lock(&cleanup_mutex);
   if (conn_ptr && ch_conns_count < MAX_THREADS) {
     ch_conns_ptrs[ch_conns_count++] = conn_ptr;
@@ -87,8 +88,6 @@ void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
 }
 
 void ch_db_cleanup_all(void) {
-  if (!cleanup_mutex_init)
-    return;
   uv_mutex_lock(&cleanup_mutex);
   for (int i = 0; i < ch_conns_count; i++) {
     if (ch_conns_ptrs[i] && *ch_conns_ptrs[i]) {
@@ -109,25 +108,28 @@ void ch_db_cleanup_all(void) {
 }
 
 char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
-  static THREAD_LOCAL char ret_string[INET6_ADDRSTRLEN] = {0};
+  static THREAD_LOCAL char ret_string[4][INET6_ADDRSTRLEN];
+  static THREAD_LOCAL int buffer_idx = 0;
+  char *buf = ret_string[buffer_idx];
+  buffer_idx = (buffer_idx + 1) % 4;
 
   if (ip_version == 4) {
     struct in_addr addr;
     uint32_t ip_host = (uint32_t) value;
     addr.s_addr = htonl(ip_host);
-    if (inet_ntop(AF_INET, &addr, ret_string, sizeof(ret_string)) == NULL) {
-      snprintf(ret_string, sizeof(ret_string), "unknown");
+    if (inet_ntop(AF_INET, &addr, buf, INET6_ADDRSTRLEN) == NULL) {
+      snprintf(buf, INET6_ADDRSTRLEN, "unknown");
     }
   } else if (ip_version == 6) {
     struct in6_addr addr;
     memcpy(&addr, &value, 16);
-    if (inet_ntop(AF_INET6, &addr, ret_string, sizeof(ret_string)) == NULL) {
-      snprintf(ret_string, sizeof(ret_string), "unknown");
+    if (inet_ntop(AF_INET6, &addr, buf, INET6_ADDRSTRLEN) == NULL) {
+      snprintf(buf, INET6_ADDRSTRLEN, "unknown");
     }
   } else {
-    snprintf(ret_string, sizeof(ret_string), "unknown");
+    snprintf(buf, INET6_ADDRSTRLEN, "unknown");
   }
-  return ret_string;
+  return buf;
 }
 
 ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, const char *user, const char *password) {
@@ -226,11 +228,12 @@ void ch_db_connect(ch_conn_t **conn) {
 
   // Parse connection string: host:port:database:user:password
   char *conn_str_copy = strdup(conn_string);
-  char *host = strtok(conn_str_copy, ":");
-  char *port_str = strtok(NULL, ":");
-  char *database = strtok(NULL, ":");
-  char *user = strtok(NULL, ":");
-  char *password = strtok(NULL, "?");
+  char *saveptr;
+  char *host = strtok_r(conn_str_copy, ":", &saveptr);
+  char *port_str = strtok_r(NULL, ":", &saveptr);
+  char *database = strtok_r(NULL, ":", &saveptr);
+  char *user = strtok_r(NULL, ":", &saveptr);
+  char *password = strtok_r(NULL, "?", &saveptr);
 
   if (!host || !port_str) {
     CH_LOG_ERROR("Invalid CH_CONN_STRING format\n");

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #ifndef _WIN32
+#include <arpa/inet.h>
 #include <sys/resource.h>
 #else
 #include <winsock2.h>
@@ -53,6 +54,18 @@ extern void psql_db_cleanup_all(void);
 //  #define MALLOC(x, y) malloc(y)
 #define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
+
+#if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+#if defined(__GNUC__) || defined(__clang__)
+#define THREAD_LOCAL __thread
+#else
+#define THREAD_LOCAL
+#endif
+#else
+#include <threads.h>
+#define THREAD_LOCAL thread_local
+#endif
+
 arena_struct_t *arena_collector;
 arena_struct_t *arena_udp_handle;
 arena_struct_t *arena_hashmap_nf9;
@@ -83,18 +96,24 @@ void print_rss_max_usage() {
  * Converts an IPv4 address in integer format to a string representation.
  *
  * @param addr The IPv4 address, represented as an unsigned integer.
- * @return A pointer to a statically allocated string containing the
+ * @return A pointer to a thread-local string containing the
  *         human-readable IPv4 address in dotted decimal notation.
- *         Note: The returned pointer is to a static buffer and should not
+ *         Note: The returned pointer is to a thread-local buffer and should not
  *         be freed by the caller. Its content may be overwritten by
- *         subsequent calls to inet_ntoa or related functions.
+ *         subsequent calls to this function in the same thread.
  */
 char *ip_int_to_str(const unsigned int addr) {
+  static THREAD_LOCAL char ip_str[4][INET_ADDRSTRLEN];
+  static THREAD_LOCAL int buffer_idx = 0;
+  char *buf = ip_str[buffer_idx];
+  buffer_idx = (buffer_idx + 1) % 4;
 
   struct in_addr ip_addr;
   ip_addr.s_addr = addr;
-  char *ip_str = inet_ntoa(ip_addr);
-  return ip_str;
+  if (inet_ntop(AF_INET, &ip_addr, buf, INET_ADDRSTRLEN) == NULL) {
+    return "0.0.0.0";
+  }
+  return buf;
 }
 
 // https://gist.github.com/jkomyno/45bee6e79451453c7bbdc22d033a282e
