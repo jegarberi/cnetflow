@@ -229,6 +229,9 @@ if (CRITERION_FOUND)
             tests/test_ipfix.c
             src/compat.c
     )
+    if (USE_REDIS)
+        target_sources(cnetflow_tests PRIVATE tests/test_redis.c)
+    endif()
     target_include_directories(cnetflow_tests PRIVATE ${CRITERION_INCLUDE_DIRS})
     target_link_libraries(cnetflow_tests
             arena

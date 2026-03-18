@@ -58,7 +58,8 @@ static int connect_thread_local_redis(void) {
   const char *user = g_redis_user[0] ? g_redis_user : NULL;
   const char *password = g_redis_password[0] ? g_redis_password : NULL;
 
-  redis_conn = redisConnectWithTimeout(hostname, port, timeout);
+  redis_conn = (hostname && hostname[0] == '/') ? redisConnectUnixWithTimeout(hostname, timeout)
+                                                : redisConnectWithTimeout(hostname, port, timeout);
 
   if (redis_conn == NULL || redis_conn->err) {
     if (redis_conn) {
@@ -97,7 +98,11 @@ static int connect_thread_local_redis(void) {
     freeReplyObject(reply);
   }
 
-  LOG_INFO("Connected to Redis at %s:%d (Thread Local)\n", hostname, port);
+  if (hostname && hostname[0] == '/') {
+    LOG_INFO("Connected to Redis via Unix socket %s (Thread Local)\n", hostname);
+  } else {
+    LOG_INFO("Connected to Redis at %s:%d (Thread Local)\n", hostname, port);
+  }
   return 0;
 }
 

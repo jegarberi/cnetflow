@@ -1,4 +1,4 @@
- sele# Database Backend Configuration
+ # Database Backend Configuration
 
 cnetflow supports two database backends that can be selected at compile-time:
 - **PostgreSQL** (default)
@@ -210,7 +210,40 @@ echo "SHOW TABLES" | clickhouse-client --host=192.168.1.20 --port=9000
 echo "SELECT count() FROM flows" | clickhouse-client --host=192.168.1.20 --port=9000
 ```
 
-### Common Issues
+## Redis Configuration (Template Storage)
+
+When built with Redis support (`-DUSE_REDIS=ON`), Redis is used to store NetFlow v9 and IPFIX templates.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_HOST` | `127.0.0.1` | Redis server hostname or IP |
+| `REDIS_PORT` | `6379` | Redis server port |
+| `REDIS_UNIX_SOCKET` | - | Path to Redis Unix socket (takes precedence over Host/Port) |
+| `REDIS_USER` | - | Redis username (for ACL) |
+| `REDIS_PASSWORD` | - | Redis password |
+
+### Connection Examples
+
+**TCP Connection:**
+```bash
+export REDIS_HOST="192.168.1.50"
+export REDIS_PORT="6379"
+```
+
+**Unix Socket Connection:**
+```bash
+export REDIS_UNIX_SOCKET="/var/run/redis/redis.sock"
+```
+
+**Authentication:**
+```bash
+export REDIS_USER="netflow"
+export REDIS_PASSWORD="secure-redis-password"
+```
+
+## Common Issues
 
 **ClickHouse: "Connection refused"**
 - Ensure you're using port 9000 (native protocol), not 8123 (HTTP)

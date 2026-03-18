@@ -250,9 +250,11 @@ int8_t collector_start(collector_t *collector) {
 
 #ifdef USE_REDIS
   // Initialize Redis
+  const char *redis_unix_socket = getenv("REDIS_UNIX_SOCKET");
   const char *redis_host = getenv("REDIS_HOST");
-  if (!redis_host)
+  if (!redis_host && !redis_unix_socket)
     redis_host = "127.0.0.1";
+
   const char *redis_port_str = getenv("REDIS_PORT");
   int redis_port = 6379;
   if (redis_port_str)
@@ -261,8 +263,15 @@ int8_t collector_start(collector_t *collector) {
   const char *redis_user = getenv("REDIS_USER");
   const char *redis_password = getenv("REDIS_PASSWORD");
 
-  if (init_redis(redis_host, redis_port, redis_user, redis_password) != 0) {
-    LOG_ERROR("Failed to initialize Redis\n");
+  const char *redis_target = redis_unix_socket ? redis_unix_socket : redis_host;
+  int redis_target_port = redis_unix_socket ? 0 : redis_port;
+
+  if (init_redis(redis_target, redis_target_port, redis_user, redis_password) != 0) {
+    if (redis_unix_socket) {
+      LOG_ERROR("Failed to initialize Redis via Unix socket %s\n", redis_unix_socket);
+    } else {
+      LOG_ERROR("Failed to initialize Redis at %s:%d\n", redis_host, redis_port);
+    }
     return -1;
   }
 #endif
