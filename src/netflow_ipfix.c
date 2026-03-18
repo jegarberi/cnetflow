@@ -205,9 +205,7 @@ void *parse_ipfix(uv_work_t *req) {
         }
 
 #ifdef ENABLE_METRICS
-        uv_mutex_lock(&g_metrics.mutex);
-        g_metrics.ipfix_templates_received++;
-        uv_mutex_unlock(&g_metrics.mutex);
+          metrics_inc_ipfix_templates_received();
 #endif
 
         // Track the exporter
@@ -638,9 +636,7 @@ void *parse_ipfix(uv_work_t *req) {
           }
 
 #ifdef ENABLE_METRICS
-          uv_mutex_lock(&g_metrics.mutex);
-          g_metrics.ipfix_records_received++;
-          uv_mutex_unlock(&g_metrics.mutex);
+          metrics_inc_ipfix_records_received();
 #endif
 
           if (netflow_packet_ptr->records[record_counter].input != 0) {

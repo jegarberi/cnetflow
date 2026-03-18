@@ -8,6 +8,7 @@
 
 /**
  * @brief Global metrics structure to count various events across the system.
+ * Updated by the metrics thread.
  */
 typedef struct {
   // Basic network stats
@@ -33,13 +34,12 @@ typedef struct {
   uint64_t collectors_detected;
   uint64_t interfaces_detected;
 
-  // Rates (to be updated separately if needed, though typically rates are calculated
-  // from totals over time intervals rather than accumulated here)
+  // Rates (to be updated separately)
   uint64_t bytes_per_sec;
   uint64_t pkts_per_sec;
   uint64_t flowsets_per_sec;
 
-  // Mutex to protect global writes from multiple threads
+  // Mutex to protect global reads/writes
   uv_mutex_t mutex;
 } cnetflow_metrics_t;
 
@@ -47,24 +47,35 @@ typedef struct {
 extern cnetflow_metrics_t g_metrics;
 
 /**
- * @brief Initializes the global metrics structure and its mutex.
+ * @brief Initializes the global metrics structure and starts the metrics thread.
  */
 void metrics_init(void);
 
 /**
  * @brief Starts a TCP server to expose the metrics as JSON.
- *
- * @param loop The libuv loop to attach the TCP server to.
- * @param port The TCP port to listen on (e.g. 8080).
+ * @param port The TCP port to listen on.
  */
-void metrics_tcp_start(uv_loop_t *loop, int port);
+void metrics_tcp_start(int port);
 
 /**
  * @brief Starts the rate-calculation timer for metrics.
- *
- * @param loop The libuv loop to attach the timer to.
  */
-void metrics_timer_start(uv_loop_t *loop);
+void metrics_timer_start(void);
+
+/**
+ * @brief Asynchronous increment functions (Shoot and Forget)
+ */
+void metrics_inc_packets(void);
+void metrics_inc_v5_parsed(void);
+void metrics_inc_v5_dropped(void);
+void metrics_inc_v9_templates_received(void);
+void metrics_inc_v9_templates_dropped(void);
+void metrics_inc_v9_records_received(void);
+void metrics_inc_v9_records_dropped(void);
+void metrics_inc_ipfix_templates_received(void);
+void metrics_inc_ipfix_templates_dropped(void);
+void metrics_inc_ipfix_records_received(void);
+void metrics_inc_ipfix_records_dropped(void);
 
 /**
  * @brief Increments processed byte count tracking for rate calculation.
@@ -89,8 +100,19 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id);
 #else // ENABLE_METRICS
 
 #define metrics_init() do {} while(0)
-#define metrics_tcp_start(loop, port) do {} while(0)
-#define metrics_timer_start(loop) do {} while(0)
+#define metrics_tcp_start(port) do {} while(0)
+#define metrics_timer_start() do {} while(0)
+#define metrics_inc_packets() do {} while(0)
+#define metrics_inc_v5_parsed() do {} while(0)
+#define metrics_inc_v5_dropped() do {} while(0)
+#define metrics_inc_v9_templates_received() do {} while(0)
+#define metrics_inc_v9_templates_dropped() do {} while(0)
+#define metrics_inc_v9_records_received() do {} while(0)
+#define metrics_inc_v9_records_dropped() do {} while(0)
+#define metrics_inc_ipfix_templates_received() do {} while(0)
+#define metrics_inc_ipfix_templates_dropped() do {} while(0)
+#define metrics_inc_ipfix_records_received() do {} while(0)
+#define metrics_inc_ipfix_records_dropped() do {} while(0)
 #define metrics_inc_bytes(bytes) do {} while(0)
 #define metrics_inc_flowsets(flowsets) do {} while(0)
 #define metrics_track_exporter(ip) do {} while(0)

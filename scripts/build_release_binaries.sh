@@ -160,6 +160,9 @@ run_builds "ClickHouse_Minimal" ON OFF OFF OFF OFF
 # 11. No Metrics (Arena + Logging + Redis)
 run_builds "No_Metrics" OFF ON ON ON OFF
 
+# 12. ClickHouse Redis Minimal (No Arena, No Logging, No Metrics)
+run_builds "ClickHouse_Redis_Minimal" ON OFF OFF ON OFF
+
 echo ""
 echo "###############################################"
 echo "# Release builds complete. Binaries in ${OUTPUT_BIN_DIR}"

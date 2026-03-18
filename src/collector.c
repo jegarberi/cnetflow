@@ -322,9 +322,9 @@ int8_t collector_start(collector_t *collector) {
   loop_pool = uv_default_loop();
 
   // Start TCP JSON metrics listener
-  metrics_tcp_start(loop_udp, 8085);
+  metrics_tcp_start(8085);
   // Start the per-second rate updater timer calculation
-  metrics_timer_start(loop_udp);
+  metrics_timer_start();
 
   uv_timer_t timer_req_snmp;
   uv_timer_t timer_req_rss;
@@ -494,9 +494,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
 
 #ifdef ENABLE_METRICS
-  uv_mutex_lock(&g_metrics.mutex);
-  g_metrics.packets_received++;
-  uv_mutex_unlock(&g_metrics.mutex);
+  metrics_inc_packets();
 #endif
 
   // Track total bytes received for rates

@@ -214,9 +214,7 @@ void *parse_v9(uv_work_t *req) {
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
 
 #ifdef ENABLE_METRICS
-        uv_mutex_lock(&g_metrics.mutex);
-        g_metrics.v9_templates_received++;
-        uv_mutex_unlock(&g_metrics.mutex);
+        metrics_inc_v9_templates_received();
 #endif
 
         // Track the exporter and flowsets
@@ -755,9 +753,7 @@ void *parse_v9(uv_work_t *req) {
           }
 
 #ifdef ENABLE_METRICS
-          uv_mutex_lock(&g_metrics.mutex);
-          g_metrics.v9_records_received++;
-          uv_mutex_unlock(&g_metrics.mutex);
+          metrics_inc_v9_records_received();
 #endif
 
           if (netflow_packet_ptr->records[record_counter].input != 0) {
