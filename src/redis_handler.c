@@ -33,8 +33,8 @@ typedef struct template_cache_entry {
   struct template_cache_entry *next;
 } template_cache_entry_t;
 
-#define TEMPLATE_CACHE_SIZE 256
-#define TEMPLATE_CACHE_EXPIRY 300 // 5 minutes
+#define TEMPLATE_CACHE_SIZE 2560
+#define TEMPLATE_CACHE_EXPIRY 3600 // 1 HOUR
 
 static THREAD_LOCAL template_cache_entry_t *g_template_cache[TEMPLATE_CACHE_SIZE] = {NULL};
 
