@@ -35,9 +35,11 @@ void *parse_v5(uv_work_t *req) {
 
   swap_endianness((void *) &(netflow_packet_ptr->header.version), sizeof(netflow_packet_ptr->header.version));
   if (netflow_packet_ptr->header.version != 5) {
+#ifdef ENABLE_METRICS
     uv_mutex_lock(&g_metrics.mutex);
     g_metrics.netflow_v5_dropped++;
     uv_mutex_unlock(&g_metrics.mutex);
+#endif
     EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
     goto unlock_mutex_parse_v5;
   }
@@ -148,9 +150,11 @@ void *parse_v5(uv_work_t *req) {
 
   insert_flows(exporter_host, &flows_to_insert);
 
+#ifdef ENABLE_METRICS
   uv_mutex_lock(&g_metrics.mutex);
   g_metrics.netflow_v5_parsed++;
   uv_mutex_unlock(&g_metrics.mutex);
+#endif
 
 unlock_mutex_parse_v5:
   // uv_mutex_unlock(lock);

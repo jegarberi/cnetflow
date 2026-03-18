@@ -213,9 +213,11 @@ void *parse_v9(uv_work_t *req) {
 
         LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
 
+#ifdef ENABLE_METRICS
         uv_mutex_lock(&g_metrics.mutex);
         g_metrics.v9_templates_received++;
         uv_mutex_unlock(&g_metrics.mutex);
+#endif
 
         // Track the exporter and flowsets
         metrics_track_exporter(args->exporter);
@@ -752,9 +754,11 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
 
+#ifdef ENABLE_METRICS
           uv_mutex_lock(&g_metrics.mutex);
           g_metrics.v9_records_received++;
           uv_mutex_unlock(&g_metrics.mutex);
+#endif
 
           if (netflow_packet_ptr->records[record_counter].input != 0) {
             metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);

@@ -493,9 +493,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     goto udp_handle_free_and_return;
   }
 
+#ifdef ENABLE_METRICS
   uv_mutex_lock(&g_metrics.mutex);
   g_metrics.packets_received++;
   uv_mutex_unlock(&g_metrics.mutex);
+#endif
 
   // Track total bytes received for rates
   metrics_inc_bytes(nread);

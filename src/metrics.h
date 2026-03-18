@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <uv.h>
 
+#ifdef ENABLE_METRICS
+
 /**
  * @brief Global metrics structure to count various events across the system.
  */
@@ -83,5 +85,17 @@ void metrics_track_exporter(uint32_t exporter_ip);
  * @brief Tracks unique interface IDs per exporter.
  */
 void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id);
+
+#else // ENABLE_METRICS
+
+#define metrics_init() do {} while(0)
+#define metrics_tcp_start(loop, port) do {} while(0)
+#define metrics_timer_start(loop) do {} while(0)
+#define metrics_inc_bytes(bytes) do {} while(0)
+#define metrics_inc_flowsets(flowsets) do {} while(0)
+#define metrics_track_exporter(ip) do {} while(0)
+#define metrics_track_interface(ip, id) do {} while(0)
+
+#endif // ENABLE_METRICS
 
 #endif // CNETFLOW_METRICS_H

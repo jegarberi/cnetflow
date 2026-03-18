@@ -28,8 +28,9 @@ build_config() {
     local arena="$3"
     local logging="$4"
     local redis="$5"
-    local static_build="$6"
-    local build_type="$7"
+    local metrics="$6"
+    local static_build="$7"
+    local build_type="$8"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -83,6 +84,7 @@ build_config() {
               -DUSE_ARENA="$arena" \
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
+              -DENABLE_METRICS="$metrics" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -114,45 +116,49 @@ run_builds() {
     local ar="$3"
     local log="$4"
     local rd="$5"
+    local met="$6"
     
     # Release
-    build_config "$name" "$ch" "$ar" "$log" "$rd" "OFF" "Release"
-    build_config "$name" "$ch" "$ar" "$log" "$rd" "ON" "Release"
+    build_config "$name" "$ch" "$ar" "$log" "$rd" "$met" "OFF" "Release"
+    build_config "$name" "$ch" "$ar" "$log" "$rd" "$met" "ON" "Release"
 
     # Debug
-    build_config "$name" "$ch" "$ar" "$log" "$rd" "OFF" "Debug"
-    build_config "$name" "$ch" "$ar" "$log" "$rd" "ON" "Debug"
+    build_config "$name" "$ch" "$ar" "$log" "$rd" "$met" "OFF" "Debug"
+    build_config "$name" "$ch" "$ar" "$log" "$rd" "$met" "ON" "Debug"
 }
 
 # 1. Minimal build (everything OFF)
-run_builds "Minimal" OFF OFF OFF OFF
+run_builds "Minimal" OFF OFF OFF OFF OFF
 
 # 2. Standard with Logging
-run_builds "Logging" OFF OFF ON ON
+run_builds "Logging" OFF OFF ON ON ON
 
 # 3. Arena ON
-run_builds "Arena" OFF ON OFF ON
+run_builds "Arena" OFF ON OFF ON ON
 
 # 4. Arena + Logging
-run_builds "Arena_Logging" OFF ON ON ON
+run_builds "Arena_Logging" OFF ON ON ON ON
 
 # 5. ClickHouse
-run_builds "ClickHouse" ON OFF OFF ON
+run_builds "ClickHouse" ON OFF OFF ON ON
 
 # 6. ClickHouse + Logging
-run_builds "ClickHouse_Logging" ON OFF ON ON
+run_builds "ClickHouse_Logging" ON OFF ON ON ON
 
 # 7. ClickHouse + Arena
-run_builds "ClickHouse_Arena" ON ON OFF ON
+run_builds "ClickHouse_Arena" ON ON OFF ON ON
 
 # 8. All ON (Maximum features)
-run_builds "All_ON" ON ON ON ON
+run_builds "All_ON" ON ON ON ON ON
 
 # 9. Redis OFF (Hashmap fallback)
-run_builds "No_Redis" OFF ON ON OFF
+run_builds "No_Redis" OFF ON ON OFF ON
 
 # 10. ClickHouse Minimal (No Arena, No Redis, No Logging)
-run_builds "ClickHouse_Minimal" ON OFF OFF OFF
+run_builds "ClickHouse_Minimal" ON OFF OFF OFF OFF
+
+# 11. No Metrics (Arena + Logging + Redis)
+run_builds "No_Metrics" OFF ON ON ON OFF
 
 echo ""
 echo "###############################################"

@@ -1,4 +1,7 @@
 #include "metrics.h"
+
+#ifdef ENABLE_METRICS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -245,3 +248,5 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
   g_metrics.interfaces_detected = interfaces_count;
   uv_mutex_unlock(&g_metrics.mutex);
 }
+
+#endif // ENABLE_METRICS

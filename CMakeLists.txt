@@ -69,9 +69,14 @@ set(CMAKE_C_STANDARD 99)
 option(USE_CLICKHOUSE "Use ClickHouse instead of PostgreSQL" OFF)
 option(ENABLE_LOGGING "Enable logging" ON)
 option(USE_ARENA "Use arena allocator" ON)
+option(ENABLE_METRICS "Enable metrics" ON)
 
 if (ENABLE_LOGGING)
     add_compile_definitions(ENABLE_LOGGING=1)
+endif()
+
+if (ENABLE_METRICS)
+    add_compile_definitions(ENABLE_METRICS=1)
 endif()
 
 if (COMPAT_CENTOS6)
@@ -102,7 +107,11 @@ endif ()
 
 # 2. Use the determined library type (INTERNAL_LIBRARY_TYPE) for all internal libraries
 add_executable(cnetflow src/main.c src/compat.c)
-add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c src/metrics.c)
+if (ENABLE_METRICS)
+    add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c src/metrics.c)
+else()
+    add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c)
+endif()
 add_library(arena ${INTERNAL_LIBRARY_TYPE} src/arena.c)
 target_link_libraries(arena PUBLIC libuv::uv_a)
 add_library(dyn_array ${INTERNAL_LIBRARY_TYPE} src/dyn_array.c)

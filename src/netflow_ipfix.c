@@ -204,9 +204,11 @@ void *parse_ipfix(uv_work_t *req) {
           goto cleanup_ipfix_and_unlock;
         }
 
+#ifdef ENABLE_METRICS
         uv_mutex_lock(&g_metrics.mutex);
         g_metrics.ipfix_templates_received++;
         uv_mutex_unlock(&g_metrics.mutex);
+#endif
 
         // Track the exporter
         metrics_track_exporter(args->exporter);
@@ -635,9 +637,11 @@ void *parse_ipfix(uv_work_t *req) {
             // sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
           }
 
+#ifdef ENABLE_METRICS
           uv_mutex_lock(&g_metrics.mutex);
           g_metrics.ipfix_records_received++;
           uv_mutex_unlock(&g_metrics.mutex);
+#endif
 
           if (netflow_packet_ptr->records[record_counter].input != 0) {
             metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
