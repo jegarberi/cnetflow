@@ -242,7 +242,7 @@ int is_ipv4_private(const uint32_t ip) {
   return 0;
 }
 
-void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
+void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record) {
 
   /*
     char srcaddr[250];
@@ -291,7 +291,7 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record) {
 }
 
 
-void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record) {
+void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record) {
 
   /*
     char srcaddr[250];
@@ -404,18 +404,18 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__, __LINE__, __func__, ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, netflow_packet->records[i].prot);
 }
-void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, size_t i) {
+void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
 
   char *tmp;
-  tmp = ip_int_to_str(netflow_packet->records[i].srcaddr);
+  tmp = ip_int_to_str((uint32_t) netflow_packet->records[i].srcaddr);
   strncpy(ip_src_str, tmp, strlen(tmp));
   uint16_t tmp_src_port = netflow_packet->records[i].srcport;
   uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
-  tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
+  tmp = ip_int_to_str((uint32_t) netflow_packet->records[i].dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
   fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__, __LINE__, __func__, ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, netflow_packet->records[i].prot);
@@ -425,13 +425,13 @@ void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   char ip_dst_str[50] = {0};
 
   char *tmp;
-  tmp = ip_int_to_str(record->srcaddr);
+  tmp = ip_int_to_str((uint32_t) record->srcaddr);
   strncpy(ip_src_str, tmp, strlen(tmp));
   uint16_t tmp_src_port = record->srcport;
   uint16_t tmp_dst_port = record->dstport;
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
-  tmp = ip_int_to_str(record->dstaddr);
+  tmp = ip_int_to_str((uint32_t) record->dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
   fprintf(file, "%s %d %s %s:%u -> %s:%u %u\n", __FILE__, __LINE__, __func__, ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, record->prot);

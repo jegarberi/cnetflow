@@ -288,11 +288,11 @@ void *parse_v9(uv_work_t *req) {
         pos = 4;
         // pos += 4;
         // FILE *ftemplate = fopen("templates.txt", "a");
-        netflow_v9_flowset_t *netflow_packet_ptr;
-        netflow_v9_flowset_t netflow_packet = {0};
-        netflow_packet_ptr = &netflow_packet;
-        netflow_v9_record_insert_t empty_record = {0};
-        memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
+        // netflow_v9_flowset_t *netflow_packet_ptr;
+        // netflow_v9_flowset_t netflow_packet = {0};
+        // netflow_packet_ptr = &netflow_packet;
+        netflow_v9_uint128_flowset_t flows_to_insert;
+        memset(&flows_to_insert.records[record_counter], 0, sizeof(netflow_v9_record_insert_uint128_t));
         int is_ipv6 = 0;
         uint64_t local_v9_records = 0;
 
@@ -413,15 +413,15 @@ void *parse_v9(uv_work_t *req) {
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
-                  netflow_packet_ptr->records[record_counter].Last = val_tmp32;
+                  flows_to_insert.records[record_counter].Last = val_tmp32;
                 } else if (record_length == 8) {
                   // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
                   // swap_endianness(&val32, sizeof(val32));
-                  netflow_packet_ptr->records[record_counter].Last = val32;
+                  flows_to_insert.records[record_counter].Last = val32;
                 } else {
-                  netflow_packet_ptr->records[record_counter].Last = 0;
+                  flows_to_insert.records[record_counter].Last = 0;
                 }
                 break;
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
@@ -429,15 +429,15 @@ void *parse_v9(uv_work_t *req) {
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
-                  netflow_packet_ptr->records[record_counter].First = val_tmp32;
+                  flows_to_insert.records[record_counter].First = val_tmp32;
                 } else if (record_length == 8) {
                   // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
                   // swap_endianness(&val32, sizeof(val32));
-                  netflow_packet_ptr->records[record_counter].First = val32;
+                  flows_to_insert.records[record_counter].First = val32;
                 } else {
-                  netflow_packet_ptr->records[record_counter].First = 0;
+                  flows_to_insert.records[record_counter].First = 0;
                 }
                 break;
               case IPFIX_FT_FLOWSTARTMILLISECONDS:
@@ -446,7 +446,7 @@ void *parse_v9(uv_work_t *req) {
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
                   // swap_endianness(&val32, sizeof(val32));
-                  netflow_packet_ptr->records[record_counter].First = val32;
+                  flows_to_insert.records[record_counter].First = val32;
                 }
                 break;
               case IPFIX_FT_FLOWENDMILLISECONDS:
@@ -455,64 +455,64 @@ void *parse_v9(uv_work_t *req) {
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
                   // swap_endianness(&val32, sizeof(val32));
-                  netflow_packet_ptr->records[record_counter].Last = val32;
+                  flows_to_insert.records[record_counter].Last = val32;
                 }
                 break;
               case IPFIX_FT_IPVERSION:
                 switch (val_tmp8) {
                   case 4:
                     is_ipv6 = 0;
-                    netflow_packet_ptr->records[record_counter].ip_version = 4;
+                    flows_to_insert.records[record_counter].ip_version = 4;
                     break;
                   case 6:
                     is_ipv6 = 1;
-                    netflow_packet_ptr->records[record_counter].ip_version = 6;
+                    flows_to_insert.records[record_counter].ip_version = 6;
                     break;
                   default:
                     is_ipv6 = 0;
-                    netflow_packet_ptr->records[record_counter].ip_version = 4;
+                    flows_to_insert.records[record_counter].ip_version = 4;
                     break;
                 }
                 break;
               case IPFIX_FT_SOURCEIPV4ADDRESS:
-                netflow_packet_ptr->records[record_counter].srcaddr = val_tmp32;
-                netflow_packet_ptr->records[record_counter].ip_version = 4;
+                flows_to_insert.records[record_counter].srcaddr = val_tmp32;
+                flows_to_insert.records[record_counter].ip_version = 4;
                 break;
               case IPFIX_FT_DESTINATIONIPV4ADDRESS:
-                netflow_packet_ptr->records[record_counter].dstaddr = val_tmp32;
+                flows_to_insert.records[record_counter].dstaddr = val_tmp32;
                 break;
               case IPFIX_FT_SOURCEIPV6ADDRESS:
-                netflow_packet_ptr->records[record_counter].ipv6srcaddr = val_tmp128;
-                netflow_packet_ptr->records[record_counter].ip_version = 6;
+                flows_to_insert.records[record_counter].srcaddr = val_tmp128;
+                flows_to_insert.records[record_counter].ip_version = 6;
                 is_ipv6 = 1;
                 break;
               case IPFIX_FT_DESTINATIONIPV6ADDRESS:
-                netflow_packet_ptr->records[record_counter].ipv6dstaddr = val_tmp128;
+                flows_to_insert.records[record_counter].dstaddr = val_tmp128;
                 is_ipv6 = 1;
                 break;
               case IPFIX_FT_OCTETDELTACOUNT:
                 switch (record_length) {
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dOctets = ((uint64_t) val_tmp32);
+                    flows_to_insert.records[record_counter].dOctets = ((uint64_t) val_tmp32);
                     break;
                   case 8:
-                    netflow_packet_ptr->records[record_counter].dOctets = (uint64_t) val_tmp64;
+                    flows_to_insert.records[record_counter].dOctets = (uint64_t) val_tmp64;
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].dOctets = 0;
+                    flows_to_insert.records[record_counter].dOctets = 0;
                     break;
                 }
                 break;
               case IPFIX_FT_PACKETDELTACOUNT:
                 switch (record_length) {
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dPkts = ((uint64_t) val_tmp32);
+                    flows_to_insert.records[record_counter].dPkts = ((uint64_t) val_tmp32);
                     break;
                   case 8:
-                    netflow_packet_ptr->records[record_counter].dPkts = (uint64_t) val_tmp64;
+                    flows_to_insert.records[record_counter].dPkts = (uint64_t) val_tmp64;
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].dPkts = 0;
+                    flows_to_insert.records[record_counter].dPkts = 0;
                     break;
                 }
                 break;
@@ -521,13 +521,13 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_UDPDESTINATIONPORT:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) val_tmp16;
+                    flows_to_insert.records[record_counter].dstport = (uint16_t) val_tmp16;
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dstport = (uint16_t) ((val_tmp32));
+                    flows_to_insert.records[record_counter].dstport = (uint16_t) ((val_tmp32));
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].dstport = 0;
+                    flows_to_insert.records[record_counter].dstport = 0;
                     break;
                 }
                 break;
@@ -536,95 +536,95 @@ void *parse_v9(uv_work_t *req) {
               case IPFIX_FT_UDPSOURCEPORT:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].srcport = (uint16_t) val_tmp16;
+                    flows_to_insert.records[record_counter].srcport = (uint16_t) val_tmp16;
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].srcport = (uint16_t) ((val_tmp32));
+                    flows_to_insert.records[record_counter].srcport = (uint16_t) ((val_tmp32));
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].srcport = 0;
+                    flows_to_insert.records[record_counter].srcport = 0;
                     break;
                 }
                 break;
               case IPFIX_FT_PROTOCOLIDENTIFIER:
-                netflow_packet_ptr->records[record_counter].prot = val_tmp8;
+                flows_to_insert.records[record_counter].prot = val_tmp8;
                 break;
               case IPFIX_FT_INGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].input = val_tmp16;
+                    flows_to_insert.records[record_counter].input = val_tmp16;
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].input = (uint16_t) ((val_tmp32));
+                    flows_to_insert.records[record_counter].input = (uint16_t) ((val_tmp32));
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].input = 0;
+                    flows_to_insert.records[record_counter].input = 0;
                     break;
                 }
                 break;
               case IPFIX_FT_EGRESSINTERFACE:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].output = val_tmp16;
+                    flows_to_insert.records[record_counter].output = val_tmp16;
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].output = (uint16_t) ((val_tmp32));
+                    flows_to_insert.records[record_counter].output = (uint16_t) ((val_tmp32));
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].output = 0;
+                    flows_to_insert.records[record_counter].output = 0;
                     break;
                 }
                 break;
               case IPFIX_FT_BGPSOURCEASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].src_as = ((uint32_t) val_tmp16);
+                    flows_to_insert.records[record_counter].src_as = ((uint32_t) val_tmp16);
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].src_as = val_tmp32;
+                    flows_to_insert.records[record_counter].src_as = val_tmp32;
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].src_as = 0;
+                    flows_to_insert.records[record_counter].src_as = 0;
                     break;
                 }
                 break;
               case IPFIX_FT_BGPDESTINATIONASNUMBER:
                 switch (record_length) {
                   case 2:
-                    netflow_packet_ptr->records[record_counter].dst_as = ((uint32_t) val_tmp16);
+                    flows_to_insert.records[record_counter].dst_as = ((uint32_t) val_tmp16);
                     break;
                   case 4:
-                    netflow_packet_ptr->records[record_counter].dst_as = val_tmp32;
+                    flows_to_insert.records[record_counter].dst_as = val_tmp32;
                     break;
                   default:
-                    netflow_packet_ptr->records[record_counter].dst_as = 0;
+                    flows_to_insert.records[record_counter].dst_as = 0;
                     break;
                 }
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV4ADDRESS:
-                netflow_packet_ptr->records[record_counter].nexthop = val_tmp32;
+                flows_to_insert.records[record_counter].nexthop = val_tmp32;
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV6ADDRESS:
-                netflow_packet_ptr->records[record_counter].ipv6nexthop = val_tmp128;
+                flows_to_insert.records[record_counter].nexthop = val_tmp128;
                 is_ipv6 = 1;
                 break;
               case IPFIX_FT_TCPCONTROLBITS:
-                netflow_packet_ptr->records[record_counter].tcp_flags = val_tmp8;
+                flows_to_insert.records[record_counter].tcp_flags = val_tmp8;
                 break;
               case IPFIX_FT_IPCLASSOFSERVICE:
-                netflow_packet_ptr->records[record_counter].tos = val_tmp8;
+                flows_to_insert.records[record_counter].tos = val_tmp8;
                 break;
               case IPFIX_FT_SOURCEIPV4PREFIXLENGTH:
-                netflow_packet_ptr->records[record_counter].src_mask = val_tmp8;
+                flows_to_insert.records[record_counter].src_mask = val_tmp8;
                 break;
               case IPFIX_FT_DESTINATIONIPV4PREFIXLENGTH:
-                netflow_packet_ptr->records[record_counter].dst_mask = val_tmp8;
+                flows_to_insert.records[record_counter].dst_mask = val_tmp8;
                 break;
               case IPFIX_FT_SOURCEIPV6PREFIXLENGTH:
-                netflow_packet_ptr->records[record_counter].src_mask = val_tmp8;
+                flows_to_insert.records[record_counter].src_mask = val_tmp8;
                 break;
               case IPFIX_FT_DESTINATIONIPV6PREFIXLENGTH:
-                netflow_packet_ptr->records[record_counter].dst_mask = val_tmp8;
+                flows_to_insert.records[record_counter].dst_mask = val_tmp8;
                 break;
               default:
                 break;
@@ -720,41 +720,41 @@ void *parse_v9(uv_work_t *req) {
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "\n");
 #endif
-          if (netflow_packet_ptr->records[record_counter].Last != 0 &&
-              netflow_packet_ptr->records[record_counter].First != 0) {
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].Last));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].First,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].First));
+          if (flows_to_insert.records[record_counter].Last != 0 &&
+              flows_to_insert.records[record_counter].First != 0) {
+            // swap_endianness(&flows_to_insert.records[record_counter].Last,
+            //                 sizeof(flows_to_insert.records[record_counter].Last));
+            // swap_endianness(&flows_to_insert.records[record_counter].First,
+            //                 sizeof(flows_to_insert.records[record_counter].First));
             uint32_t duration =
-                netflow_packet_ptr->records[record_counter].Last - netflow_packet_ptr->records[record_counter].First;
-            netflow_packet_ptr->records[record_counter].Last = now;
-            netflow_packet_ptr->records[record_counter].First = now - duration;
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].Last));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].First,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].First));
+                flows_to_insert.records[record_counter].Last - flows_to_insert.records[record_counter].First;
+            flows_to_insert.records[record_counter].Last = now;
+            flows_to_insert.records[record_counter].First = now - duration;
+            // swap_endianness(&flows_to_insert.records[record_counter].Last,
+            //                 sizeof(flows_to_insert.records[record_counter].Last));
+            // swap_endianness(&flows_to_insert.records[record_counter].First,
+            //                 sizeof(flows_to_insert.records[record_counter].First));
           }
           if (!is_ipv6) {
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].srcport));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].dstport));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-            //                 sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+            // swap_endianness(&flows_to_insert.records[record_counter].srcport,
+            //                 sizeof(flows_to_insert.records[record_counter].srcport));
+            // swap_endianness(&flows_to_insert.records[record_counter].dstport,
+            //                 sizeof(flows_to_insert.records[record_counter].dstport));
+            // swap_endianness(&flows_to_insert.records[record_counter].srcaddr,
+            //                 sizeof(flows_to_insert.records[record_counter].srcaddr));
+            // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
+            //                 sizeof(flows_to_insert.records[record_counter].dstaddr));
 
 
-            swap_src_dst_v9_ipv4(&netflow_packet_ptr->records[record_counter]);
-            //  swap_endianness(&netflow_packet_ptr->records[record_counter].srcport,
-            //                sizeof(netflow_packet_ptr->records[record_counter].srcport));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstport,
-            // sizeof(netflow_packet_ptr->records[record_counter].dstport));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].srcaddr,
-            // sizeof(netflow_packet_ptr->records[record_counter].srcaddr));
-            // swap_endianness(&netflow_packet_ptr->records[record_counter].dstaddr,
-            // sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
+            swap_src_dst_v9_ipv4(&flows_to_insert.records[record_counter]);
+            //  swap_endianness(&flows_to_insert.records[record_counter].srcport,
+            //                sizeof(flows_to_insert.records[record_counter].srcport));
+            // swap_endianness(&flows_to_insert.records[record_counter].dstport,
+            // sizeof(flows_to_insert.records[record_counter].dstport));
+            // swap_endianness(&flows_to_insert.records[record_counter].srcaddr,
+            // sizeof(flows_to_insert.records[record_counter].srcaddr));
+            // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
+            // sizeof(flows_to_insert.records[record_counter].dstaddr));
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, netflow_packet_ptr, record_counter);
 #endif
@@ -767,11 +767,11 @@ void *parse_v9(uv_work_t *req) {
 // #endif
           local_v9_records++;
 
-          if (netflow_packet_ptr->records[record_counter].input != 0) {
-            metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
+          if (flows_to_insert.records[record_counter].input != 0) {
+            metrics_track_interface(args->exporter, flows_to_insert.records[record_counter].input);
           }
-          if (netflow_packet_ptr->records[record_counter].output != 0) {
-            metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].output);
+          if (flows_to_insert.records[record_counter].output != 0) {
+            metrics_track_interface(args->exporter, flows_to_insert.records[record_counter].output);
           }
 
           record_counter++;
@@ -794,80 +794,20 @@ void *parse_v9(uv_work_t *req) {
         }
 #endif
 
-        netflow_packet_ptr->header.count = record_counter;
-        /*
-         netflow_packet_ptr->header.count = record_counter;
-        if (!is_ipv6) {
-          // insert_v9(args->exporter, netflow_packet_ptr);
-        } else {
-          fprintf(stderr, "ipv6 got ipv6...\n");
-        }
-        */
-        netflow_v9_uint128_flowset_t flows_to_insert; 
-        /*if (netflow_packet_ptr->records[0].dOctets == 0) {
-          LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
-        }
-        if (netflow_packet_ptr->records[0].dPkts == 0) {
-          LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
-        }*/
-        uint8_t dump = 0;
-        copy_v9_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6, &dump);
-        /*
-        if (dump) {
-          uint16_t t_field_count = template_hashmap[1];
-          size_t alloc_size = sizeof(uint16_t) * (t_field_count + 1) * 4;
-          insert_dump(args->exporter, key, (uint8_t*) args->data, args->len);
-          /*
-          fprintf(stderr, "dumping packet\n");
-          uint8_t *ptr;
-          ptr = args->data;
-          FILE* fdump = fopen("/tmp/dumps.txt","a+");
-          fprintf(fdump, "timestamp : %d \n ",now);
-          fprintf(fdump, "template id : %s: \n ",key);
+        flows_to_insert.header.count = record_counter;
 
-          uint16_t field_count = template_hashmap[1];
-          size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 4;
-          fprintf(fdump, "{");
-          for (size_t i = 0; i < alloc_size; i++) {
-            uint8_t temp_packet = template_hashmap[i];
-            fprintf(fdump, "%02x,", temp_packet);
-            if (i < alloc_size - 1) {
-              fprintf(fdump, ",");
-            }
-          }
-          fprintf(fdump, "}\n");
-          fprintf(fdump, "{");
-          for (size_t i = 0; i < args->len; i++) {
-            uint8_t pkt = *(ptr+i);
-            fprintf(fdump, "%02x", pkt);
-            if (i < args->len - 1) {
-              fprintf(fdump, ",");
-            } else {
+        flows_to_insert.header.SysUptime = header->SysUptime;
+        flows_to_insert.header.unix_secs = header->unix_secs;
+        flows_to_insert.header.unix_nsecs = 0;
+        flows_to_insert.header.flow_sequence = header->package_sequence;
+        flows_to_insert.header.sampling_interval = header->source_id;
 
-            }
-          }
-          fprintf(fdump, "}");
-          fprintf(fdump, "\n");
-          fflush(fdump);
-          fclose(fdump);
-
-        }
-        */
         uint32_t exporter_host = args->exporter;
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
-        if (is_ipv6) {
-          LOG_ERROR("%s %d %s this is ipv6\n", __FILE__, __LINE__, __func__);
-          insert_flows(exporter_host, &flows_to_insert);
-        } else {
-          LOG_ERROR("%s %d %s this is ipv4\n", __FILE__, __LINE__, __func__);
-          insert_flows(exporter_host, &flows_to_insert);
-        }
-
-        // fclose(ftemplate);
+        LOG_INFO("%s %d %s Inserting %lu v9 flows\n", __FILE__, __LINE__, __func__, record_counter);
+        insert_flows(exporter_host, &flows_to_insert);
       }
-      // TODO
-      //  IF NUMBERS MAKES NO SENSE DUMP PACKET AND TEMPLATE TO DEBUG
     } else if (flowset_id == 1) {
       // this is an option flowset, skip it entirely
     } else if (flowset_id > 1 && flowset_id < 256) {
@@ -889,85 +829,4 @@ unlock_mutex_parse_v9:
   args->status = collector_data_status_done;
 
   return NULL;
-}
-
-
-void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6, uint8_t *dump) {
-  // fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
-  out->header.count = in->header.count;
-  out->header.SysUptime = in->header.SysUptime;
-  out->header.unix_secs = in->header.unix_secs;
-  out->header.unix_nsecs = in->header.unix_nsecs;
-  out->header.flow_sequence = in->header.flow_sequence;
-  out->header.sampling_interval = in->header.sampling_interval;
-  for (int i = 0; i < in->header.count; i++) {
-    // Non-destructive copy & swap
-    out->records[i].srcport = in->records[i].srcport;
-    // swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
-
-    out->records[i].dstport = in->records[i].dstport;
-    // swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
-
-    out->records[i].dPkts = in->records[i].dPkts;
-    // swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts));
-
-    out->records[i].dOctets = in->records[i].dOctets;
-    // swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
-
-    // First and Last are already Host Order from parse_v9
-    out->records[i].First = in->records[i].First;
-    out->records[i].Last = in->records[i].Last;
-
-    out->records[i].input = in->records[i].input;
-    // swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
-
-    out->records[i].output = in->records[i].output;
-    // swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
-
-    out->records[i].src_as = in->records[i].src_as;
-    // swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
-
-    out->records[i].dst_as = in->records[i].dst_as;
-    // swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
-
-    out->records[i].src_mask = in->records[i].src_mask;
-    // swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
-
-    out->records[i].dst_mask = in->records[i].dst_mask;
-    // swap_endianness(&out->records[i].dst_mask, sizeof(out->records[i].dst_mask));
-
-    out->records[i].tcp_flags = in->records[i].tcp_flags;
-    out->records[i].prot = in->records[i].prot;
-    out->records[i].tos = in->records[i].tos;
-
-    if (is_ipv6) {
-      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
-      // swap_endianness(&out->records[i].srcaddr, sizeof(out->records[i].srcaddr));
-
-      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
-      // swap_endianness(&out->records[i].dstaddr, sizeof(out->records[i].dstaddr));
-
-      out->records[i].nexthop = in->records[i].ipv6nexthop;
-      // swap_endianness(&out->records[i].nexthop, sizeof(out->records[i].nexthop));
-
-      out->records[i].ip_version = 6;
-    } else {
-      uint32_t tmp;
-
-      tmp = in->records[i].srcaddr;
-      // swap_endianness(&tmp, sizeof(tmp));
-      out->records[i].srcaddr = tmp;
-
-      tmp = in->records[i].dstaddr;
-      // swap_endianness(&tmp, sizeof(tmp));
-      out->records[i].dstaddr = tmp;
-
-      tmp = in->records[i].nexthop;
-      // swap_endianness(&tmp, sizeof(tmp));
-      out->records[i].nexthop = tmp;
-
-      out->records[i].ip_version = 4;
-    }
-  }
-  // fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }

@@ -188,9 +188,9 @@ static inline void swap_endianness(void *value, size_t len) {
 void *fix_endianness(void *buf, void *data, size_t len);
 void printf_v5(FILE *, netflow_v5_flowset_t *, int);
 void swap_src_dst_v5_ipv4(netflow_v5_record_t *record);
-void swap_src_dst_v9_ipv4(netflow_v9_record_insert_t *record);
-void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_t *record);
-void printf_v9(FILE *file, netflow_v9_flowset_t *netflow_packet, size_t i);
+void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record);
+void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record);
+void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i);
 int is_ipv4_private(uint32_t);
 extern endianness_e endianness;
 #endif // NETFLOW_H
