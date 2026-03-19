@@ -42,6 +42,7 @@ void *parse_v5(uv_work_t *req) {
     goto unlock_mutex_parse_v5;
   }
   swap_endianness((void *) &(netflow_packet_ptr->header.count), sizeof(netflow_packet_ptr->header.count));
+  collector_inc_received_flows(netflow_packet_ptr->header.count);
   if (netflow_packet_ptr->header.count > 30) {
     LOG_ERROR("Too many flows...\n");
     goto unlock_mutex_parse_v5;

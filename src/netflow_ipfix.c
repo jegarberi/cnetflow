@@ -679,6 +679,7 @@ void *parse_ipfix(uv_work_t *req) {
         LOG_INFO("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
                  is_ipv6 ? "IPv6" : "IPv4");
         total_flows_in_packet += record_counter;
+        collector_inc_received_flows(record_counter);
         insert_flows(exporter_host, &flows_to_insert);
       }
     } else if (flowset_id == IPFIX_OPTION_SET) {

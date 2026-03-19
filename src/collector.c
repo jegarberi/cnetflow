@@ -82,6 +82,7 @@ uv_udp_t *udp_server_global = NULL;
 size_t thread_counter;
 static volatile int active_requests = 0;
 static volatile uint64_t total_processed_flows = 0;
+static volatile uint64_t total_received_flows = 0;
 
 void print_rss_max_usage() {
 #ifndef _WIN32
@@ -99,15 +100,23 @@ void check_backlog_cb(uv_timer_t *handle) {
   (void) handle;
   static int last_backlog = 0;
   static uint64_t last_total_flows = 0;
+  static uint64_t last_received_flows = 0;
   int current_backlog = active_requests;
   uint64_t delta_flows = total_processed_flows - last_total_flows;
+  uint64_t delta_received = total_received_flows - last_received_flows;
   double flows_per_sec = (double)delta_flows / 60.0; // timer runs every 60s
+  double recv_flows_per_sec = (double)delta_received / 60.0;
   if (current_backlog > last_backlog && current_backlog > 100) {
-    printf("Messages are arriving faster than they can be processed (backlog: %d, flows/s: %.2f)\n",
-           current_backlog, flows_per_sec);
+    printf("Messages are arriving faster than they can be processed (backlog: %d, recv flows/s: %.2f, proc flows/s: %.2f)\n",
+           current_backlog, recv_flows_per_sec, flows_per_sec);
   }
   last_backlog = current_backlog;
   last_total_flows = total_processed_flows;
+  last_received_flows = total_received_flows;
+}
+
+void collector_inc_received_flows(uint64_t count) {
+  __sync_fetch_and_add(&total_received_flows, count);
 }
 
 /**

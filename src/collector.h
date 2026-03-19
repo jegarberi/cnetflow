@@ -38,6 +38,7 @@ int8_t collector_default(collector_t *);
 int8_t collector_setup(collector_t *);
 int8_t collector_start(collector_t *);
 char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen);
+void collector_inc_received_flows(uint64_t count);
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags);
 void print_rss_max_usage(void);
 void *after_work_cb(uv_work_t *req, int status);
