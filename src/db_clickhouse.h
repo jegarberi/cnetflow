@@ -58,7 +58,7 @@ void ch_disconnect(ch_conn_t *conn);
  * @param query SQL query string
  * @return 0 on success, -1 on failure
  */
-int ch_execute(ch_conn_t *conn, const char *query);
+int ch_execute(ch_conn_t *conn, const char *query, size_t query_len);
 
 /**
  * Creates the flows table if it doesn't exist

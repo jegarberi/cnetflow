@@ -269,16 +269,17 @@ void ch_disconnect(ch_conn_t *conn) {
   free(conn);
 }
 
-int ch_execute(ch_conn_t *conn, const char *query) {
+int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
   if (!conn || !conn->curl)
     return -1;
-  if (strlen(query) == 0)
+  if (query_len == 0)
     return -1;
   char url[512];
   snprintf(url, sizeof(url), "http://%s:%u/?database=%s", conn->host, conn->port, conn->database);
 
   curl_easy_setopt(conn->curl, CURLOPT_URL, url);
   curl_easy_setopt(conn->curl, CURLOPT_POSTFIELDS, query);
+  curl_easy_setopt(conn->curl, CURLOPT_POSTFIELDSIZE, (long) query_len);
   curl_easy_setopt(conn->curl, CURLOPT_TIMEOUT, 10L);
 
   if (conn->user && conn->user[0] != '\0') {
@@ -346,7 +347,7 @@ int ch_create_flows_table(ch_conn_t *conn) {
                                    " TTL first + INTERVAL 7 DAY"
                                    " SETTINGS index_granularity = 8192, storage_policy = 'default'";
 
-  return ch_execute(conn, create_table_query);
+  return ch_execute(conn, create_table_query, strlen(create_table_query));
 }
 
 
@@ -410,7 +411,7 @@ int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dum
     return -1;
   }
 
-  int result = ch_execute(conn, query);
+  int result = ch_execute(conn, query, (size_t) written);
   CH_LOG_INFO("%s\n", query);
 
   free(str_dump);
@@ -484,7 +485,7 @@ int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, c
     return -1;
   }
 
-  int result = ch_execute(conn, query);
+  int result = ch_execute(conn, query, (size_t) written);
   CH_LOG_INFO("%s\n", query);
 
   free(str_dump);
@@ -619,7 +620,7 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   if (inserted > 0 && (inserted >= (size_t) g_max_flows || (now - last) > (uint32_t) g_max_diff)) {
     last = now;
-    int result = ch_execute(conn, query);
+    int result = ch_execute(conn, query, (size_t) offset);
 
     if (unlikely(result < 0)) {
       CH_LOG_ERROR("%s %d %s: Failed to insert %zu flows\n", __FILE__, __LINE__, __func__, inserted);
