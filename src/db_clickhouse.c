@@ -511,6 +511,9 @@ int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, c
 }
 
 
+extern int g_max_flows;
+extern int g_max_diff;
+
 int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
   static THREAD_LOCAL char *query = NULL;
@@ -518,46 +521,39 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL int query_size = 0;
   static THREAD_LOCAL size_t inserted = 0;
   static THREAD_LOCAL uint32_t last = 0;
-  static THREAD_LOCAL uint32_t now = 0;
-  static THREAD_LOCAL uint32_t max_diff = 0;
-  static THREAD_LOCAL uint32_t max_flows = 0;
-  if (last == 0) {
+  static THREAD_LOCAL char exporter_str[INET_ADDRSTRLEN] = {0};
+  static THREAD_LOCAL uint32_t last_exporter = 0;
+
+  if (unlikely(last == 0)) {
     last = (uint32_t) time(NULL);
   }
-  now = (uint32_t) time(NULL);
-
-  if (max_diff == 0) {
-    const char *max_diff_str = getenv("CNETFLOW_MAX_DIFF");
-    if (max_diff_str && max_diff_str[0] != '\0') {
-      max_diff = (uint32_t) strtoul(max_diff_str, NULL, 10);
-    } else {
-      max_diff = 5; // default seconds window
-    }
-  }
-  if (max_flows == 0) {
-    const char *max_flows_str = getenv("CNETFLOW_MAX_FLOWS");
-    if (max_flows_str && max_flows_str[0] != '\0') {
-      max_flows = (uint32_t) strtoul(max_flows_str, NULL, 10);
-    } else {
-      max_flows = 10000; // default batch size
-    }
-  }
+  uint32_t now = (uint32_t) time(NULL);
 
   ch_db_connect(&conn);
-  if (!conn || !conn->connected) {
+  if (unlikely(!conn || !conn->connected)) {
     CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
     return -1;
   }
 
-  if (!flows || flows->header.count == 0) {
+  if (unlikely(!flows || flows->header.count == 0)) {
     return 0;
   }
 
-  // Build bulk insert query for better performance
-  if (query_size == 0) {
-    query_size = 65536; // Start with 64KB
+  // Cache exporter IP string
+  if (unlikely(exporter != last_exporter || exporter_str[0] == '\0')) {
+    struct in_addr addr;
+    addr.s_addr = htonl(exporter);
+    if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
+      snprintf(exporter_str, sizeof(exporter_str), "unknown");
+    }
+    last_exporter = exporter;
   }
-  if (query == NULL) {
+
+  // Build bulk insert query for better performance
+  if (unlikely(query_size == 0)) {
+    query_size = 1024 * 1024; // Start with 1MB for TSV
+  }
+  if (unlikely(query == NULL)) {
     query = calloc(query_size, 1);
     static THREAD_LOCAL bool query_registered = false;
     if (!query_registered) {
@@ -565,99 +561,61 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
       query_registered = true;
     }
   }
-  if (!query) {
+  if (unlikely(!query)) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer\n", __FILE__, __LINE__, __func__);
     return -1;
   }
+
   if (offset == 0) {
     offset = snprintf(query, query_size,
                       "INSERT INTO flows (exporter,srcaddr,dstaddr,srcport,dstport,"
                       "protocol,input,output,dpkts,doctets,first,last,"
-                      "tcp_flags,tos,src_as,dst_as,src_mask,dst_mask,ip_version) VALUES ");
+                      "tcp_flags,tos,src_as,dst_as,src_mask,dst_mask,ip_version) FORMAT TabSeparated\n");
   }
-  int records_to_insert = 0;
+
   for (int i = 0; i < flows->header.count; i++) {
     if (flows->records[i].dOctets == 0 || flows->records[i].dPkts == 0 ||
         flows->records[i].First > flows->records[i].Last || flows->records[i].First == 0 ||
         flows->records[i].Last == 0 ||
-        // TO-DO Averiguar porque pasa esto.
-        (flows->records[i].prot == 6 && flows->records[i].srcport == 0 &&
-         flows->records[i].dstport == 0) || // TCP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
-        (flows->records[i].prot == 17 && flows->records[i].srcport == 0 &&
-         flows->records[i].dstport == 0) // UDP CON SRCPORT == 0 Y DSTPORT == 0 NO LO INSERTO.
+        (flows->records[i].prot == 6 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0) ||
+        (flows->records[i].prot == 17 && flows->records[i].srcport == 0 && flows->records[i].dstport == 0)
     ) {
-      CH_LOG_INFO("%s %d %s: Ignoring flow values set to 0 when it shouldnt be\n", __FILE__, __LINE__, __func__);
-
       continue;
     }
+
     uint32_t dur = flows->records[i].Last - flows->records[i].First;
     if (dur > 0 && (flows->records[i].dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG ||
                     flows->records[i].dPkts / dur > _MAX_PACKETS_TO_CONSIDER_WRONG)) {
-      CH_LOG_INFO("%s %d %s: Ignoring flow dur > 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur "
-      "> _MAX_PACKETS_TO_CONSIDER_WRONG. dur: %u, octets: %lu, pkts: %lu \n",
-      __FILE__, __LINE__, __func__,dur,flows->records[i].dOctets,flows->records[i].dPkts);
       continue;
     }
     if (dur == 0 && (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG ||
                      flows->records[i].dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG)) {
-      CH_LOG_INFO("%s %d %s: Ignoring flow dur == 0 && dOctets / dur > _MAX_OCTETS_TO_CONSIDER_WRONG || dPkts / dur "
-                  "> _MAX_PACKETS_TO_CONSIDER_WRONG dur: %u, octets: %lu, pkts: %lu \n",
-                  __FILE__, __LINE__, __func__,dur,flows->records[i].dOctets,flows->records[i].dPkts);
       continue;
     }
 
-    /*
-     if ( (flows->records[i].dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG || flows->records[i].dPkts >
-    _MAX_PACKETS_TO_CONSIDER_WRONG)){ CH_LOG_INFO("%s %d %s: Ignoring flow dOctets > _MAX_OCTETS_TO_CONSIDER_WRONG ||
-    dPkts > _MAX_PACKETS_TO_CONSIDER_WRONG\n", __FILE__, __LINE__, __func__); continue;
-    }
-    */
-    if (flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0) {
-      CH_LOG_INFO("%s %d %s: Ignoring flow flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0\n",
-                  __FILE__, __LINE__, __func__);
+    if (unlikely(flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0)) {
       continue;
     }
-    records_to_insert++;
-    if (records_to_insert == 0) {
-      CH_LOG_ERROR("%s %d %s: No Valid records to insert...\n", __FILE__, __LINE__, __func__);
-      memset(query, 0, query_size);
-      free(query);
-      offset = 0;
-      query = NULL;
-      return -1;
-    }
-    // Convert exporter IP to string format
-    char exporter_str[INET_ADDRSTRLEN];
-    struct in_addr addr;
-    addr.s_addr = htonl(exporter);
-    if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
-      snprintf(exporter_str, sizeof(exporter_str), "unknown");
-    }
 
-    char srcaddr[250];
-    char dstaddr[250];
+    char *srcaddr = ch_ip_uint128_to_string(flows->records[i].srcaddr, flows->records[i].ip_version);
+    // Note: ch_ip_uint128_to_string uses a ring of 4 buffers, so we can call it again for dstaddr safely
+    char *dstaddr = ch_ip_uint128_to_string(flows->records[i].dstaddr, flows->records[i].ip_version);
 
-    char *nfaddr = ch_ip_uint128_to_string(flows->records[i].srcaddr, flows->records[i].ip_version);
-    memccpy(srcaddr, nfaddr, '\0', 250);
-    nfaddr = ch_ip_uint128_to_string(flows->records[i].dstaddr, flows->records[i].ip_version);
-    memccpy(dstaddr, nfaddr, '\0', 250);
     char value_str[1024];
     int written =
         snprintf(value_str, sizeof(value_str),
-                 "%s('%s','%s','%s',%u,%u,%u,%u,%u,%lu,%lu,toDateTime(%u),toDateTime(%u),%u,%u,%u,%u,%u,%u,%u)",
-                 inserted > 0 ? "," : "", exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
+                 "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%lu\t%lu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+                 exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
                  flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
                  flows->records[i].dPkts, flows->records[i].dOctets, flows->records[i].First, flows->records[i].Last,
                  flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
                  flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
 
-    // Check if we need to resize the buffer
-    if (offset + written + 1 >= query_size) {
+    if (unlikely(offset + written + 1 >= query_size)) {
       size_t new_query_size = query_size * 2;
       char *new_query = realloc(query, new_query_size);
       if (!new_query) {
         CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
-        // Don't memset/free here to avoid corruption, just return error
         return -1;
       }
       query = new_query;
@@ -669,33 +627,19 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
     inserted++;
   }
 
-  if (inserted == 0) {
-    memset(query, 0, query_size);
-    free(query);
-    offset = 0;
-    query = NULL;
-    return 0;
-  }
-
-  query[offset] = '\0';
-  if (inserted > max_flows || (now - last) > max_diff) {
+  if (inserted >= (size_t)g_max_flows || (now - last) > (uint32_t)g_max_diff) {
     last = now;
     int result = ch_execute(conn, query);
-    CH_LOG_INFO("%s\n", query);
-    memset(query, 0, query_size);
-    free(query);
-    offset = 0;
-    query = NULL;
-
-    if (result < 0) {
-      CH_LOG_ERROR("%s %d %s: Failed to insert flows\n", __FILE__, __LINE__, __func__);
-      return -1;
+    
+    if (unlikely(result < 0)) {
+      CH_LOG_ERROR("%s %d %s: Failed to insert %zu flows\n", __FILE__, __LINE__, __func__, inserted);
+    } else {
+      CH_LOG_INFO("%s %d %s: Successfully inserted %zu flows\n", __FILE__, __LINE__, __func__, inserted);
     }
 
-    CH_LOG_INFO("%s %d %s: Successfully inserted %lu of %d flows\n", __FILE__, __LINE__, __func__, inserted,
-                flows->header.count);
     inserted = 0;
     offset = 0;
+    // We don't free query here, we keep it for reuse in next batch
   }
   return 0;
 }

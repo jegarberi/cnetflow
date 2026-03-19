@@ -66,11 +66,11 @@ void *parse_v9(uv_work_t *req) {
   netflow_v9_header_t *header = (netflow_v9_header_t *) (args->data);
 
   swap_endianness((void *) &(header->version), sizeof(header->version));
-  if (header->version != 9) {
+  if (unlikely(header->version != 9)) {
     goto cleanup_template_and_unlock;
   }
   swap_endianness((void *) &(header->count), sizeof(header->count));
-  if (header->count > 30000) {
+  if (unlikely(header->count > 30000)) {
     LOG_ERROR("%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
     goto cleanup_template_and_unlock;
   }
@@ -84,7 +84,7 @@ void *parse_v9(uv_work_t *req) {
   swap_endianness((void *) &(header->package_sequence), sizeof(header->package_sequence));
   swap_endianness((void *) &(header->source_id), sizeof(header->source_id));
 
-  uint32_t now = (uint32_t) time(NULL);
+  uint32_t now = args->now;
   uint32_t diff = now - (uint32_t) (header->SysUptime / 1000);
 
   flowset_union_t *flowset;
@@ -119,11 +119,11 @@ void *parse_v9(uv_work_t *req) {
       } else {
         has_padding = 0;
       }
-      if (flowset_end > total_packet_length) {
+      if (unlikely(flowset_end > total_packet_length)) {
         LOG_ERROR("%s %d %s: read all packet\n", __FILE__, __LINE__, __func__);
         break;
       }
-      if (flowset_base == flowset_end) {
+      if (unlikely(flowset_base == flowset_end)) {
         LOG_ERROR("%s %d %s: flowset_base == flowset_end\n", __FILE__, __LINE__, __func__);
         break;
       }
@@ -157,7 +157,7 @@ void *parse_v9(uv_work_t *req) {
 
         swap_endianness(&template_id, sizeof(template_id));
         swap_endianness(&field_count, sizeof(field_count));
-        if (template_id == 0) {
+        if (unlikely(template_id == 0)) {
           goto cleanup_template_and_unlock;
         }
         LOG_ERROR("%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
@@ -245,7 +245,7 @@ void *parse_v9(uv_work_t *req) {
       LOG_ERROR("%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
 
       // Validate flowset_base is within packet bounds
-      if (flowset_base >= total_packet_length) {
+      if (unlikely(flowset_base >= total_packet_length)) {
         LOG_ERROR("%s %d %s: flowset_base %lu exceeds packet length %lu\n", __FILE__, __LINE__, __func__, flowset_base,
                   total_packet_length);
         goto cleanup_template_and_unlock;
@@ -255,7 +255,7 @@ void *parse_v9(uv_work_t *req) {
       size_t pos = 0;
 
       // Validate we have enough space for record header
-      if (flowset_base + pos > total_packet_length) {
+      if (unlikely(flowset_base + pos > total_packet_length)) {
         LOG_ERROR("%s %d %s: Insufficient space for record at offset %lu\n", __FILE__, __LINE__, __func__,
                   flowset_base + pos);
         goto cleanup_template_and_unlock;
@@ -318,7 +318,7 @@ void *parse_v9(uv_work_t *req) {
 
             // CRITICAL FIX: Validate pointer is within packet bounds before accessing
             size_t pointer_offset = (size_t) pointer - (size_t) args->data;
-            if (pointer_offset >= total_packet_length) {
+            if (unlikely(pointer_offset >= total_packet_length)) {
               LOG_ERROR("%s %d %s: pointer offset %lu exceeds packet length %lu\n", __FILE__, __LINE__, __func__,
                         pointer_offset, total_packet_length);
               goto cleanup_template_and_unlock;
@@ -328,7 +328,7 @@ void *parse_v9(uv_work_t *req) {
             swap_endianness(&field_type, sizeof(field_type));
             // memset(&netflow_packet_ptr->records[record_counter], 0,
             // sizeof(netflow_packet_ptr->records[record_counter]));
-            if (field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
+            if (unlikely(field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)))) {
               // assert(-1);
               // exit(-1);
               goto cleanup_template_and_unlock;
@@ -337,7 +337,7 @@ void *parse_v9(uv_work_t *req) {
             swap_endianness(&field_length, sizeof(field_length));
 
             // Validate we have enough space for this field
-            if (pointer_offset + field_length > total_packet_length) {
+            if (unlikely(pointer_offset + field_length > total_packet_length)) {
               LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n", __FILE__, __LINE__, __func__,
                         pointer_offset, field_length);
               if (has_padding) {

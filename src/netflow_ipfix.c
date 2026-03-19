@@ -71,7 +71,7 @@ void *parse_ipfix(uv_work_t *req) {
   netflow_ipfix_header_t *header = (netflow_ipfix_header_t *) (args->data);
 
   swap_endianness((void *) &(header->version), sizeof(header->version));
-  if (header->version != 10) {
+  if (unlikely(header->version != 10)) {
     LOG_ERROR("%s %d %s: Invalid IPFIX version: %d\n", __FILE__, __LINE__, __func__, header->version);
     goto cleanup_ipfix_and_unlock;
   }
@@ -80,7 +80,7 @@ void *parse_ipfix(uv_work_t *req) {
   swap_endianness((void *) &(header->ExportTime), sizeof(header->ExportTime));
   swap_endianness((void *) &(header->SequenceNumber), sizeof(header->SequenceNumber));
   swap_endianness((void *) &(header->ObsDomainId), sizeof(header->ObsDomainId));
-  uint32_t now = (uint32_t) time(NULL);
+  uint32_t now = args->now;
   uint32_t diff = now - (uint32_t) (header->ExportTime);
   LOG_DEBUG("%s %d %s: IPFIX packet length: %d ExportTime: %u Sequence: %u Domain: %u Now: %u Diff: %u\n", __FILE__,
             __LINE__, __func__, header->length, header->ExportTime, header->SequenceNumber, header->ObsDomainId, now,
@@ -106,7 +106,7 @@ void *parse_ipfix(uv_work_t *req) {
     len = flowset->record.length;
     swap_endianness(&len, sizeof(len));
 
-    if (len < 4 || flowset_base + len > total_packet_length) {
+    if (unlikely(len < 4 || flowset_base + len > total_packet_length)) {
       LOG_ERROR("%s %d %s: Invalid set length: %d at offset %lu\n", __FILE__, __LINE__, __func__, len, flowset_base);
       break;
     }
@@ -131,7 +131,7 @@ void *parse_ipfix(uv_work_t *req) {
         uint16_t field_count = (template_record_ptr[2] << 8) | template_record_ptr[3];
 
 
-        if (template_id < 256) {
+        if (unlikely(template_id < 256)) {
           LOG_ERROR("%s %d %s: Invalid template ID: %d\n", __FILE__, __LINE__, __func__, template_id);
           break;
         }
@@ -151,8 +151,8 @@ void *parse_ipfix(uv_work_t *req) {
         uint8_t *field_def_ptr = args->data + flowset_base + pos + 4;
 
         for (uint16_t i = 0; i < field_count; i++) {
-          if (pos + template_size + 4 > flowset_length ||
-              flowset_base + pos + template_size + 4 > total_packet_length) {
+          if (unlikely(pos + template_size + 4 > flowset_length ||
+                       flowset_base + pos + template_size + 4 > total_packet_length)) {
             LOG_ERROR("%s %d %s: Template field definition OOB\n", __FILE__, __LINE__, __func__);
             goto cleanup_ipfix_and_unlock;
           }
@@ -161,8 +161,8 @@ void *parse_ipfix(uv_work_t *req) {
 
           if (ft & 0x8000) {
             // Enterprise bit set
-            if (pos + template_size + 8 > flowset_length ||
-                flowset_base + pos + template_size + 8 > total_packet_length) {
+            if (unlikely(pos + template_size + 8 > flowset_length ||
+                         flowset_base + pos + template_size + 8 > total_packet_length)) {
               LOG_ERROR("%s %d %s: Template field definition (enterprise) OOB\n", __FILE__, __LINE__, __func__);
               goto cleanup_ipfix_and_unlock;
             }
@@ -288,7 +288,7 @@ void *parse_ipfix(uv_work_t *req) {
             // Mask off enterprise bit for now
             field_type = field_type & 0x7FFF;
 
-            if (field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))) {
+            if (unlikely(field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)))) {
               LOG_ERROR("%s %d %s: Unknown IPFIX field type: %u\n", __FILE__, __LINE__, __func__, field_type);
               goto cleanup_ipfix_and_unlock;
             }
@@ -311,8 +311,8 @@ void *parse_ipfix(uv_work_t *req) {
             uint128_t *tmp128 = NULL;
             uint128_t val_tmp128 = 0;
 
-            if ((uint8_t *) pointer + record_length > (uint8_t *) args->data + args->len ||
-                pos + record_length > flowset_length) {
+            if (unlikely((uint8_t *) pointer + record_length > (uint8_t *) args->data + args->len ||
+                         pos + record_length > flowset_length)) {
               LOG_ERROR("%s %d %s: Data record OOB! field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i,
                         field_type, record_length);
               goto cleanup_ipfix_and_unlock;

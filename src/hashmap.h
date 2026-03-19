@@ -27,7 +27,7 @@ typedef struct {
   uint32_t capacity;
   uint32_t (*hash)(void *);
   int (*compare)(void *, void *);
-  uv_mutex_t *mutex;
+  uv_rwlock_t *rwlock;
   arena_struct_t *arena;
 } hashmap_t;
 

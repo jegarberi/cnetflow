@@ -86,6 +86,11 @@ static volatile uint64_t total_received_flows = 0;
 static volatile uint64_t total_received_msgs = 0;
 static volatile uint64_t total_processed_msgs = 0;
 
+// Global configuration cache
+int g_max_flows = 10000;
+int g_max_diff = 5;
+char *g_ch_conn_string = NULL;
+
 void print_rss_max_usage() {
 #ifndef _WIN32
   struct rusage usage;
@@ -370,6 +375,14 @@ int8_t collector_start(collector_t *collector) {
   // Initialize global metrics
   metrics_init();
 
+  // Cache environment variables
+  const char *max_flows_str = getenv("CNETFLOW_MAX_FLOWS");
+  if (max_flows_str) g_max_flows = atoi(max_flows_str);
+  const char *max_diff_str = getenv("CNETFLOW_MAX_DIFF");
+  if (max_diff_str) g_max_diff = atoi(max_diff_str);
+  const char *ch_conn_str = getenv("CH_CONN_STRING");
+  if (ch_conn_str) g_ch_conn_string = strdup(ch_conn_str);
+
   LOG_ERROR("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
   loop_timer_snmp = uv_default_loop();
@@ -514,7 +527,6 @@ void after_work_cb(uv_work_t *req, int status) {
     (void) arena_free(arena_collector, req);
     return;
   }
-  *(func_args->active_requests)--;
   // Capture everything needed before any free
   uint64_t processed = func_args->processed_flows;
   void *data_ptr = func_args->data;
@@ -533,6 +545,8 @@ void after_work_cb(uv_work_t *req, int status) {
   (void) arena_free(arena_collector, func_args);
   (void) arena_free(arena_collector, req);
 
+  // Decrement backlog after all work is done
+  active_requests--;
 }
 /**
  * Handles incoming UDP packets, parses the data, and processes it according
@@ -642,7 +656,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->len = nread;
   func_args->status = collector_data_status_init;
   func_args->index = data_counter;
-  func_args->active_requests = &active_requests;
+  func_args->now = (uint32_t) time(NULL);
   work_req->data = (parse_args_t *) func_args;
   LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, data_counter,
             work_req, buf->base);

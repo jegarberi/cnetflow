@@ -63,7 +63,7 @@ void *parse_v5(uv_work_t *req) {
   swap_endianness((void *) &(netflow_packet_ptr->header.sampling_interval),
                   sizeof(netflow_packet_ptr->header.sampling_interval));
 
-  uint32_t now = (uint32_t) time(NULL);
+  uint32_t now = args->now;
   uint32_t diff = now - (uint32_t) (netflow_packet_ptr->header.SysUptime / 1000);
 
   // memcpy(records, args->data + sizeof(netflow_v5_header_t), args->len - (sizeof(netflow_v5_header_t)));

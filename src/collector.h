@@ -21,7 +21,7 @@ typedef struct {
   size_t index;
   void *data;
   uint64_t processed_flows;
-  _Atomic volatile int * active_requests ;
+  uint32_t now;
 } parse_args_t;
 
 typedef struct {

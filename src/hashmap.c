@@ -39,13 +39,13 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
 
   hashmap->bucket_count = bucket_count;
   hashmap->arena = arena;
-  hashmap->mutex = arena_alloc(arena, sizeof(uv_mutex_t));
-  if (hashmap->mutex == NULL) {
-    LOG_ERROR("%s %d %s: Failed to allocate mutex\n", __FILE__, __LINE__, __func__);
+  hashmap->rwlock = arena_alloc(arena, sizeof(uv_rwlock_t));
+  if (hashmap->rwlock == NULL) {
+    LOG_ERROR("%s %d %s: Failed to allocate rwlock\n", __FILE__, __LINE__, __func__);
     return NULL;
   }
 
-  uv_mutex_init(hashmap->mutex);
+  uv_rwlock_init(hashmap->rwlock);
   bucket_t *buckets = (bucket_t *) hashmap->buckets;
   for (size_t i = 0; i < bucket_count; i++) {
     buckets[i].occupied = 0;
@@ -114,7 +114,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
     return -1;
   }
 
-  uv_mutex_lock(hashmap->mutex);
+  uv_rwlock_wrlock(hashmap->rwlock);
 
   // Validate hashmap structure
   if (hashmap->buckets == NULL || hashmap->bucket_count == 0) {
@@ -189,10 +189,10 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
 
 
 hashmap_set_success:
-  uv_mutex_unlock(hashmap->mutex);
+  uv_rwlock_wrunlock(hashmap->rwlock);
   return 0;
 hashmap_set_error:
-  uv_mutex_unlock(hashmap->mutex);
+  uv_rwlock_wrunlock(hashmap->rwlock);
   return -1;
 }
 
@@ -220,7 +220,7 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     return NULL;
   }
 
-  uv_mutex_lock(hashmap->mutex);
+  uv_rwlock_rdlock(hashmap->rwlock);
 
   // Calculate hash
   size_t index = hashmap_hash(hashmap, key, key_len);
@@ -258,7 +258,7 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     index = (index + 1) % hashmap->bucket_count;
   } while (index != original_index);
 
-  uv_mutex_unlock(hashmap->mutex);
+  uv_rwlock_rdunlock(hashmap->rwlock);
   return value;
 }
 
@@ -277,7 +277,7 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
  *         key was not found or if invalid parameters were provided.
  */
 int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
-  uv_mutex_lock(hashmap->mutex);
+  uv_rwlock_wrlock(hashmap->rwlock);
   if (!hashmap || !key) {
     goto hashmap_delete_error;
   }
@@ -326,9 +326,9 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
 
 // Key not found
 hashmap_delete_success:
-  uv_mutex_unlock(hashmap->mutex);
+  uv_rwlock_wrunlock(hashmap->rwlock);
   return 0;
 hashmap_delete_error:
-  uv_mutex_unlock(hashmap->mutex);
+  uv_rwlock_wrunlock(hashmap->rwlock);
   return -1;
 }
