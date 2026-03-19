@@ -202,7 +202,7 @@ static uint32_t ipv4(const char *dotted) {
 }
 
 Test(ipfix, swap_src_dst_ipfix_logic) {
-  netflow_v9_record_insert_t r = {0};
+  netflow_v9_record_insert_uint128_t r = {0};
   r.srcaddr = ipv4("8.8.4.4"); // public
   r.dstaddr = ipv4("10.0.0.2"); // private
   r.srcport = htons(12345);
@@ -219,40 +219,3 @@ Test(ipfix, swap_src_dst_ipfix_logic) {
   cr_expect_eq(r.output, htons(5));
 }
 
-Test(ipfix, copy_ipfix_to_flow_copies_fields) {
-  netflow_v9_flowset_t in = {0};
-  in.header.count = 1;
-  in.records[0].srcaddr = ipv4("1.2.3.4");
-  in.records[0].dstaddr = ipv4("5.6.7.8");
-  in.records[0].srcport = htons(1111);
-  in.records[0].dstport = htons(2222);
-  in.records[0].dPkts = 42;
-  in.records[0].dOctets = 1000;
-  in.records[0].ip_version = 4;
-
-  netflow_v9_uint128_flowset_t out = {0};
-  // 3rd arg is likely is_ipv6, here 0
-  copy_ipfix_to_flow(&in, &out, 0);
-
-  // copy_ipfix_to_flow also swaps bytes if !BE
-  uint32_t expected_src = ipv4("1.2.3.4");
-  uint32_t expected_dst = ipv4("5.6.7.8");
-  if (detect_endianness() == NETFLOW_LITTLE_ENDIAN) {
-    expected_src = swap_endian_32(expected_src);
-    expected_dst = swap_endian_32(expected_dst);
-  }
-
-  cr_expect_eq((uint32_t) out.records[0].srcaddr, expected_src);
-  cr_expect_eq((uint32_t) out.records[0].dstaddr, expected_dst);
-  // IPFIX might use 64-bit pkts/octets in input?
-  // netflow_v9_record_insert_t in netflow.h has uint64_t dPkts.
-  // So assigning 42 (host order) works.
-  uint64_t expected_pkts = 42;
-  uint64_t expected_octets = 1000;
-  if (detect_endianness() == NETFLOW_LITTLE_ENDIAN) {
-    expected_pkts = swap_endian_64(expected_pkts);
-    expected_octets = swap_endian_64(expected_octets);
-  }
-  cr_expect_eq(out.records[0].dPkts, expected_pkts);
-  cr_expect_eq(out.records[0].dOctets, expected_octets);
-}

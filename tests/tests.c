@@ -89,10 +89,10 @@ Test(hashmap, set_get_delete) {
   hashmap_t *hashmap = hashmap_create(arena_hashmap, 1024);
   cr_assert_neq(hashmap, NULL);
 
-  char test1[] = "testing string1";
-  char test2[] = "testing string2";
-  cr_assert_eq(hashmap_set(hashmap, arena_hashmap, "key1",strlen("key1"),&test1), 0);
-  cr_assert_eq(hashmap_set(hashmap, arena_hashmap, "key2",strlen("key2"),&test2), 0);
+  char* test1 = strdup("testing string1");
+  char* test2 = strdup("testing string2");
+  cr_assert_eq(hashmap_set(hashmap, arena_hashmap, "key1",strlen("key1"),test1), 0);
+  cr_assert_eq(hashmap_set(hashmap, arena_hashmap, "key2",strlen("key2"),test2), 0);
 
   char * get_test1 = (char *)hashmap_get(hashmap, "key1",strlen("key1"));
   char * get_test2 = (char *)hashmap_get(hashmap, "key2",strlen("key2"));
@@ -106,6 +106,10 @@ Test(hashmap, set_get_delete) {
   cr_assert_eq(get_test1,NULL);
   arena_destroy(arena_hashmap);
   free(arena_hashmap);
+#ifdef USE_ARENA_ALLOCATOR
+  free(test1);
+  free(test2);
+#endif
 }
 
 Test(dyn_array, create_returns_null_on_zero_elem) {

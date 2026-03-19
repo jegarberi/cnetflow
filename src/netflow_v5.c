@@ -188,6 +188,7 @@ void copy_v5_to_flow(netflow_v5_flowset_t *in, netflow_v9_uint128_flowset_t *out
     // First and Last are already Host Order from parse_v5
     out->records[i].First = in->records[i].First;
     out->records[i].Last = in->records[i].Last;
+    out->records[i].ip_version = 4;
 
     out->records[i].input = in->records[i].input;
     // swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
