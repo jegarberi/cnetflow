@@ -501,51 +501,40 @@ error_no_arena:
 }
 
 void after_work_cb(uv_work_t *req, int status) {
+  (void)status;
   if (req == NULL) {
     LOG_ERROR("%s %d %s: req is NULL\n", __FILE__, __LINE__, __func__);
     return;
   }
 
-  parse_args_t *func_args = req->data;
+  parse_args_t *func_args = (parse_args_t *)req->data;
   if (func_args == NULL) {
     LOG_ERROR("%s %d %s: func_args is NULL\n", __FILE__, __LINE__, __func__);
-    // Still try to free req
-    arena_free(arena_collector, req);
+    // Still try to free req safely
+    (void) arena_free(arena_collector, req);
     return;
   }
 
-  // Read counters before freeing
+  // Capture everything needed before any free
   uint64_t processed = func_args->processed_flows;
+  void *data_ptr = func_args->data;
 
-  // Free buffers
-  if (func_args->data != NULL) {
-    LOG_ERROR("%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
-    int ret_data = arena_free(arena_udp_handle, func_args->data);
-    if (ret_data != 0) {
-      LOG_ERROR("%s %d %s: Failed to free func_args->data %p (ret=%d)\n", __FILE__, __LINE__, __func__, func_args->data, ret_data);
-    }
-  }
+  // Break the back-reference from req to the (soon to be) freed args
+  req->data = NULL;
 
-  LOG_ERROR("%s %d %s: release func_args: %p\n", __FILE__, __LINE__, __func__, func_args);
-  int ret_args = arena_free(arena_collector, func_args);
-  if (ret_args != 0) {
-    LOG_ERROR("%s %d %s: Failed to free func_args %p (ret=%d)\n", __FILE__, __LINE__, __func__, func_args, ret_args);
-  }
-
-  LOG_ERROR("%s %d %s: release req: %p\n", __FILE__, __LINE__, __func__, req);
-  int ret_req = arena_free(arena_collector, req);
-  if (ret_req != 0) {
-    LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n", __FILE__, __LINE__, __func__, req, ret_req);
-  }
-
-  // Update counters
+  // Update counters first (does not depend on freed memory)
   total_processed_flows += processed;
   total_processed_msgs++;
 
+  // Now free buffers in the safest order
+  if (data_ptr != NULL) {
+    (void) arena_free(arena_udp_handle, data_ptr);
+  }
+  (void) arena_free(arena_collector, func_args);
+  (void) arena_free(arena_collector, req);
+
   // Decrement backlog after all work is done
   active_requests--;
-
-  return;
 }
 /**
  * Handles incoming UDP packets, parses the data, and processes it according
