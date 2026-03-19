@@ -76,9 +76,11 @@ uv_loop_t *loop_udp;
 uv_loop_t *loop_pool;
 uv_loop_t *loop_timer_snmp;
 uv_loop_t *loop_timer_rss;
+uv_udp_t *udp_server_global = NULL;
 
 // uv_thread_t threads[7];
 size_t thread_counter;
+static volatile int active_requests = 0;
 
 void print_rss_max_usage() {
 #ifndef _WIN32
@@ -157,14 +159,13 @@ void signal_handler(const int signal) {
     case SIGUSR1:
     case SIGINT:
     case SIGABRT:
-      LOG_ERROR("stopping loop_udp\n");
-      fprintf(stderr, "%s %d %s stopping loop_udp \n", __FILE__, __LINE__, __func__);
-      fprintf(stdout, "%s %d %s stopping loop_udp \n", __FILE__, __LINE__, __func__);
-      uv_stop(loop_udp);
-      LOG_ERROR("stopping loop_pool\n");
-      fprintf(stderr, "%s %d %s stopping loop_pool \n", __FILE__, __LINE__, __func__);
-      fprintf(stdout, "%s %d %s stopping loop_pool \n", __FILE__, __LINE__, __func__);
-      uv_stop(loop_pool);
+      LOG_ERROR("signal caught, stopping...\n");
+      if (udp_server_global) {
+        uv_udp_recv_stop(udp_server_global);
+        if (!uv_is_closing((uv_handle_t *) udp_server_global)) {
+          uv_close((uv_handle_t *) udp_server_global, NULL);
+        }
+      }
       break;
     default:
       break;
@@ -356,7 +357,9 @@ int8_t collector_start(collector_t *collector) {
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
   if (udp_server == NULL) {
     LOG_ERROR("%s %d %s could not allocate udp_server\n", __FILE__, __LINE__, __func__);
+    goto error_destroy_arena;
   }
+  udp_server_global = udp_server;
   uv_udp_init(loop_udp, udp_server);
 
   LOG_DEBUG(
@@ -364,11 +367,29 @@ int8_t collector_start(collector_t *collector) {
       "sockaddr));\n",
       __FILE__, __LINE__, __func__);
   struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct sockaddr));
+  if (addr == NULL) {
+    LOG_ERROR("%s %d %s could not allocate sockaddr\n", __FILE__, __LINE__, __func__);
+    goto error_destroy_arena;
+  }
   const struct sockaddr *addr_const = addr;
   const char *ip_bind = getenv("CNETFLOW_BIND_IP");
+  if (!ip_bind) {
+    LOG_ERROR("Environment variable CNETFLOW_BIND_IP is not set.\n");
+    goto error_destroy_arena;
+  }
+
   const char *port_bind_str = getenv("CNETFLOW_BIND_PORT");
+  if (!port_bind_str) {
+    LOG_ERROR("Environment variable CNETFLOW_BIND_PORT is not set.\n");
+    goto error_destroy_arena;
+  }
+
   const int port = (int) strtoul(port_bind_str, NULL, 10);
-  uv_ip4_addr(ip_bind, port, (struct sockaddr_in *) addr);
+  int addr_ret = uv_ip4_addr(ip_bind, port, (struct sockaddr_in *) addr);
+  if (addr_ret < 0) {
+    LOG_ERROR("Invalid bind IP address %s: %s\n", ip_bind, uv_strerror(addr_ret));
+    goto error_destroy_arena;
+  }
   LOG_INFO("binding to udp port %d\n", port);
   const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
   if (bind_ret < 0) {
@@ -382,12 +403,27 @@ int8_t collector_start(collector_t *collector) {
   }
 
   uv_run(loop_udp, UV_RUN_DEFAULT);
+
+  // Wait for all pending work requests to finish before cleanup
+  LOG_INFO("Waiting for %d active requests to finish (max 10s)...\n", active_requests);
+  uint64_t wait_start = uv_hrtime();
+  while (active_requests > 0 && (uv_hrtime() - wait_start) < 10ULL * 1000 * 1000 * 1000) {
+    uv_run(loop_udp, UV_RUN_ONCE);
+  }
+  if (active_requests > 0) {
+    LOG_ERROR("Timed out waiting for %d requests. Proceeding with cleanup anyway.\n", active_requests);
+  } else {
+    LOG_INFO("All requests finished. Starting cleanup.\n");
+  }
+
 ok:
 #ifdef USE_REDIS
   close_redis();
 #endif
 
-  uv_close((uv_handle_t *) udp_server, NULL);
+  if (udp_server_global && !uv_is_closing((uv_handle_t *) udp_server_global)) {
+    uv_close((uv_handle_t *) udp_server_global, NULL);
+  }
   uv_close((uv_handle_t *) &timer_req_rss, NULL);
   uv_run(loop_udp, UV_RUN_ONCE);
   uv_run(loop_timer_rss, UV_RUN_ONCE);
@@ -461,6 +497,7 @@ void *after_work_cb(uv_work_t *req, int status) {
     LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n", __FILE__, __LINE__, __func__, req, ret);
   }
 
+  active_requests--;
   return NULL;
 }
 /**
@@ -555,9 +592,18 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   // work_req = malloc(sizeof(uv_work_t));
   uv_work_cb work_cb;
   static size_t data_counter = 1;
-  uint32_t *exporter_ptr = NULL;
-  exporter_ptr = (uint32_t *) &(addr->sa_data[2]);
-  func_args->exporter = *(uint32_t *) exporter_ptr;
+  if (addr->sa_family == AF_INET) {
+    struct sockaddr_in *addr4 = (struct sockaddr_in *) addr;
+    func_args->exporter = addr4->sin_addr.s_addr;
+  } else if (addr->sa_family == AF_INET6) {
+    // For IPv6, we'll use the first 32 bits of the address as a simple identifier for now,
+    // or we might need to expand func_args to support IPv6 exporter addresses properly.
+    struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) addr;
+    memcpy(&func_args->exporter, &addr6->sin6_addr, sizeof(uint32_t));
+  } else {
+    func_args->exporter = 0;
+  }
+
   func_args->data = buf->base;
   func_args->len = nread;
   func_args->status = collector_data_status_init;
@@ -585,6 +631,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       assert(false);
   }
   if (work_cb) {
+    active_requests++;
     uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
     data_counter++;
     return;

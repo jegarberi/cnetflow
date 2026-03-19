@@ -144,6 +144,11 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
   conn->database = strdup(database ? database : "default");
   conn->user = strdup(user ? user : "default");
   conn->password = strdup(password ? password : "");
+
+  if (!conn->host || !conn->database || !conn->user || !conn->password) {
+    CH_LOG_ERROR("%s %d %s: Failed to duplicate connection strings\n", __FILE__, __LINE__, __func__);
+    goto error;
+  }
   conn->connected = false;
 
   // Initialize CURL
@@ -597,17 +602,15 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
     // Check if we need to resize the buffer
     if (offset + written + 1 >= query_size) {
-      query_size *= 2;
-      char *new_query = realloc(query, query_size);
+      size_t new_query_size = query_size * 2;
+      char *new_query = realloc(query, new_query_size);
       if (!new_query) {
         CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
-        memset(query, 0, query_size);
-        offset = 0;
-        free(query);
-        query = NULL;
+        // Don't memset/free here to avoid corruption, just return error
         return -1;
       }
       query = new_query;
+      query_size = (int) new_query_size;
     }
 
     memcpy(query + offset, value_str, written);
@@ -709,14 +712,15 @@ int ch_insert_flows2(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
     // Check if we need to resize the buffer
     if (offset + written + 1 >= query_size) {
-      query_size *= 2;
-      char *new_query = realloc(query, query_size);
+      size_t new_size = query_size * 2;
+      char *new_query = realloc(query, new_size);
       if (!new_query) {
         CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
         free(query);
         return -1;
       }
       query = new_query;
+      query_size = new_size;
     }
 
     memcpy(query + offset, value_str, written);

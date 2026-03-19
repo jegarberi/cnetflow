@@ -359,10 +359,9 @@ void *parse_ipfix(uv_work_t *req) {
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].Last = val_tmp32;
                 } else if (record_length == 8) {
-                  swap_endianness(&val_tmp64, sizeof(val_tmp64));
+                  // val_tmp64 is already host-order from the switch above
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].Last = val32;
                 } else {
                   netflow_packet_ptr->records[record_counter].Last = 0;
@@ -375,10 +374,9 @@ void *parse_ipfix(uv_work_t *req) {
                   // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   netflow_packet_ptr->records[record_counter].First = val_tmp32;
                 } else if (record_length == 8) {
-                  // swap_endianness(&val_tmp64, sizeof(val_tmp64));
+                  // val_tmp64 is already host-order
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  // swap_endianness(&val32, sizeof(val32));
                   netflow_packet_ptr->records[record_counter].First = val32;
                 } else {
                   netflow_packet_ptr->records[record_counter].First = 0;
