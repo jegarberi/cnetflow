@@ -83,6 +83,8 @@ size_t thread_counter;
 static volatile int active_requests = 0;
 static volatile uint64_t total_processed_flows = 0;
 static volatile uint64_t total_received_flows = 0;
+static volatile uint64_t total_received_msgs = 0;
+static volatile uint64_t total_processed_msgs = 0;
 
 void print_rss_max_usage() {
 #ifndef _WIN32
@@ -101,18 +103,26 @@ void check_backlog_cb(uv_timer_t *handle) {
   static int last_backlog = 0;
   static uint64_t last_total_flows = 0;
   static uint64_t last_received_flows = 0;
+  static uint64_t last_received_msgs = 0;
+  static uint64_t last_processed_msgs = 0;
   int current_backlog = active_requests;
   uint64_t delta_flows = total_processed_flows - last_total_flows;
   uint64_t delta_received = total_received_flows - last_received_flows;
+  uint64_t delta_recv_msgs = total_received_msgs - last_received_msgs;
+  uint64_t delta_proc_msgs = total_processed_msgs - last_processed_msgs;
   double flows_per_sec = (double)delta_flows / 60.0; // timer runs every 60s
   double recv_flows_per_sec = (double)delta_received / 60.0;
+  double recv_msgs_per_sec = (double)delta_recv_msgs / 60.0;
+  double proc_msgs_per_sec = (double)delta_proc_msgs / 60.0;
   if (current_backlog > last_backlog && current_backlog > 100) {
-    printf("Messages are arriving faster than they can be processed (backlog: %d, recv flows/s: %.2f, proc flows/s: %.2f)\n",
-           current_backlog, recv_flows_per_sec, flows_per_sec);
+    printf("Messages are arriving faster than they can be processed (backlog: %d, recv flows/s: %.2f, proc flows/s: %.2f, recv msgs/s: %.2f, proc msgs/s: %.2f)\n",
+           current_backlog, recv_flows_per_sec, flows_per_sec, recv_msgs_per_sec, proc_msgs_per_sec);
   }
   last_backlog = current_backlog;
   last_total_flows = total_processed_flows;
   last_received_flows = total_received_flows;
+  last_received_msgs = total_received_msgs;
+  last_processed_msgs = total_processed_msgs;
 }
 
 void collector_inc_received_flows(uint64_t count) {
@@ -496,8 +506,6 @@ void after_work_cb(uv_work_t *req, int status) {
     return;
   }
 
-  active_requests--;
-
   parse_args_t *func_args = req->data;
   if (func_args == NULL) {
     LOG_ERROR("%s %d %s: func_args is NULL\n", __FILE__, __LINE__, __func__);
@@ -506,30 +514,36 @@ void after_work_cb(uv_work_t *req, int status) {
     return;
   }
 
-  // CRITICAL FIX: Validate pointers before freeing to prevent double-free
+  // Read counters before freeing
+  uint64_t processed = func_args->processed_flows;
+
+  // Free buffers
   if (func_args->data != NULL) {
     LOG_ERROR("%s %d %s: release func_args->data: %p\n", __FILE__, __LINE__, __func__, func_args->data);
-    int ret = arena_free(arena_udp_handle, func_args->data);
-    if (ret != 0) {
-      LOG_ERROR("%s %d %s: Failed to free func_args->data %p (ret=%d)\n", __FILE__, __LINE__, __func__, func_args->data,
-                ret);
+    int ret_data = arena_free(arena_udp_handle, func_args->data);
+    if (ret_data != 0) {
+      LOG_ERROR("%s %d %s: Failed to free func_args->data %p (ret=%d)\n", __FILE__, __LINE__, __func__, func_args->data, ret_data);
     }
   }
 
   LOG_ERROR("%s %d %s: release func_args: %p\n", __FILE__, __LINE__, __func__, func_args);
-  int ret = arena_free(arena_collector, func_args);
-  if (ret != 0) {
-    LOG_ERROR("%s %d %s: Failed to free func_args %p (ret=%d)\n", __FILE__, __LINE__, __func__, func_args, ret);
+  int ret_args = arena_free(arena_collector, func_args);
+  if (ret_args != 0) {
+    LOG_ERROR("%s %d %s: Failed to free func_args %p (ret=%d)\n", __FILE__, __LINE__, __func__, func_args, ret_args);
   }
 
   LOG_ERROR("%s %d %s: release req: %p\n", __FILE__, __LINE__, __func__, req);
-  ret = arena_free(arena_collector, req);
-  if (ret != 0) {
-    LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n", __FILE__, __LINE__, __func__, req, ret);
+  int ret_req = arena_free(arena_collector, req);
+  if (ret_req != 0) {
+    LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n", __FILE__, __LINE__, __func__, req, ret_req);
   }
 
-  // Accumulate processed flows from this work item
-  total_processed_flows += func_args->processed_flows;
+  // Update counters
+  total_processed_flows += processed;
+  total_processed_msgs++;
+
+  // Decrement backlog after all work is done
+  active_requests--;
 
   return;
 }
@@ -672,8 +686,10 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       arena_free(arena_udp_handle, func_args->data);
       arena_free(arena_collector, func_args);
       arena_free(arena_collector, work_req);
+    } else {
+      total_received_msgs++;
+      data_counter++;
     }
-    data_counter++;
     return;
   }
   // after_work_cb will release all mmemory chunks
