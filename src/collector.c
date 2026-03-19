@@ -80,7 +80,7 @@ uv_udp_t *udp_server_global = NULL;
 
 // uv_thread_t threads[7];
 size_t thread_counter;
-static volatile int active_requests = 0;
+_Atomic static volatile int active_requests = 0;
 static volatile uint64_t total_processed_flows = 0;
 static volatile uint64_t total_received_flows = 0;
 static volatile uint64_t total_received_msgs = 0;
@@ -514,7 +514,7 @@ void after_work_cb(uv_work_t *req, int status) {
     (void) arena_free(arena_collector, req);
     return;
   }
-
+  *(func_args->active_requests)--;
   // Capture everything needed before any free
   uint64_t processed = func_args->processed_flows;
   void *data_ptr = func_args->data;
@@ -533,8 +533,6 @@ void after_work_cb(uv_work_t *req, int status) {
   (void) arena_free(arena_collector, func_args);
   (void) arena_free(arena_collector, req);
 
-  // Decrement backlog after all work is done
-  active_requests--;
 }
 /**
  * Handles incoming UDP packets, parses the data, and processes it according
@@ -644,6 +642,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->len = nread;
   func_args->status = collector_data_status_init;
   func_args->index = data_counter;
+  func_args->active_requests = &active_requests;
   work_req->data = (parse_args_t *) func_args;
   LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, data_counter,
             work_req, buf->base);
@@ -667,7 +666,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       assert(false);
   }
   if (work_cb) {
-    active_requests++;
+
     int rc = uv_queue_work(loop_pool, work_req, work_cb, (uv_after_work_cb) after_work_cb);
     if (rc != 0) {
       LOG_ERROR("uv_queue_work failed: %s\n", uv_strerror(rc));
