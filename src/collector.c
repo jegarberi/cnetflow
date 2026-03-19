@@ -94,6 +94,16 @@ void print_rss_max_usage() {
 #endif
 }
 
+void check_backlog_cb(uv_timer_t *handle) {
+  (void) handle;
+  static int last_backlog = 0;
+  int current_backlog = active_requests;
+  if (current_backlog > last_backlog && current_backlog > 100) {
+    printf("Messages are arriving faster than they can be processed (backlog: %d)\n", current_backlog);
+  }
+  last_backlog = current_backlog;
+}
+
 /**
  * Converts an IPv4 address in integer format to a string representation.
  *
@@ -348,10 +358,13 @@ int8_t collector_start(collector_t *collector) {
 
   uv_timer_t timer_req_snmp;
   uv_timer_t timer_req_rss;
+  uv_timer_t timer_backlog;
   // uv_timer_init(loop_timer_snmp, &timer_req_snmp);
   // uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_init(loop_timer_rss, &timer_req_rss);
   uv_timer_start(&timer_req_rss, (void *) print_rss_max_usage, 1000, 1000);
+  uv_timer_init(loop_udp, &timer_backlog);
+  uv_timer_start(&timer_backlog, check_backlog_cb, 60000, 60000);
   LOG_DEBUG("%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n", __FILE__,
             __LINE__, __func__);
   uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));
@@ -425,6 +438,7 @@ ok:
     uv_close((uv_handle_t *) udp_server_global, NULL);
   }
   uv_close((uv_handle_t *) &timer_req_rss, NULL);
+  uv_close((uv_handle_t *) &timer_backlog, NULL);
   uv_run(loop_udp, UV_RUN_ONCE);
   uv_run(loop_timer_rss, UV_RUN_ONCE);
 
