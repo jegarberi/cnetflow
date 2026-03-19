@@ -11,6 +11,7 @@
 #include "metrics.h"
 #include "netflow.h"
 #include "netflow_v5.h"
+#include <arpa/inet.h>
 #ifdef USE_REDIS
 #include "redis_handler.h"
 #endif
@@ -36,8 +37,16 @@ void init_ipfix(arena_struct_t *arena, const size_t cap) {
         void *arena_val = arena_alloc(arena, val_len);
         if (arena_val) {
           memcpy(arena_val, val, val_len);
-          hashmap_set(templates_ipfix_hashmap, arena, keys[i], strlen(keys[i]), arena_val);
-          LOG_INFO("Loaded IPFIX template %s from Redis\n", keys[i]);
+          char ip_str[32] = {0};
+          uint16_t tid = 0;
+          if (sscanf(keys[i], "%31[^-]-10-%hu", ip_str, &tid) == 2) {
+             struct in_addr in;
+             if (inet_pton(AF_INET, ip_str, &in) == 1) {
+                 uint64_t hkey = ((uint64_t)in.s_addr << 32) | tid;
+                 hashmap_set(templates_ipfix_hashmap, arena, &hkey, sizeof(uint64_t), arena_val);
+                 LOG_INFO("Loaded IPFIX template %s from Redis\n", keys[i]);
+             }
+          }
         }
         free(val);
       }
@@ -170,9 +179,10 @@ void *parse_ipfix(uv_work_t *req) {
         }
 
         // Store template in Redis
-        char key[255];
-        snprintf(key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
-        LOG_ERROR("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, key);
+        char redis_key[255];
+        snprintf(redis_key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
+        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
+        LOG_ERROR("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, redis_key);
 
         uint8_t *template_record_start = args->data + flowset_base + pos;
 
@@ -189,14 +199,14 @@ void *parse_ipfix(uv_work_t *req) {
         if (temp) {
           memcpy(temp, (void *) template_record_start, template_size);
           // Store in Hashmap
-          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, key, strlen(key), temp);
-          LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, key);
+          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, &hkey, sizeof(uint64_t), temp);
+          LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, redis_key);
 
 #ifdef USE_REDIS
-          if (redis_set_template(key, strlen(key), temp, template_size) != 0) {
-            LOG_ERROR("%s %d %s: Error saving IPFIX template to Redis [%s]\n", __FILE__, __LINE__, __func__, key);
+          if (redis_set_template(redis_key, strlen(redis_key), temp, template_size) != 0) {
+            LOG_ERROR("%s %d %s: Error saving IPFIX template to Redis [%s]\n", __FILE__, __LINE__, __func__, redis_key);
           } else {
-            LOG_ERROR("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, key);
+            LOG_ERROR("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, redis_key);
           }
 #endif
         } else {
@@ -219,15 +229,12 @@ void *parse_ipfix(uv_work_t *req) {
     } else if (flowset_id >= 256) {
 
 
-      // Data Set
       LOG_ERROR("%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
 
       uint16_t template_id = flowset_id;
-      char key[255];
-      snprintf(key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
-      LOG_ERROR("%s %d %s: Looking up template key: %s\n", __FILE__, __LINE__, __func__, key);
+      uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
 
-      template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, key, strlen(key));
+      template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, &hkey, sizeof(uint64_t));
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
@@ -248,6 +255,7 @@ void *parse_ipfix(uv_work_t *req) {
         netflow_v9_flowset_t netflow_packet = {0};
         netflow_v9_flowset_t *netflow_packet_ptr = &netflow_packet;
         int is_ipv6 = 0;
+        uint64_t local_ipfix_records = 0;
 
         while (pos + 4 <= flowset_length) {
           if (record_counter >= 60) {
@@ -633,9 +641,10 @@ void *parse_ipfix(uv_work_t *req) {
             // sizeof(netflow_packet_ptr->records[record_counter].dstaddr));
           }
 
-#ifdef ENABLE_METRICS
-          metrics_inc_ipfix_records_received();
-#endif
+// #ifdef ENABLE_METRICS
+//           metrics_inc_ipfix_records_received();
+// #endif
+          local_ipfix_records++;
 
           if (netflow_packet_ptr->records[record_counter].input != 0) {
             metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
@@ -652,8 +661,14 @@ void *parse_ipfix(uv_work_t *req) {
         }
 
         netflow_packet_ptr->header.count = record_counter;
-        netflow_v9_uint128_flowset_t flows_to_insert = {0};
-        memset(&flows_to_insert, 0, sizeof(flows_to_insert));
+
+#ifdef ENABLE_METRICS
+        if (local_ipfix_records > 0) {
+          metrics_inc_ipfix_records_received_batch(local_ipfix_records);
+        }
+#endif
+
+        netflow_v9_uint128_flowset_t flows_to_insert;
         copy_ipfix_to_flow(netflow_packet_ptr, &flows_to_insert, is_ipv6);
 
         uint32_t exporter_host = args->exporter;

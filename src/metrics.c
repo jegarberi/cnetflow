@@ -279,8 +279,8 @@ static void process_update(metric_update_t *update) {
       redis_v9_templates_dropped_delta++;
       break;
     case METRIC_V9_RECORD_RECEIVED:
-      uv_mutex_lock(&g_metrics.mutex); g_metrics.v9_records_received++; uv_mutex_unlock(&g_metrics.mutex);
-      redis_v9_records_delta++;
+      uv_mutex_lock(&g_metrics.mutex); g_metrics.v9_records_received += update->value; uv_mutex_unlock(&g_metrics.mutex);
+      redis_v9_records_delta += update->value;
       break;
     case METRIC_V9_RECORD_DROPPED:
       uv_mutex_lock(&g_metrics.mutex); g_metrics.v9_records_dropped++; uv_mutex_unlock(&g_metrics.mutex);
@@ -295,8 +295,8 @@ static void process_update(metric_update_t *update) {
       redis_ipfix_templates_dropped_delta++;
       break;
     case METRIC_IPFIX_RECORD_RECEIVED:
-      uv_mutex_lock(&g_metrics.mutex); g_metrics.ipfix_records_received++; uv_mutex_unlock(&g_metrics.mutex);
-      redis_ipfix_records_delta++;
+      uv_mutex_lock(&g_metrics.mutex); g_metrics.ipfix_records_received += update->value; uv_mutex_unlock(&g_metrics.mutex);
+      redis_ipfix_records_delta += update->value;
       break;
     case METRIC_IPFIX_RECORD_DROPPED:
       uv_mutex_lock(&g_metrics.mutex); g_metrics.ipfix_records_dropped++; uv_mutex_unlock(&g_metrics.mutex);
@@ -536,7 +536,12 @@ void metrics_inc_v9_templates_dropped(void) {
 }
 
 void metrics_inc_v9_records_received(void) {
-  metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED };
+  metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED, .value = 1 };
+  push_update(&update);
+}
+
+void metrics_inc_v9_records_received_batch(uint64_t count) {
+  metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED, .value = count };
   push_update(&update);
 }
 
@@ -556,7 +561,12 @@ void metrics_inc_ipfix_templates_dropped(void) {
 }
 
 void metrics_inc_ipfix_records_received(void) {
-  metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED };
+  metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED, .value = 1 };
+  push_update(&update);
+}
+
+void metrics_inc_ipfix_records_received_batch(uint64_t count) {
+  metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED, .value = count };
   push_update(&update);
 }
 

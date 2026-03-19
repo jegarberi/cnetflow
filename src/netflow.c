@@ -90,42 +90,7 @@ endianness_e detect_endianness(void) {
  *              The value is modified in place.
  * @param len   The length of the value in bytes. Supported lengths are 2, 4, and 8 bytes.
  */
-#if !CNETFLOW_BIG_ENDIAN_ARCH
-void swap_endianness(void *value, size_t len) {
-  //   if (endianness == NETFLOW_NO_ENDIAN) {
-  //     endianness = detect_endianness();
-  //   }
-  //   if (endianness == NETFLOW_BIG_ENDIAN) {
-  //     return;
-  //   }
-  switch (len) {
-    case 2: {
-      uint16_t tmp16 = *(uint16_t *) value;
-      tmp16 = swap_endian_16(tmp16);
-      memcpy(value, &tmp16, sizeof(uint16_t));
-      break;
-    }
-    case 4: {
-      uint32_t tmp32 = *(uint32_t *) value;
-      tmp32 = swap_endian_32(tmp32);
-      memcpy(value, &tmp32, sizeof(uint32_t));
-      break;
-    }
-    case 8: {
-      uint64_t tmp64 = *(uint64_t *) value;
-      tmp64 = swap_endian_64(tmp64);
-      memcpy(value, &tmp64, sizeof(uint64_t));
-      break;
-    }
-    case 16: {
-      uint128_t tmp128 = *(uint128_t *) value;
-      tmp128 = swap_endian_128(tmp128);
-      memcpy(value, &tmp128, sizeof(uint128_t));
-      break;
-    }
-  }
-}
-#endif
+// Endianness swapping moved to netflow.h to allow aggressive compile-time inlining
 
 /**
  * Swaps the byte order of a 64-bit unsigned integer.

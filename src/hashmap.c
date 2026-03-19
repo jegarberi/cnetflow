@@ -142,7 +142,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
       if (!buckets[index].occupied) {
         break;
       }
-    } else if (buckets[index].occupied && buckets[index].key != NULL && strlen(buckets[index].key) == key_len &&
+    } else if (buckets[index].occupied && buckets[index].key != NULL && buckets[index].key_len == key_len &&
                memcmp(buckets[index].key, key, key_len) == 0) {
       // Found existing key, update value
 #ifdef USE_ARENA_ALLOCATOR
@@ -180,6 +180,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
 
   // Store the key-value pair
   buckets[index].key = key_copy;
+  buckets[index].key_len = key_len;
   buckets[index].value = value;
   buckets[index].occupied = 1;
   buckets[index].deleted = 0;
@@ -248,7 +249,7 @@ void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len) {
     }
 
     // Check if this is the key we're looking for
-    if (strlen(buckets[index].key) == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
+    if (buckets[index].key_len == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
       value = buckets[index].value;
       break;
     }
@@ -301,7 +302,7 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
     }
 
     // Check if this is the key we're looking for
-    if (strlen(buckets[index].key) == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
+    if (buckets[index].key_len == key_len && memcmp(buckets[index].key, key, key_len) == 0) {
       // Mark as deleted
       buckets[index].deleted = 1;
 #ifdef USE_ARENA_ALLOCATOR

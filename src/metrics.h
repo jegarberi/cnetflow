@@ -77,6 +77,9 @@ void metrics_inc_ipfix_templates_dropped(void);
 void metrics_inc_ipfix_records_received(void);
 void metrics_inc_ipfix_records_dropped(void);
 
+void metrics_inc_v9_records_received_batch(uint64_t count);
+void metrics_inc_ipfix_records_received_batch(uint64_t count);
+
 /**
  * @brief Increments processed byte count tracking for rate calculation.
  */
@@ -109,10 +112,12 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id);
 #define metrics_inc_v9_templates_dropped() do {} while(0)
 #define metrics_inc_v9_records_received() do {} while(0)
 #define metrics_inc_v9_records_dropped() do {} while(0)
+#define metrics_inc_v9_records_received_batch(count) do {} while(0)
 #define metrics_inc_ipfix_templates_received() do {} while(0)
 #define metrics_inc_ipfix_templates_dropped() do {} while(0)
 #define metrics_inc_ipfix_records_received() do {} while(0)
 #define metrics_inc_ipfix_records_dropped() do {} while(0)
+#define metrics_inc_ipfix_records_received_batch(count) do {} while(0)
 #define metrics_inc_bytes(bytes) do {} while(0)
 #define metrics_inc_flowsets(flowsets) do {} while(0)
 #define metrics_track_exporter(ip) do {} while(0)

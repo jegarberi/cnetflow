@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #if defined(__linux__)
 #include <endian.h>
@@ -146,15 +147,44 @@ typedef enum {
 
 NETFLOW_VERSION detect_version(void *data);
 endianness_e detect_endianness(void);
-#if CNETFLOW_BIG_ENDIAN_ARCH
-#define swap_endianness(value, len) ((void) 0)
-#else
-void swap_endianness(void *value, size_t len);
-#endif
 uint64_t swap_endian_64(uint64_t value);
 uint32_t swap_endian_32(uint32_t value);
 uint16_t swap_endian_16(uint16_t value);
 uint128_t swap_endian_128(uint128_t value);
+
+#if CNETFLOW_BIG_ENDIAN_ARCH
+#define swap_endianness(value, len) ((void) 0)
+#else
+static inline void swap_endianness(void *value, size_t len) {
+  switch (len) {
+    case 2: {
+      uint16_t tmp16 = *(uint16_t *) value;
+      tmp16 = swap_endian_16(tmp16);
+      memcpy(value, &tmp16, sizeof(uint16_t));
+      break;
+    }
+    case 4: {
+      uint32_t tmp32 = *(uint32_t *) value;
+      tmp32 = swap_endian_32(tmp32);
+      memcpy(value, &tmp32, sizeof(uint32_t));
+      break;
+    }
+    case 8: {
+      uint64_t tmp64 = *(uint64_t *) value;
+      tmp64 = swap_endian_64(tmp64);
+      memcpy(value, &tmp64, sizeof(uint64_t));
+      break;
+    }
+    case 16: {
+      uint128_t tmp128 = *(uint128_t *) value;
+      tmp128 = swap_endian_128(tmp128);
+      memcpy(value, &tmp128, sizeof(uint128_t));
+      break;
+    }
+  }
+}
+#endif
+
 void *fix_endianness(void *buf, void *data, size_t len);
 void printf_v5(FILE *, netflow_v5_flowset_t *, int);
 void swap_src_dst_v5_ipv4(netflow_v5_record_t *record);

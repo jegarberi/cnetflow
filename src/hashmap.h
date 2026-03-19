@@ -14,6 +14,7 @@
 // #define BUCKETS (1000*10)
 typedef struct {
   char *key;
+  size_t key_len;
   void *value;
   uint8_t occupied;
   uint8_t deleted;

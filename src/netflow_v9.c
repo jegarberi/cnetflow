@@ -10,6 +10,7 @@
 #include "log.h"
 #include "metrics.h"
 #include "netflow_v5.h"
+#include <arpa/inet.h>
 #ifdef USE_REDIS
 #include "redis_handler.h"
 #endif
@@ -35,8 +36,16 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
         void *arena_val = arena_alloc(arena, val_len);
         if (arena_val) {
           memcpy(arena_val, val, val_len);
-          hashmap_set(templates_nfv9_hashmap, arena, keys[i], strlen(keys[i]), arena_val);
-          LOG_INFO("Loaded template %s from Redis\n", keys[i]);
+          char ip_str[32] = {0};
+          uint16_t tid = 0;
+          if (sscanf(keys[i], "%31[^-]-9-%hu", ip_str, &tid) == 2) {
+             struct in_addr in;
+             if (inet_pton(AF_INET, ip_str, &in) == 1) {
+                 uint64_t hkey = ((uint64_t)in.s_addr << 32) | tid;
+                 hashmap_set(templates_nfv9_hashmap, arena, &hkey, sizeof(uint64_t), arena_val);
+                 LOG_INFO("Loaded template %s from Redis\n", keys[i]);
+             }
+          }
         }
         free(val);
       }
@@ -181,9 +190,10 @@ void *parse_v9(uv_work_t *req) {
           break;
         }
         pos += (field_count * 4) + 4;
-        char key[255];
-        snprintf(key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
-        LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, key);
+        char redis_key[255];
+        snprintf(redis_key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
+        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
+        LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, redis_key);
 
         // Prepare template data
         size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 2;
@@ -200,14 +210,14 @@ void *parse_v9(uv_work_t *req) {
         memcpy(temp, (void *) (template_init - sizeof(int16_t) * 2), alloc_size);
 
         // Store in Hashmap
-        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, key, strlen(key), temp);
-        LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, key);
+        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
+        LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
 
 #ifdef USE_REDIS
-        if (redis_set_template(key, strlen(key), temp, alloc_size) != 0) {
-          LOG_ERROR("%s %d %s Error saving template in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
+        if (redis_set_template(redis_key, strlen(redis_key), temp, alloc_size) != 0) {
+          LOG_ERROR("%s %d %s Error saving template in Redis [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
         } else {
-          LOG_ERROR("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, key);
+          LOG_ERROR("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
         }
 #endif
 
@@ -252,11 +262,10 @@ void *parse_v9(uv_work_t *req) {
 
       netflow_v9_record_t *record = (netflow_v9_record_t *) (args->data + flowset_base + pos);
       uint16_t template_id = flowset_id;
-      char key[255];
-      snprintf(key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
-      LOG_ERROR("%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key);
+      uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
+      // LOG_ERROR("%s %d %s key: %s\n", __FILE__, __LINE__, __func__, key); // removed
 
-      template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, key, strlen(key));
+      template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
@@ -285,6 +294,7 @@ void *parse_v9(uv_work_t *req) {
         netflow_v9_record_insert_t empty_record = {0};
         memcpy(&netflow_packet.records[record_counter], &empty_record, sizeof(netflow_v9_record_insert_t));
         int is_ipv6 = 0;
+        uint64_t local_v9_records = 0;
 
         // Track the exporter and flowsets per completely parsed template loop
         metrics_track_exporter(args->exporter);
@@ -752,9 +762,10 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
 
-#ifdef ENABLE_METRICS
-          metrics_inc_v9_records_received();
-#endif
+// #ifdef ENABLE_METRICS
+//           metrics_inc_v9_records_received();
+// #endif
+          local_v9_records++;
 
           if (netflow_packet_ptr->records[record_counter].input != 0) {
             metrics_track_interface(args->exporter, netflow_packet_ptr->records[record_counter].input);
@@ -776,15 +787,23 @@ void *parse_v9(uv_work_t *req) {
           //  exit(-1);
           //}
         }
-        netflow_packet_ptr->header.count = record_counter;
-        /*if (!is_ipv6) {
 
+#ifdef ENABLE_METRICS
+        if (local_v9_records > 0) {
+          metrics_inc_v9_records_received_batch(local_v9_records);
+        }
+#endif
+
+        netflow_packet_ptr->header.count = record_counter;
+        /*
+         netflow_packet_ptr->header.count = record_counter;
+        if (!is_ipv6) {
           // insert_v9(args->exporter, netflow_packet_ptr);
         } else {
           fprintf(stderr, "ipv6 got ipv6...\n");
         }
         */
-        netflow_v9_uint128_flowset_t flows_to_insert = {0};
+        netflow_v9_uint128_flowset_t flows_to_insert; 
         /*if (netflow_packet_ptr->records[0].dOctets == 0) {
           LOG_ERROR("%s %d %s this is a zero flow\n", __FILE__, __LINE__, __func__);
         }
