@@ -756,7 +756,7 @@ void *parse_v9(uv_work_t *req) {
             // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
             // sizeof(flows_to_insert.records[record_counter].dstaddr));
 #ifdef CNETFLOW_DEBUG_BUILD
-            printf_v9(stderr, netflow_packet_ptr, record_counter);
+            printf_v9(stderr, &flows_to_insert, record_counter);
 #endif
           } else {
             LOG_ERROR("ipv6 not supported at the moment...\n");
@@ -829,4 +829,85 @@ unlock_mutex_parse_v9:
   args->status = collector_data_status_done;
 
   return NULL;
+}
+
+
+void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6, uint8_t *dump) {
+  // fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
+  out->header.count = in->header.count;
+  out->header.SysUptime = in->header.SysUptime;
+  out->header.unix_secs = in->header.unix_secs;
+  out->header.unix_nsecs = in->header.unix_nsecs;
+  out->header.flow_sequence = in->header.flow_sequence;
+  out->header.sampling_interval = in->header.sampling_interval;
+  for (int i = 0; i < in->header.count; i++) {
+    // Non-destructive copy & swap
+    out->records[i].srcport = in->records[i].srcport;
+    // swap_endianness(&out->records[i].srcport, sizeof(out->records[i].srcport));
+
+    out->records[i].dstport = in->records[i].dstport;
+    // swap_endianness(&out->records[i].dstport, sizeof(out->records[i].dstport));
+
+    out->records[i].dPkts = in->records[i].dPkts;
+    // swap_endianness(&out->records[i].dPkts, sizeof(out->records[i].dPkts));
+
+    out->records[i].dOctets = in->records[i].dOctets;
+    // swap_endianness(&out->records[i].dOctets, sizeof(out->records[i].dOctets));
+
+    // First and Last are already Host Order from parse_v9
+    out->records[i].First = in->records[i].First;
+    out->records[i].Last = in->records[i].Last;
+
+    out->records[i].input = in->records[i].input;
+    // swap_endianness(&out->records[i].input, sizeof(out->records[i].input));
+
+    out->records[i].output = in->records[i].output;
+    // swap_endianness(&out->records[i].output, sizeof(out->records[i].output));
+
+    out->records[i].src_as = in->records[i].src_as;
+    // swap_endianness(&out->records[i].src_as, sizeof(out->records[i].src_as));
+
+    out->records[i].dst_as = in->records[i].dst_as;
+    // swap_endianness(&out->records[i].dst_as, sizeof(out->records[i].dst_as));
+
+    out->records[i].src_mask = in->records[i].src_mask;
+    // swap_endianness(&out->records[i].src_mask, sizeof(out->records[i].src_mask));
+
+    out->records[i].dst_mask = in->records[i].dst_mask;
+    // swap_endianness(&out->records[i].dst_mask, sizeof(out->records[i].dst_mask));
+
+    out->records[i].tcp_flags = in->records[i].tcp_flags;
+    out->records[i].prot = in->records[i].prot;
+    out->records[i].tos = in->records[i].tos;
+
+    if (is_ipv6) {
+      out->records[i].srcaddr = in->records[i].ipv6srcaddr;
+      // swap_endianness(&out->records[i].srcaddr, sizeof(out->records[i].srcaddr));
+
+      out->records[i].dstaddr = in->records[i].ipv6dstaddr;
+      // swap_endianness(&out->records[i].dstaddr, sizeof(out->records[i].dstaddr));
+
+      out->records[i].nexthop = in->records[i].ipv6nexthop;
+      // swap_endianness(&out->records[i].nexthop, sizeof(out->records[i].nexthop));
+
+      out->records[i].ip_version = 6;
+    } else {
+      uint32_t tmp;
+
+      tmp = in->records[i].srcaddr;
+      // swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].srcaddr = tmp;
+
+      tmp = in->records[i].dstaddr;
+      // swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].dstaddr = tmp;
+
+      tmp = in->records[i].nexthop;
+      // swap_endianness(&tmp, sizeof(tmp));
+      out->records[i].nexthop = tmp;
+
+      out->records[i].ip_version = 4;
+    }
+  }
+  // fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }

@@ -73,27 +73,44 @@ build_config() {
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
     # shellcheck disable=SC2086
-    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option > /dev/null; then
+    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option; then
         echo "ERROR: Conan install failed for: $config_name (Static: $static_build, Type: $build_type)"
         exit 1
     fi
 
-    # Configure CMake using the Conan toolchain
+    # Compute Conan-generated toolchain and package paths (relative to current build dir)
+    local toolchain_file="build/$build_type/generators/conan_toolchain.cmake"
+    local cmake_prefix_path="$(pwd)/build/$build_type/generators"
+
+    # Verify toolchain exists
+    if [ ! -f "$toolchain_file" ]; then
+        echo "ERROR: Conan toolchain file not found at $toolchain_file"
+        exit 1
+    fi
+
+    # Configure CMake using the Conan toolchain and prefix path
     # Point to PROJECT_ROOT for CMakeLists.txt
-    if ! cmake -DUSE_CLICKHOUSE="$clickhouse" \
+    if ! cmake -S "$PROJECT_ROOT" -B . \
+              -DUSE_CLICKHOUSE="$clickhouse" \
               -DUSE_ARENA="$arena" \
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
               -DENABLE_METRICS="$metrics" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
-              -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
-              "$PROJECT_ROOT" > /dev/null; then
+              -DCMAKE_TOOLCHAIN_FILE="$toolchain_file" \
+              -DCMAKE_PREFIX_PATH="$cmake_prefix_path"; then
         echo "ERROR: CMake configuration failed for: $config_name (Static: $static_build, Type: $build_type)"
         exit 1
     fi
 
-    if ! cmake --build . -j$(nproc) > /dev/null; then
+    # Ensure CMakeCache.txt exists before building
+    if [ ! -f "CMakeCache.txt" ]; then
+        echo "ERROR: CMakeCache.txt not found after configuration for: $config_name"
+        exit 1
+    fi
+
+    if ! cmake --build . -j"$(nproc)"; then
         echo "ERROR: Compilation failed for: $config_name (Static: $static_build, Type: $build_type)"
         exit 1
     fi
