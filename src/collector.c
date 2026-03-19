@@ -55,17 +55,6 @@ extern void psql_db_cleanup_all(void);
 #define POOL_SIZE 10240
 #define MAX_THREAD_COUNTER 7
 
-#if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
-#if defined(__GNUC__) || defined(__clang__)
-#define THREAD_LOCAL __thread
-#else
-#define THREAD_LOCAL
-#endif
-#else
-#include <threads.h>
-#define THREAD_LOCAL thread_local
-#endif
-
 arena_struct_t *arena_collector;
 arena_struct_t *arena_udp_handle;
 arena_struct_t *arena_hashmap_nf9;

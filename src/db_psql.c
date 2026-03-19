@@ -6,17 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "log.h"
-#if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
-// If <threads.h> is missing (C11), some compilers support __thread, or _Thread_local, or nothing.
-#if defined(__GNUC__) || defined(__clang__)
-#define THREAD_LOCAL __thread
-#else
-#define THREAD_LOCAL
-#endif
-#else
-#include <threads.h>
-#define THREAD_LOCAL thread_local
-#endif
 #include <stdbool.h>
 #include <uv.h>
 #include "arena.h"

@@ -17,17 +17,6 @@
 #include "log.h"
 #include "netflow.h"
 
-#if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
-#if defined(__GNUC__) || defined(__clang__)
-#define THREAD_LOCAL __thread
-#else
-#define THREAD_LOCAL
-#endif
-#else
-#include <threads.h>
-#define THREAD_LOCAL thread_local
-#endif
-
 // Compatibility macros for old logging names
 #define CH_LOG_ERROR LOG_ERROR
 #define CH_LOG_INFO LOG_INFO
