@@ -148,7 +148,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
 #ifdef USE_ARENA_ALLOCATOR
 #else
       // free(buckets[index].key);  // FREE THE KEY!
-      // free(buckets[index].value);
+      free(buckets[index].value);
 #endif
       buckets[index].value = value;
       goto hashmap_set_success;
@@ -311,6 +311,7 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
       }
 #else
       free(buckets[index].key); // FREE THE KEY!
+      free(buckets[index].value);
       buckets[index].key = NULL;
       buckets[index].value = NULL;
 #endif
