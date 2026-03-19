@@ -369,10 +369,6 @@ int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dum
     CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
     return -1;
   }
-  // Build bulk insert query for better performance
-
-  char query[65536] = {0};
-  char pre_query[250] = {0};
 
   // Convert exporter IP to string format
   swap_endianness(&exporter, sizeof(exporter));
@@ -383,26 +379,53 @@ int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dum
     snprintf(exporter_str, sizeof(exporter_str), "unknown");
   }
 
-  int offset = snprintf(pre_query, sizeof(pre_query), "INSERT INTO templates (exporter,template_key,template) VALUES ");
-  char str_dump[10000] = {0};
-  int dump_offset = 0;
-  dump_offset = snprintf(str_dump, 2, "{");
+  // Build dump string safely: {aa,bb,...}
+  size_t needed_dump_len = 2 + (dump_size ? (dump_size * 2 + (dump_size - 1)) : 0) + 1; // {} + hex+commas + NUL
+  // Put a soft cap to avoid excessive memory usage
+  if (needed_dump_len > (size_t) (1 << 20)) { // >1MB string for a single row is suspicious
+    CH_LOG_ERROR("%s %d %s: dump too large (%zu bytes), refusing to build query\n", __FILE__, __LINE__, __func__,
+                 needed_dump_len);
+    return -1;
+  }
+  char *str_dump = (char *) malloc(needed_dump_len);
+  if (!str_dump) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate dump string buffer (%zu bytes)\n", __FILE__, __LINE__, __func__,
+                 needed_dump_len);
+    return -1;
+  }
+  char *p = str_dump;
+  *p++ = '{';
   for (size_t i = 0; i < dump_size; i++) {
-    uint8_t pkt = *(dump + i);
-    dump_offset += snprintf(str_dump + dump_offset, 5, "%02x", pkt);
-    if (i < dump_size - 1) {
-      dump_offset += snprintf(str_dump + dump_offset, 3, ",");
+    int n = snprintf(p, 3, "%02x", dump[i]);
+    p += n;
+    if (i + 1 < dump_size) {
+      *p++ = ',';
     }
   }
-  dump_offset += snprintf(str_dump + dump_offset, 2, "}");
-  char value_str[1024];
-  int written = snprintf((char *) query, sizeof(query) + sizeof(pre_query), "%s ('%s','%s','%s')", pre_query,
-                         exporter_str, template_key, str_dump);
+  *p++ = '}';
+  *p = '\0';
 
+  const char *prefix = "INSERT INTO templates (exporter,template_key,template) VALUES ";
+  size_t query_cap = strlen(prefix) + strlen(exporter_str) + strlen(template_key) + strlen(str_dump) + 32;
+  char *query = (char *) malloc(query_cap);
+  if (!query) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_cap);
+    free(str_dump);
+    return -1;
+  }
+  int written = snprintf(query, query_cap, "%s('%s','%s','%s')", prefix, exporter_str, template_key, str_dump);
+  if (written < 0 || (size_t) written >= query_cap) {
+    CH_LOG_ERROR("%s %d %s: snprintf truncated while building query\n", __FILE__, __LINE__, __func__);
+    free(str_dump);
+    free(query);
+    return -1;
+  }
 
   int result = ch_execute(conn, query);
   CH_LOG_INFO("%s\n", query);
 
+  free(str_dump);
+  free(query);
 
   if (result < 0) {
     CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
@@ -410,7 +433,6 @@ int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dum
   }
 
   CH_LOG_INFO("%s %d %s: Successfully inserted dump for template %s\n", __FILE__, __LINE__, __func__, template_key);
-
   return 0;
 }
 
@@ -422,10 +444,6 @@ int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, c
     CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
     return -1;
   }
-  // Build bulk insert query for better performance
-
-  char query[65536] = {0};
-  char pre_query[250] = {0};
 
   // Convert exporter IP to string format
   swap_endianness(&exporter, sizeof(exporter));
@@ -436,26 +454,52 @@ int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, c
     snprintf(exporter_str, sizeof(exporter_str), "unknown");
   }
 
-  int offset = snprintf(pre_query, sizeof(pre_query), "INSERT INTO dumps (exporter,template,dump) VALUES ");
-  char str_dump[10000] = {0};
-  int dump_offset = 0;
-  dump_offset = snprintf(str_dump, 2, "{");
+  // Build dump string safely: {aa,bb,...}
+  size_t needed_dump_len = 2 + (dump_size ? (dump_size * 2 + (dump_size - 1)) : 0) + 1; // {} + hex+commas + NUL
+  if (needed_dump_len > (size_t) (1 << 20)) {
+    CH_LOG_ERROR("%s %d %s: dump too large (%zu bytes), refusing to build query\n", __FILE__, __LINE__, __func__,
+                 needed_dump_len);
+    return -1;
+  }
+  char *str_dump = (char *) malloc(needed_dump_len);
+  if (!str_dump) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate dump string buffer (%zu bytes)\n", __FILE__, __LINE__, __func__,
+                 needed_dump_len);
+    return -1;
+  }
+  char *p = str_dump;
+  *p++ = '{';
   for (size_t i = 0; i < dump_size; i++) {
-    uint8_t pkt = *(dump + i);
-    dump_offset += snprintf(str_dump + dump_offset, 5, "%02x", pkt);
-    if (i < dump_size - 1) {
-      dump_offset += snprintf(str_dump + dump_offset, 3, ",");
+    int n = snprintf(p, 3, "%02x", dump[i]);
+    p += n;
+    if (i + 1 < dump_size) {
+      *p++ = ',';
     }
   }
-  dump_offset += snprintf(str_dump + dump_offset, 2, "}");
-  char value_str[1024];
-  int written = snprintf((char *) query, sizeof(query) + sizeof(pre_query), "%s ('%s','%s','%s')", pre_query,
-                         exporter_str, template_key, str_dump);
+  *p++ = '}';
+  *p = '\0';
 
+  const char *prefix = "INSERT INTO dumps (exporter,template,dump) VALUES ";
+  size_t query_cap = strlen(prefix) + strlen(exporter_str) + strlen(template_key) + strlen(str_dump) + 32;
+  char *query = (char *) malloc(query_cap);
+  if (!query) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_cap);
+    free(str_dump);
+    return -1;
+  }
+  int written = snprintf(query, query_cap, "%s('%s','%s','%s')", prefix, exporter_str, template_key, str_dump);
+  if (written < 0 || (size_t) written >= query_cap) {
+    CH_LOG_ERROR("%s %d %s: snprintf truncated while building query\n", __FILE__, __LINE__, __func__);
+    free(str_dump);
+    free(query);
+    return -1;
+  }
 
   int result = ch_execute(conn, query);
   CH_LOG_INFO("%s\n", query);
 
+  free(str_dump);
+  free(query);
 
   if (result < 0) {
     CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
@@ -463,7 +507,6 @@ int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, c
   }
 
   CH_LOG_INFO("%s %d %s: Successfully inserted dump for dump %s\n", __FILE__, __LINE__, __func__, template_key);
-
   return 0;
 }
 
@@ -485,11 +528,19 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
 
   if (max_diff == 0) {
     const char *max_diff_str = getenv("CNETFLOW_MAX_DIFF");
-    max_diff = (int) strtoul(max_diff_str, NULL, 10);
+    if (max_diff_str && max_diff_str[0] != '\0') {
+      max_diff = (uint32_t) strtoul(max_diff_str, NULL, 10);
+    } else {
+      max_diff = 5; // default seconds window
+    }
   }
   if (max_flows == 0) {
     const char *max_flows_str = getenv("CNETFLOW_MAX_FLOWS");
-    max_flows = (int) strtoul(max_flows_str, NULL, 10);
+    if (max_flows_str && max_flows_str[0] != '\0') {
+      max_flows = (uint32_t) strtoul(max_flows_str, NULL, 10);
+    } else {
+      max_flows = 10000; // default batch size
+    }
   }
 
   ch_db_connect(&conn);

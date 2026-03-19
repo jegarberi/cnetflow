@@ -214,8 +214,13 @@ static void process_track_exporter(uint32_t exporter_ip) {
     if (exporters_array[i] == exporter_ip) return;
   }
   if (exporters_count == exporters_capacity) {
-    exporters_capacity = exporters_capacity == 0 ? 16 : exporters_capacity * 2;
-    exporters_array = realloc(exporters_array, exporters_capacity * sizeof(uint32_t));
+    size_t new_cap = exporters_capacity == 0 ? 16 : exporters_capacity * 2;
+    void *new_ptr = realloc(exporters_array, new_cap * sizeof(uint32_t));
+    if (!new_ptr) {
+      return;
+    }
+    exporters_array = (uint32_t *) new_ptr;
+    exporters_capacity = new_cap;
   }
   exporters_array[exporters_count++] = exporter_ip;
   uv_mutex_lock(&g_metrics.mutex);
@@ -233,8 +238,13 @@ static void process_track_interface(uint32_t exporter_ip, uint16_t interface_id)
     if (interfaces_array[i] == combined_key) return;
   }
   if (interfaces_count == interfaces_capacity) {
-    interfaces_capacity = interfaces_capacity == 0 ? 16 : interfaces_capacity * 2;
-    interfaces_array = realloc(interfaces_array, interfaces_capacity * sizeof(uint64_t));
+    size_t new_cap = interfaces_capacity == 0 ? 16 : interfaces_capacity * 2;
+    void *new_ptr = realloc(interfaces_array, new_cap * sizeof(uint64_t));
+    if (!new_ptr) {
+      return;
+    }
+    interfaces_array = (uint64_t *) new_ptr;
+    interfaces_capacity = new_cap;
   }
   interfaces_array[interfaces_count++] = combined_key;
   uv_mutex_lock(&g_metrics.mutex);
