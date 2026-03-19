@@ -61,6 +61,7 @@ void *parse_ipfix(uv_work_t *req) {
   uint16_t *template_hashmap = NULL;
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
+  uint64_t total_flows_in_packet = 0;
 
   if (args->len < sizeof(netflow_ipfix_header_t)) {
     LOG_ERROR("%s %d %s: Packet too short for IPFIX header: %lu\n", __FILE__, __LINE__, __func__, args->len);
@@ -677,6 +678,7 @@ void *parse_ipfix(uv_work_t *req) {
 
         LOG_INFO("%s %d %s: Inserting %lu IPFIX flows (%s)\n", __FILE__, __LINE__, __func__, record_counter,
                  is_ipv6 ? "IPv6" : "IPv4");
+        total_flows_in_packet += record_counter;
         insert_flows(exporter_host, &flows_to_insert);
       }
     } else if (flowset_id == IPFIX_OPTION_SET) {
@@ -695,6 +697,7 @@ void *parse_ipfix(uv_work_t *req) {
 cleanup_ipfix_and_unlock:
 
 unlock_mutex_parse_ipfix:
+  args->processed_flows = total_flows_in_packet;
   args->status = collector_data_status_done;
   return NULL;
 }

@@ -60,6 +60,7 @@ void *parse_v9(uv_work_t *req) {
 
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
+  uint64_t total_flows_in_packet = 0;
 
   //__attribute__((cleanup(uv_mutex_unlock))) uv_mutex_t * lock = &(args->mutex);
   netflow_v9_header_t *header = (netflow_v9_header_t *) (args->data);
@@ -806,6 +807,7 @@ void *parse_v9(uv_work_t *req) {
         swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
         LOG_INFO("%s %d %s Inserting %lu v9 flows\n", __FILE__, __LINE__, __func__, record_counter);
+        total_flows_in_packet += record_counter;
         insert_flows(exporter_host, &flows_to_insert);
       }
     } else if (flowset_id == 1) {
@@ -826,6 +828,7 @@ cleanup_template_and_unlock:
 
 unlock_mutex_parse_v9:
   // uv_mutex_unlock(lock);
+  args->processed_flows = total_flows_in_packet;
   args->status = collector_data_status_done;
 
   return NULL;

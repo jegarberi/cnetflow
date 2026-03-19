@@ -154,6 +154,7 @@ void *parse_v5(uv_work_t *req) {
 
 unlock_mutex_parse_v5:
   // uv_mutex_unlock(lock);
+  args->processed_flows = netflow_packet_ptr->header.count;
   args->status = collector_data_status_done;
 
   return NULL;

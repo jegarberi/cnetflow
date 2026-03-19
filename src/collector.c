@@ -81,6 +81,7 @@ uv_udp_t *udp_server_global = NULL;
 // uv_thread_t threads[7];
 size_t thread_counter;
 static volatile int active_requests = 0;
+static volatile uint64_t total_processed_flows = 0;
 
 void print_rss_max_usage() {
 #ifndef _WIN32
@@ -97,11 +98,16 @@ void print_rss_max_usage() {
 void check_backlog_cb(uv_timer_t *handle) {
   (void) handle;
   static int last_backlog = 0;
+  static uint64_t last_total_flows = 0;
   int current_backlog = active_requests;
+  uint64_t delta_flows = total_processed_flows - last_total_flows;
+  double flows_per_sec = (double)delta_flows / 60.0; // timer runs every 60s
   if (current_backlog > last_backlog && current_backlog > 100) {
-    printf("Messages are arriving faster than they can be processed (backlog: %d)\n", current_backlog);
+    printf("Messages are arriving faster than they can be processed (backlog: %d, flows/s: %.2f)\n",
+           current_backlog, flows_per_sec);
   }
   last_backlog = current_backlog;
+  last_total_flows = total_processed_flows;
 }
 
 /**
@@ -510,6 +516,9 @@ void *after_work_cb(uv_work_t *req, int status) {
   if (ret != 0) {
     LOG_ERROR("%s %d %s: Failed to free req %p (ret=%d)\n", __FILE__, __LINE__, __func__, req, ret);
   }
+
+  // Accumulate processed flows from this work item
+  total_processed_flows += func_args->processed_flows;
 
   active_requests--;
   return NULL;

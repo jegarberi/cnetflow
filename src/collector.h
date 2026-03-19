@@ -20,6 +20,7 @@ typedef struct {
   collector_data_status status;
   size_t index;
   void *data;
+  uint64_t processed_flows;
 } parse_args_t;
 
 typedef struct {
