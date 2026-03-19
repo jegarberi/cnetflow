@@ -490,18 +490,20 @@ error_no_arena:
   return -1;
 }
 
-void *after_work_cb(uv_work_t *req, int status) {
+void after_work_cb(uv_work_t *req, int status) {
   if (req == NULL) {
     LOG_ERROR("%s %d %s: req is NULL\n", __FILE__, __LINE__, __func__);
-    return NULL;
+    return;
   }
+
+  active_requests--;
 
   parse_args_t *func_args = req->data;
   if (func_args == NULL) {
     LOG_ERROR("%s %d %s: func_args is NULL\n", __FILE__, __LINE__, __func__);
     // Still try to free req
     arena_free(arena_collector, req);
-    return NULL;
+    return;
   }
 
   // CRITICAL FIX: Validate pointers before freeing to prevent double-free
@@ -529,8 +531,7 @@ void *after_work_cb(uv_work_t *req, int status) {
   // Accumulate processed flows from this work item
   total_processed_flows += func_args->processed_flows;
 
-  active_requests--;
-  return NULL;
+  return;
 }
 /**
  * Handles incoming UDP packets, parses the data, and processes it according
@@ -664,7 +665,14 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   if (work_cb) {
     active_requests++;
-    uv_queue_work(loop_pool, work_req, work_cb, (void *) after_work_cb);
+    int rc = uv_queue_work(loop_pool, work_req, work_cb, (uv_after_work_cb) after_work_cb);
+    if (rc != 0) {
+      LOG_ERROR("uv_queue_work failed: %s\n", uv_strerror(rc));
+      active_requests--;
+      arena_free(arena_udp_handle, func_args->data);
+      arena_free(arena_collector, func_args);
+      arena_free(arena_collector, work_req);
+    }
     data_counter++;
     return;
   }
