@@ -586,11 +586,20 @@ void metrics_inc_flowsets(uint64_t flowsets) {
 }
 
 void metrics_track_exporter(uint32_t exporter_ip) {
+  static THREAD_LOCAL uint32_t last_exporter = 0;
+  if (unlikely(exporter_ip == last_exporter)) return;
+  last_exporter = exporter_ip;
+
   metric_update_t update = { .type = METRIC_TRACK_EXPORTER, .ip = exporter_ip };
   push_update(&update);
 }
 
 void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
+  static THREAD_LOCAL uint64_t last_combined = 0;
+  uint64_t combined = ((uint64_t) exporter_ip << 32) | interface_id;
+  if (unlikely(combined == last_combined)) return;
+  last_combined = combined;
+
   metric_update_t update = { .type = METRIC_TRACK_INTERFACE, .ip = exporter_ip, .id = interface_id };
   push_update(&update);
 }

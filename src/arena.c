@@ -43,6 +43,8 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   arena->free_slots = 0;
   arena->capacity = capacity;
   arena->first_chunk = NULL;
+  arena->last_chunk = NULL;
+  arena->free_list = NULL;
   arena->recycle = 0;
   arena->end = (size_t) arena->base_address + arena->size;
   memset(arena->base_address, 0, arena->size);
@@ -74,139 +76,81 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
  */
 #ifdef USE_ARENA_ALLOCATOR
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
-  LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
-  void *address = NULL; // address ahora representará la dirección de DATOS del usuario
+  if (unlikely(bytes == 0)) {
+    return NULL;
+  }
+
+  void *address = NULL;
   uv_mutex_lock(&arena->mutex);
-  if (bytes == 0) {
-    uv_mutex_unlock(&arena->mutex);
-    return NULL;
-  }
 
-  const int overhead = sizeof(arena_chunk_t); // Usamos const int para el tamaño
-  arena_chunk_t *chunk;
+  // 1. Try to recycle from free list
+  if (arena->free_list != NULL) {
+    arena_chunk_t *chunk = arena->free_list;
+    arena_chunk_t *prev = NULL;
 
-  // 1. Calcular la dirección actual no alineada
-  char *current_addr = ((char *) arena->base_address + arena->offset);
-
-  // 2. Calcular padding para alinear el inicio del METADATO (chunk)
-  // El padding debe asegurar que (current_addr + padding) esté alineado a 8 bytes
-  // Nota: Dado que offset puede ser cualquier cosa, esta lógica de padding es crucial.
-  const size_t padding = (8 - ((size_t) current_addr % 8)) % 8;
-
-  // 3. Revisar si hay suficiente espacio para: padding + metadatos (overhead) + datos (bytes)
-  if (arena->offset + padding + overhead + bytes > arena->size) {
-    LOG_ERROR("%s %d %s Insufficient space in arena.\n", __FILE__, __LINE__, __func__);
-    uv_mutex_unlock(&arena->mutex);
-    return NULL;
-  }
-
-  /* --- Lógica de Reciclaje (Sin cambios significativos, se mantiene la estructura) --- */
-  if (arena->free_slots > __RECYCLE_TRESHOLD || arena->recycle == 1) {
-    arena->recycle = 1;
-    LOG_ERROR("%s %d %s trying to use freed chunk...\n", __FILE__, __LINE__, __func__);
-    chunk = arena->first_chunk;
-    do {
-      if (chunk == NULL) {
-        LOG_ERROR("ERROR: Recycled chunk pointer is NULL unexpectedly!\n");
-        break;
-      }
-
-      // CRITICAL FIX: Validate chunk pointer BEFORE any access
-      if ((size_t)chunk < (size_t)arena->base_address ||
-          (size_t)chunk >= (size_t)arena->base_address + arena->size) {
-        LOG_ERROR("FATAL ERROR: Corrupt chunk pointer: %p (outside arena bounds %p-%p)\n",
-                  chunk, arena->base_address, (void*)((size_t)arena->base_address + arena->size));
-        uv_mutex_unlock(&arena->mutex);
-        return NULL;
-      }
-
-      //LOG_ERROR("DEBUG: Checking chunk [%p], next [%p]\n", chunk, chunk->next);
-      if (chunk->occupied == 0 && chunk->free == 1 && chunk->size >= bytes) {
-        // Usar este chunk
-        LOG_ERROR("%s %d %s using freed chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
-
-        // Validate data_address before returning
-        if (chunk->data_address == NULL ||
-            (size_t)chunk->data_address < (size_t)arena->base_address ||
-            (size_t)chunk->data_address >= (size_t)arena->base_address + arena->size) {
-          LOG_ERROR("FATAL ERROR: Corrupt chunk->data_address: %p\n", chunk->data_address);
-          uv_mutex_unlock(&arena->mutex);
-          return NULL;
+    while (chunk != NULL) {
+      if (chunk->size >= bytes) {
+        // Found a suitable chunk
+        if (prev == NULL) {
+          arena->free_list = chunk->next_free;
+        } else {
+          prev->next_free = chunk->next_free;
         }
 
         chunk->occupied = 1;
         chunk->free = 0;
-        // Asumimos que no necesitamos cambiar el tamaño de la memoria de datos
-        // Si el usuario pidió menos que chunk->size, es su responsabilidad usar solo 'bytes'.
         arena->free_slots--;
-        if (arena->free_slots == 0) {
-          arena->recycle = 0;
-        }
-
-        memset(chunk->data_address, 0, bytes); // Limpiar solo 'bytes'
+        
+        address = chunk->data_address;
+        memset(address, 0, bytes);
         uv_mutex_unlock(&arena->mutex);
-        return chunk->data_address;
+        return address;
       }
-
-      // Verificar la validez del puntero 'next' BEFORE dereferencing in next iteration
-      if (chunk->next != NULL) {
-        if ((size_t)chunk->next < (size_t)arena->base_address ||
-            (size_t)chunk->next >= (size_t)arena->base_address + arena->size) {
-          LOG_ERROR("FATAL ERROR: Corrupt chunk->next pointer: %p (outside arena bounds)\n", chunk->next);
-          // Esto ayuda a atrapar punteros que apuntan fuera del arena
-          uv_mutex_unlock(&arena->mutex);
-          return NULL;
-        }
-      }
-      chunk = chunk->next;
-    } while (chunk != NULL);
+      prev = chunk;
+      chunk = chunk->next_free;
+    }
   }
 
-  /* --- Lógica de Nueva Asignación (Corregida) --- */
-  LOG_ERROR("%s %d %s cant use any freed chunk, allocating new...\n", __FILE__, __LINE__, __func__);
+  // 2. No recycled chunk found, allocate new
+  const size_t overhead = sizeof(arena_chunk_t);
+  char *current_addr = ((char *) arena->base_address + arena->offset);
+  const size_t padding = (8 - ((size_t) current_addr % 8)) % 8;
 
-  // Dirección donde comienza la estructura arena_chunk_t (METADATOS)
-  arena_chunk_t *new_chunk_start = (arena_chunk_t *) (current_addr + padding);
+  if (unlikely(arena->offset + padding + overhead + bytes > arena->size)) {
+    LOG_ERROR("%s %d %s Insufficient space in arena (offset=%lu, requested=%lu)\n", __FILE__, __LINE__, __func__, arena->offset, bytes);
+    uv_mutex_unlock(&arena->mutex);
+    return NULL;
+  }
 
-  // Dirección donde comienza el bloque de DATOS del usuario (se devuelve)
-  address = (void *) ((char *) new_chunk_start + overhead);
+  arena_chunk_t *new_chunk = (arena_chunk_t *) (current_addr + padding);
+  address = (void *) ((char *) new_chunk + overhead);
 
-  // 4. Actualizar el offset sumando el espacio total consumido
   arena->offset += padding + overhead + bytes;
-
-  // 5. Inicializar el área de datos (solo los bytes solicitados)
   memset(address, 0, bytes);
 
   arena->allocations++;
   arena->max_allocations++;
 
-  // 6. Configurar la lista ligada usando new_chunk_start (el puntero a la estructura)
+  // Initialize chunk metadata
+  new_chunk->data_address = address;
+  new_chunk->occupied = 1;
+  new_chunk->free = 0;
+  new_chunk->size = bytes;
+  new_chunk->end = (size_t *) ((char *) address + bytes);
+  new_chunk->next = NULL;
+  new_chunk->next_free = NULL;
+
+  // Add to the end of the global chunk list (O(1) using last_chunk)
   if (arena->first_chunk == NULL) {
-    arena->first_chunk = new_chunk_start;
-    chunk = arena->first_chunk;
+    arena->first_chunk = new_chunk;
+    arena->last_chunk = new_chunk;
   } else {
-    chunk = arena->first_chunk;
-    while (chunk->next != NULL) {
-      chunk = chunk->next;
-    }
-    chunk->next = new_chunk_start;
-    chunk = new_chunk_start; // chunk ahora apunta a la nueva estructura de metadatos
+    arena->last_chunk->next = new_chunk;
+    arena->last_chunk = new_chunk;
   }
 
-  // 7. Inicializar los campos del CHUNK
-  chunk->data_address = address; // Puntero a la dirección de datos del usuario
-  chunk->occupied = 1;
-  chunk->free = 0;
-  chunk->size = bytes;
-
-  // CORRECCIÓN CLAVE: Usar aritmética de punteros byte a byte para el fin (char*)
-  // Esto previene la corrupción por multiplicación de sizeof(arena_chunk_t)
-  chunk->end = (size_t *) ((char *) chunk->data_address + chunk->size);
-
-  chunk->next = NULL;
-
   uv_mutex_unlock(&arena->mutex);
-  return address; // Devolver la dirección de DATOS
+  return address;
 }
 #else
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
@@ -228,9 +172,16 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
  */
 #ifdef USE_ARENA_ALLOCATOR
 int arena_clean(arena_struct_t *arena) {
-  LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
+  uv_mutex_lock(&arena->mutex);
   arena->offset = 0;
+  arena->allocations = 0;
+  arena->free_slots = 0;
+  arena->recycle = 0;
+  arena->first_chunk = NULL;
+  arena->last_chunk = NULL;
+  arena->free_list = NULL;
   memset(arena->base_address, 0, arena->size);
+  uv_mutex_unlock(&arena->mutex);
   return 0;
 }
 #else
@@ -252,8 +203,8 @@ int arena_clean(arena_struct_t *arena) {
  */
 #ifdef USE_ARENA_ALLOCATOR
 int arena_destroy(arena_struct_t *arena) {
-  LOG_ERROR("%s %d %s arena_destroy...\n", __FILE__, __LINE__, __func__);
   arena_clean(arena);
+  uv_mutex_lock(&arena->mutex);
   free(arena->base_address);
   arena->base_address = NULL;
   arena->size = 0;
@@ -263,6 +214,10 @@ int arena_destroy(arena_struct_t *arena) {
   arena->max_allocations = 0;
   arena->free_slots = 0;
   arena->capacity = 0;
+  arena->first_chunk = NULL;
+  arena->last_chunk = NULL;
+  arena->free_list = NULL;
+  uv_mutex_unlock(&arena->mutex);
   uv_mutex_destroy(&arena->mutex); // Añadido: Destruir el mutex
   return 0;
 }
@@ -341,74 +296,46 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  */
 #ifdef USE_ARENA_ALLOCATOR
 int arena_free(arena_struct_t *arena, void *address) {
-  uv_mutex_lock(&arena->mutex);
-  LOG_ERROR("%s %d %s arena_free...\n", __FILE__, __LINE__, __func__);
-
-  if (address == NULL) {
-    LOG_ERROR("%s %d %s Attempted to free NULL pointer\n", __FILE__, __LINE__, __func__);
-    uv_mutex_unlock(&arena->mutex);
+  if (unlikely(address == NULL)) {
     return -1;
   }
 
+  uv_mutex_lock(&arena->mutex);
+
   // Validate address is within arena bounds
-  if ((size_t)address < (size_t)arena->base_address ||
-      (size_t)address >= (size_t)arena->base_address + arena->size) {
+  if (unlikely((size_t)address < (size_t)arena->base_address ||
+               (size_t)address >= (size_t)arena->base_address + arena->size)) {
     LOG_ERROR("%s %d %s Address %p outside arena bounds\n", __FILE__, __LINE__, __func__, address);
     uv_mutex_unlock(&arena->mutex);
     return -1;
   }
 
-  if (arena->first_chunk == NULL) {
+  // Derive chunk from address (O(1))
+  arena_chunk_t *chunk = (arena_chunk_t *)((char *)address - sizeof(arena_chunk_t));
+
+  // Basic sanity check: data_address should match
+  if (unlikely(chunk->data_address != address)) {
+    LOG_ERROR("%s %d %s Corrupt chunk metadata at %p\n", __FILE__, __LINE__, __func__, address);
     uv_mutex_unlock(&arena->mutex);
-    return 0;
-  }
-
-  arena_chunk_t *chunk = arena->first_chunk;
-  // Bucle mejorado: iterar hasta encontrar la dirección de datos o hasta el final.
-  while (chunk != NULL) {
-    // Validate chunk pointer before dereferencing
-    if ((size_t)chunk < (size_t)arena->base_address ||
-        (size_t)chunk >= (size_t)arena->base_address + arena->size) {
-      LOG_ERROR("%s %d %s Corrupt chunk pointer %p detected during free\n", __FILE__, __LINE__, __func__, chunk);
-      uv_mutex_unlock(&arena->mutex);
-      return -1;
-    }
-
-    if (chunk->data_address == address) {
-      break;
-    }
-
-    // Validate next pointer before following
-    if (chunk->next != NULL &&
-        ((size_t)chunk->next < (size_t)arena->base_address ||
-         (size_t)chunk->next >= (size_t)arena->base_address + arena->size)) {
-      LOG_ERROR("%s %d %s Corrupt chunk->next pointer %p\n", __FILE__, __LINE__, __func__, chunk->next);
-      uv_mutex_unlock(&arena->mutex);
-      return -1;
-    }
-
-    chunk = chunk->next;
-  }
-
-  if (chunk == NULL) {
-    LOG_ERROR("%s %d %s Address not found in arena.\n", __FILE__, __LINE__, __func__);
-    uv_mutex_unlock(&arena->mutex);
-    return -1; // Dirección no encontrada
+    return -1;
   }
 
   // Prevent double-free
-  if (chunk->free == 1 && chunk->occupied == 0) {
+  if (unlikely(chunk->free == 1 && chunk->occupied == 0)) {
     LOG_ERROR("%s %d %s Double-free detected for address %p\n", __FILE__, __LINE__, __func__, address);
     uv_mutex_unlock(&arena->mutex);
     return -1;
   }
 
-  // Marcar como libre
+  // Mark as free
   chunk->occupied = 0;
   chunk->free = 1;
 
+  // Add to free list (stack-like, O(1))
+  chunk->next_free = arena->free_list;
+  arena->free_list = chunk;
+
   arena->free_slots++;
-  LOG_ERROR("%s %d %s freeing chunk [%p]\n", __FILE__, __LINE__, __func__, chunk->data_address);
   uv_mutex_unlock(&arena->mutex);
   return 0;
 }

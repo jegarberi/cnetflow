@@ -71,24 +71,30 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
  * @return The computed hash value, constrained to the range of 0 to (bucket_count - 1).
  */
 size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
-
-
   const uint32_t FNV_OFFSET_BASIS = 2166136261;
-
+  const uint32_t FNV_PRIME = 16777619;
   uint32_t hash = FNV_OFFSET_BASIS;
   unsigned char *bytes = (unsigned char *) key;
 
-  for (size_t i = 0; i < len; i++) {
-    // FNV-1a hash constants
-    const uint32_t FNV_PRIME = 16777619;
-    hash ^= bytes[i];
-    hash *= FNV_PRIME;
+  if (len == 8) {
+    // Optimized for uint64_t keys
+    hash ^= bytes[0]; hash *= FNV_PRIME;
+    hash ^= bytes[1]; hash *= FNV_PRIME;
+    hash ^= bytes[2]; hash *= FNV_PRIME;
+    hash ^= bytes[3]; hash *= FNV_PRIME;
+    hash ^= bytes[4]; hash *= FNV_PRIME;
+    hash ^= bytes[5]; hash *= FNV_PRIME;
+    hash ^= bytes[6]; hash *= FNV_PRIME;
+    hash ^= bytes[7]; hash *= FNV_PRIME;
+  } else {
+    for (size_t i = 0; i < len; i++) {
+      hash ^= bytes[i];
+      hash *= FNV_PRIME;
+    }
   }
 
   // Ensure hash is within bucket range
-  size_t index = hash % hashmap->bucket_count;
-  LOG_ERROR("%s %d %s: hashmap_hash key: %s =>  index: %lu\n", __FILE__, __LINE__, __func__, (char *) key, index);
-  return index;
+  return hash % hashmap->bucket_count;
 }
 
 /**

@@ -20,6 +20,7 @@ typedef struct arena_chunk_s {
   int occupied;
   int free;
   struct arena_chunk_s *next;
+  struct arena_chunk_s *next_free;
 } arena_chunk_t;
 
 typedef struct {
@@ -34,6 +35,8 @@ typedef struct {
   size_t free_slots;
   int recycle;
   arena_chunk_t *first_chunk;
+  arena_chunk_t *last_chunk;
+  arena_chunk_t *free_list;
 } arena_struct_t;
 
 typedef struct {

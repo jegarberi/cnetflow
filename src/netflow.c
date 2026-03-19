@@ -36,14 +36,11 @@ endianness_e endianness = 0;
  */
 
 NETFLOW_VERSION detect_version(void *data) {
-  if (endianness == NETFLOW_NO_ENDIAN) {
-    endianness = detect_endianness();
-  }
   uint16_t version = 0;
   memcpy(&version, data, sizeof(uint16_t));
-  if (endianness == NETFLOW_LITTLE_ENDIAN) {
-    version = ntohs(version);
-  }
+#if !CNETFLOW_BIG_ENDIAN_ARCH
+  version = swap_endian_16(version);
+#endif
   switch (version) {
     case NETFLOW_V5:
       return NETFLOW_V5;

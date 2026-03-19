@@ -411,7 +411,11 @@ int8_t collector_start(collector_t *collector) {
     goto error_destroy_arena;
   }
   udp_server_global = udp_server;
+#ifdef __linux__
+  uv_udp_init_ex(loop_udp, udp_server, UV_UDP_RECVMMSG);
+#else
   uv_udp_init(loop_udp, udp_server);
+#endif
 
   LOG_DEBUG(
       "%s %d %s struct sockaddr *addr = (struct sockaddr *) collector_config->alloc(arena_collector, sizeof(struct "
