@@ -186,7 +186,7 @@ void *parse_v9(uv_work_t *req) {
         LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, key);
 
         // Prepare template data
-        size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 4;
+        size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 2;
 
         // We use arena_hashmap_nf9 as temporary storage for construction
         uint16_t *temp = arena_alloc(arena_hashmap_nf9, alloc_size);
