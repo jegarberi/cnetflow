@@ -203,7 +203,7 @@ error:
   return NULL;
 }
 
-void ch_db_connect(ch_conn_t **conn) {
+WEAK void ch_db_connect(ch_conn_t **conn) {
   if (*conn != NULL) {
     if ((*conn)->connected) {
       return;
@@ -351,7 +351,7 @@ int ch_create_flows_table(ch_conn_t *conn) {
 }
 
 
-int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
+WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
 
   ch_db_connect(&conn);
@@ -426,7 +426,7 @@ int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dum
   return 0;
 }
 
-int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
+WEAK int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
 
   ch_db_connect(&conn);
@@ -504,7 +504,7 @@ int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, c
 extern int g_max_flows;
 extern int g_max_diff;
 
-int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
+WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
   static THREAD_LOCAL char *query = NULL;
   static THREAD_LOCAL int offset = 0;

@@ -7,14 +7,18 @@
 #if defined(__STDC_NO_THREADS__) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
 #if defined(__GNUC__) || defined(__clang__)
 #define THREAD_LOCAL __thread
+#define WEAK __attribute__((weak))
 #elif defined(_MSC_VER)
 #define THREAD_LOCAL __declspec(thread)
+#define WEAK
 #else
 #define THREAD_LOCAL
+#define WEAK
 #endif
 #else
 #include <threads.h>
 #define THREAD_LOCAL thread_local
+#define WEAK __attribute__((weak))
 #endif
 
 // Debug logging macros - controlled by ENABLE_LOGGING (selectable via CMake)
