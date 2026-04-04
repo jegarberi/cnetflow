@@ -20,11 +20,10 @@ fi
 
 build_config() {
     local config_name="$1"
-    local clickhouse="$2"
-    local arena="$3"
-    local logging="$4"
-    local redis="$5"
-    local build_type="$6"
+    local arena="$2"
+    local logging="$3"
+    local redis="$4"
+    local build_type="$5"
 
     echo "========================================"
     echo "Building: $config_name ($build_type)"
@@ -55,8 +54,7 @@ build_config() {
 
     # Configure CMake using the Conan toolchain
     # Point to PROJECT_ROOT for CMakeLists.txt
-    if ! cmake -DUSE_CLICKHOUSE="$clickhouse" \
-              -DUSE_ARENA="$arena" \
+    if ! cmake -DUSE_ARENA="$arena" \
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
               -DCMAKE_BUILD_TYPE="$build_type" \
@@ -88,31 +86,19 @@ for build_type in Release Debug; do
     # Let's add Redis arg to all calls.
 
     # 1. Minimal build (everything OFF)
-    build_config "Minimal (All OFF)" OFF OFF OFF OFF $build_type
+    build_config "Minimal" OFF OFF OFF $build_type
 
     # 2. Standard with Logging
-    build_config "ENABLE_LOGGING=ON" OFF OFF ON ON $build_type
+    build_config "Logging" OFF ON ON $build_type
 
     # 3. Arena ON
-    build_config "USE_ARENA=ON" OFF ON OFF ON $build_type
+    build_config "Arena" ON OFF ON $build_type
 
     # 4. Arena + Logging
-    build_config "USE_ARENA=ON, ENABLE_LOGGING=ON" OFF ON ON ON $build_type
+    build_config "Arena_Logging" ON ON ON $build_type
 
-    # 5. ClickHouse
-    build_config "USE_CLICKHOUSE=ON" ON OFF OFF ON $build_type
-
-    # 6. ClickHouse + Logging
-    build_config "USE_CLICKHOUSE=ON, ENABLE_LOGGING=ON" ON OFF ON ON $build_type
-
-    # 7. ClickHouse + Arena
-    build_config "USE_CLICKHOUSE=ON, USE_ARENA=ON" ON ON OFF ON $build_type
-
-    # 8. All ON (Maximum features)
-    build_config "All ON" ON ON ON ON $build_type
-
-    # 9. Redis OFF (Hashmap fallback)
-    build_config "USE_REDIS=OFF" OFF ON ON OFF $build_type
+    # 5. Redis OFF (Hashmap fallback)
+    build_config "No_Redis" ON ON OFF $build_type
 done
 
 echo ""

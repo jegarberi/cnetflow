@@ -33,20 +33,7 @@
 #include "netflow_v9.h"
 
 extern void ch_db_cleanup_all(void);
-extern void psql_db_cleanup_all(void);
 
-// Include PostgreSQL headers only when using PostgreSQL backend
-#ifndef USE_CLICKHOUSE
-#ifdef __has_include
-#if __has_include(<postgresql/libpq-fe.h>)
-#include <postgresql/libpq-fe.h>
-#else
-#include <libpq-fe.h>
-#endif
-#else
-#include <libpq-fe.h>
-#endif
-#endif
 #define _MAX_ALLOWED_RAM 12.0
 #define true 1
 #define false 0
@@ -286,11 +273,6 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
  *         Specific error messages are logged to standard error.
  */
 int8_t collector_start(collector_t *collector) {
-#ifndef USE_CLICKHOUSE
-  // Initialize PostgreSQL OpenSSL (only needed for PostgreSQL backend)
-  PQinitOpenSSL(1, 1);
-#endif
-
   thread_counter = 0;
   signal(SIGINT, signal_handler);
   signal(SIGUSR1, signal_handler);
@@ -475,8 +457,6 @@ ok:
 
 #ifdef USE_CLICKHOUSE
   ch_db_cleanup_all();
-#else
-  psql_db_cleanup_all();
 #endif
 
   arena_destroy(arena_hashmap_ipfix);

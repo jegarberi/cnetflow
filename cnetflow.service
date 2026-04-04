@@ -1,8 +1,8 @@
 [Unit]
 Description=Cnetflow netflow collector and analyzer service
-After=network.target postgresql.service
+After=network.target clickhouse-server.service
 Wants=network.target
-Requires=postgresql.service
+Requires=clickhouse-server.service
 
 [Service]
 Type=simple

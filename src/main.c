@@ -6,11 +6,7 @@
 
 void print_compile_options(void) {
     printf("cnetflow compile options:\n");
-#ifdef USE_CLICKHOUSE
     printf("  Database: ClickHouse\n");
-#else
-    printf("  Database: PostgreSQL\n");
-#endif
 
 #ifdef USE_REDIS
     printf("  Redis: ON\n");

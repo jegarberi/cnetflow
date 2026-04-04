@@ -17,7 +17,6 @@ if (Get-Command conan -ErrorAction SilentlyContinue) {
 function Build-Config {
     param (
         [string]$ConfigName,
-        [string]$ClickHouse,
         [string]$Arena,
         [string]$Logging,
         [string]$Redis,
@@ -45,8 +44,7 @@ function Build-Config {
     }
 
     Write-Host "Configuring CMake..."
-    cmake -DUSE_CLICKHOUSE="$ClickHouse" `
-          -DUSE_ARENA="$Arena" `
+    cmake -DUSE_ARENA="$Arena" `
           -DENABLE_LOGGING="$Logging" `
           -DUSE_REDIS="$Redis" `
           -DCMAKE_BUILD_TYPE="$BuildType" `
@@ -77,31 +75,19 @@ foreach ($BuildType in "Release", "Debug") {
     Write-Host ""
 
     # 1. Minimal build
-    Build-Config "Minimal (All OFF)" "OFF" "OFF" "OFF" "OFF" $BuildType
+    Build-Config "Minimal" "OFF" "OFF" "OFF" $BuildType
 
     # 2. Standard with Logging
-    Build-Config "ENABLE_LOGGING=ON" "OFF" "OFF" "ON" "ON" $BuildType
+    Build-Config "Logging" "OFF" "ON" "ON" $BuildType
 
     # 3. Arena ON
-    Build-Config "USE_ARENA=ON" "OFF" "ON" "OFF" "ON" $BuildType
+    Build-Config "Arena" "ON" "OFF" "ON" $BuildType
 
     # 4. Arena + Logging
-    Build-Config "USE_ARENA=ON, ENABLE_LOGGING=ON" "OFF" "ON" "ON" "ON" $BuildType
+    Build-Config "Arena_Logging" "ON" "ON" "ON" $BuildType
 
-    # 5. ClickHouse
-    Build-Config "USE_CLICKHOUSE=ON" "ON" "OFF" "OFF" "ON" $BuildType
-
-    # 6. ClickHouse + Logging
-    Build-Config "USE_CLICKHOUSE=ON, ENABLE_LOGGING=ON" "ON" "OFF" "ON" "ON" $BuildType
-
-    # 7. ClickHouse + Arena
-    Build-Config "USE_CLICKHOUSE=ON, USE_ARENA=ON" "ON" "ON" "OFF" "ON" $BuildType
-
-    # 8. All ON
-    Build-Config "All ON" "ON" "ON" "ON" "ON" $BuildType
-
-    # 9. Redis OFF
-    Build-Config "USE_REDIS=OFF" "OFF" "ON" "ON" "OFF" $BuildType
+    # 5. Redis OFF
+    Build-Config "No_Redis" "ON" "ON" "OFF" $BuildType
 }
 
 Write-Host ""

@@ -13,16 +13,6 @@
 // Provide minimal implementations to avoid bringing database or collector modules into the test binary.
 #include <netinet/in.h>
 
-__attribute__((weak)) void insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
-  (void) exporter;
-  (void) flows; // no-op stub
-}
-__attribute__((weak)) int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
-  (void) exporter;
-  (void) flows;
-  return 0;
-}
-
 // Suite: netflow
 
 Test(netflow, detect_version_basic) {

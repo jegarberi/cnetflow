@@ -10,10 +10,36 @@ https://github.com/tubav/libipfix
 
 - **Multi-version NetFlow support**: NetFlow v5, v9, and IPFIX
 - **High performance**: Asynchronous I/O using libuv
-- **PostgreSQL integration**: Direct database storage for flow records
+- **ClickHouse integration**: High-performance database storage for flow records
 - **Memory efficient**: Custom arena allocator and dynamic arrays
 - **Systemd integration**: Native Linux service support
 - **Docker support**: Containerized deployment option
+
+## Configuration
+
+### ClickHouse Configuration
+Set the `CH_CONN_STRING` environment variable with colon-separated values:
+```bash
+export CH_CONN_STRING="host:port:database:user:password"
+```
+Example:
+```bash
+export CH_CONN_STRING="127.0.0.1:9000:default:default:"
+```
+Format:
+- **host**: ClickHouse server hostname or IP
+- **port**: Native protocol port (default: 9000)
+- **database**: Database name
+- **user**: Username
+- **password**: Password (leave empty for no password)
+
+Detailed setup instructions for ClickHouse can be found in [scripts/sql/clickhouse/README.md](scripts/sql/clickhouse/README.md).
+
+### Redis Configuration (Template Storage)
+When built with Redis support, set the following environment variables:
+- `REDIS_HOST`: Redis server hostname (default: 127.0.0.1)
+- `REDIS_PORT`: Redis server port (default: 6379)
+- `REDIS_PASSWORD`: Redis password (optional)
 
 ## Architecture
 
@@ -24,7 +50,7 @@ CNetflow is built with a modular architecture consisting of several shared libra
 - **netflow_v5**: NetFlow version 5 implementation
 - **netflow_v9**: NetFlow version 9 implementation
 - **netflow_ipfix**: IPFIX (Internet Protocol Flow Information Export) support
-- **db_psql**: PostgreSQL database interface
+- **db_clickhouse**: ClickHouse database interface
 - **arena**: Memory arena allocator
 - **hashmap**: Hash table implementation
 - **dyn_array**: Dynamic array utilities
@@ -35,12 +61,12 @@ CNetflow is built with a modular architecture consisting of several shared libra
 
 - GCC compiler
 - CMake 3.25 or higher
-- PostgreSQL development libraries (`libpq-dev`)
+- **ClickHouse development libraries** (e.g., `libcurl-dev` for ClickHouse HTTP API)
 - libuv development libraries (`libuv1-dev`)
 
 ### Runtime Dependencies
 
-- PostgreSQL server
+- **ClickHouse server** (for storage)
 - libuv
 
 ## Installation

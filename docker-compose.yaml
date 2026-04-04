@@ -9,44 +9,8 @@ services:
       - "2055:2055/udp"
     environment:
       - UV_THREADPOOL_SIZE
-      - PG_CONN_STRING
+      - CH_CONN_STRING
       - TZ
-    depends_on:
-      - db
-  dbrest:
-    image: postgrest/postgrest
-    environment:
-      - PGRST_DB_URI=${PG_CONN_STRING}
-      - PGRST_DB_ANON_ROLE
-      - PGRST_DB_AGGREGATES_ENABLED
-      - TZ
-    ports:
-      - "3003:3000"
-    restart: unless-stopped
-    depends_on:
-      - db
-  db:
-    container_name: postgres
-    #image: postgres
-    #image: codercms/postgres-uint128:15-1.0.0
-    build:
-      context: ./timescale_pg_cron/
-    environment:
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-      - POSTGRES_DB
-      - TZ
-    volumes:
-      - ./data/psql:/var/lib/postgresql/data
-      - ./scripts/sql/psql/:/docker-entrypoint-initdb.d/:r
-    ports:
-      - "$POSTGRES_PORT:5432"
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -d postgres" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
   softflowd:
     image: kagurazakanyaa/softflowd
     command: [ "softflowd",  "-v","9","-i", "any" ,"-D", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
@@ -61,11 +25,7 @@ services:
     ports:
       - 3001:3000/tcp
     environment:
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-      - POSTGRES_DB
-      - POSTGRES_HOST
-      - POSTGRES_PORT
+      - CH_CONN_STRING
       - TZ
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning

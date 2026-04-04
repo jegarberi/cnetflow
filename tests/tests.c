@@ -12,6 +12,35 @@
 #include "../src/hashmap.h"
 #include "../src/dyn_array.h"
 
+#include "../src/netflow_v9.h"
+
+// Stubs for database backend to avoid real connections in tests
+int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
+  (void) exporter;
+  (void) flows;
+  return 0;
+}
+
+int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
+  (void) exporter;
+  (void) template_key;
+  (void) dump;
+  (void) dump_size;
+  return 0;
+}
+
+int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
+  (void) exporter;
+  (void) template_key;
+  (void) dump;
+  (void) dump_size;
+  return 0;
+}
+
+void ch_db_connect(void **conn) {
+    (void) conn;
+}
+
 Test(arena, create_and_alloc) {
   arena_struct_t *arena_test = malloc(sizeof(arena_struct_t));
   cr_assert_neq(arena_test, NULL);

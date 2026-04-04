@@ -24,7 +24,6 @@ endif()
 # --- DEPENDENCIES (CONAN) ---
 find_package(libuv REQUIRED)
 find_package(hiredis REQUIRED)
-find_package(PostgreSQL REQUIRED)
 find_package(CURL REQUIRED)
 # find_package(criterion REQUIRED) # Not available in Conan Center
 
@@ -67,7 +66,6 @@ endif()
 set(CMAKE_C_STANDARD 99)
 
 # Database backend selection
-option(USE_CLICKHOUSE "Use ClickHouse instead of PostgreSQL" OFF)
 option(ENABLE_LOGGING "Enable logging" ON)
 option(USE_ARENA "Use arena allocator" ON)
 option(ENABLE_METRICS "Enable metrics" ON)
@@ -85,12 +83,8 @@ if (COMPAT_CENTOS6)
     message(STATUS "CentOS 6 compatibility shim enabled.")
 endif()
 
-if (USE_CLICKHOUSE)
-    message(STATUS "Building with ClickHouse support")
-    add_compile_definitions(USE_CLICKHOUSE=1)
-else()
-    message(STATUS "Building with PostgreSQL support")
-endif()
+add_compile_definitions(USE_CLICKHOUSE=1)
+message(STATUS "Building with ClickHouse support")
 
 if (USE_ARENA)
     message(STATUS "Building with arena allocator")
@@ -142,17 +136,10 @@ if (USE_REDIS)
 endif()
 
 # Database backend libraries
-if (USE_CLICKHOUSE)
-    add_library(db_clickhouse ${INTERNAL_LIBRARY_TYPE} src/db_clickhouse.c)
-    target_link_libraries(db_clickhouse CURL::libcurl arena)
-    set(DB_LIBRARY db_clickhouse)
-    set(DB_LINK_LIBRARIES CURL::libcurl)
-else()
-    add_library(db_psql ${INTERNAL_LIBRARY_TYPE} src/db_psql.c)
-    target_link_libraries(db_psql PostgreSQL::PostgreSQL arena)
-    set(DB_LIBRARY db_psql)
-    set(DB_LINK_LIBRARIES PostgreSQL::PostgreSQL)
-endif()
+add_library(db_clickhouse ${INTERNAL_LIBRARY_TYPE} src/db_clickhouse.c)
+target_link_libraries(db_clickhouse CURL::libcurl arena)
+set(DB_LIBRARY db_clickhouse)
+set(DB_LINK_LIBRARIES CURL::libcurl)
 
 # Link the libraries
 if (USE_REDIS)
@@ -173,9 +160,7 @@ endif()
 
 if(WIN32)
     target_link_libraries(cnetflow PRIVATE Ws2_32)
-    if(USE_CLICKHOUSE)
-        target_link_libraries(db_clickhouse PRIVATE Ws2_32)
-    endif()
+    target_link_libraries(db_clickhouse PRIVATE Ws2_32)
     target_link_libraries(collector PRIVATE Ws2_32)
 endif()
 
@@ -188,11 +173,7 @@ if (NOT BUILD_STATIC)
         install(FILES ${CMAKE_SOURCE_DIR}/local.conf DESTINATION /etc/systemd/system/cnetflow.service.d/)
     endif ()
     install(TARGETS cnetflow RUNTIME DESTINATION /usr/local/cnetflow/)
-    if (USE_CLICKHOUSE)
-        install(TARGETS collector arena dyn_array db_clickhouse netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
-    else()
-        install(TARGETS collector arena dyn_array db_psql netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
-    endif()
+    install(TARGETS collector arena dyn_array db_clickhouse netflow netflow_v5 netflow_v9 netflow_ipfix hashmap LIBRARY DESTINATION /usr/local/cnetflow/)
 
     # Create directories for logs and data
     install(DIRECTORY DESTINATION /var/log/cnetflow DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
