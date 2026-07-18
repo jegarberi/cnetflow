@@ -836,7 +836,7 @@ unlock_mutex_parse_v9:
 }
 
 
-void copy_v9_to_flow(netflow_v9_flowset_t *in, netflow_v9_uint128_flowset_t *out, int is_ipv6, uint8_t *dump) {
+void copy_v9_to_flow(const netflow_v9_flowset_t * restrict in, netflow_v9_uint128_flowset_t * restrict out, int is_ipv6, uint8_t *dump) {
   // fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;

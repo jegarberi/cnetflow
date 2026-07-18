@@ -12,6 +12,6 @@
 
 void *parse_v5(uv_work_t *);
 
-void copy_v5_to_flow(netflow_v5_flowset_t *, netflow_v9_uint128_flowset_t *);
+void copy_v5_to_flow(const netflow_v5_flowset_t * restrict, netflow_v9_uint128_flowset_t * restrict);
 
 #endif // NETFLOW_V5_H
