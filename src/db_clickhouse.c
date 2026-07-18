@@ -583,7 +583,7 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
       continue;
     }
 
-    if (unlikely(flows->records[i].srcaddr == 0 || flows->records[i].dstaddr == 0)) {
+    if (unlikely(flows->records[i].srcaddr < 16777216 || flows->records[i].dstaddr < 16777216)) {
       continue;
     }
 
