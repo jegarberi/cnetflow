@@ -22,6 +22,28 @@ else
     exit 1
 fi
 
+if ! command -v zig &> /dev/null; then
+    echo "ERROR: 'zig' command not found. It is required for musl static builds."
+    exit 1
+fi
+
+CONAN_PROFILE_MUSL="${PROJECT_ROOT}/musl_profile"
+echo "Generating Conan profile for Musl (Static)..."
+cat > "$CONAN_PROFILE_MUSL" <<EOF
+[settings]
+os=Linux
+arch=x86_64
+compiler=clang
+compiler.version=15
+compiler.libcxx=libstdc++11
+
+[conf]
+tools.build:compiler_executables={"c": "${PROJECT_ROOT}/scripts/zig-cc", "cpp": "${PROJECT_ROOT}/scripts/zig-cxx"}
+tools.build:cflags=["-target", "x86_64-linux-musl"]
+tools.build:cxxflags=["-target", "x86_64-linux-musl"]
+tools.build:exelinkflags=["-target", "x86_64-linux-musl"]
+EOF
+
 build_config() {
     local config_name="$1"
     local clickhouse="$2"
@@ -73,9 +95,20 @@ build_config() {
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
     # shellcheck disable=SC2086
-    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option; then
-        echo "ERROR: Conan install failed for: $config_name (Static: $static_build, Type: $build_type)"
-        exit 1
+    if [ "$static_build" == "ON" ]; then
+        if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing \
+            -pr:h "$CONAN_PROFILE_MUSL" -pr:b default \
+            -s build_type="$build_type" \
+            -c "tools.build:cflags=['-std=gnu11', '-target', 'x86_64-linux-musl']" \
+            $conan_shared_option; then
+            echo "ERROR: Conan install failed for: $config_name (Static: $static_build, Type: $build_type)"
+            exit 1
+        fi
+    else
+        if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option; then
+            echo "ERROR: Conan install failed for: $config_name (Static: $static_build, Type: $build_type)"
+            exit 1
+        fi
     fi
 
     # Compute Conan-generated toolchain and package paths (relative to current build dir)
@@ -179,6 +212,8 @@ run_builds "No_Metrics" OFF ON ON ON OFF
 
 # 12. ClickHouse Redis Minimal (No Arena, No Logging, No Metrics)
 run_builds "ClickHouse_Redis_Minimal" ON OFF OFF ON OFF
+
+rm -f "$CONAN_PROFILE_MUSL"
 
 echo ""
 echo "###############################################"

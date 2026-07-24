@@ -18,6 +18,28 @@ else
     exit 1
 fi
 
+if ! command -v zig &> /dev/null; then
+    echo "ERROR: 'zig' command not found. It is required for musl static builds."
+    exit 1
+fi
+
+CONAN_PROFILE_MUSL="${PROJECT_ROOT}/musl_profile"
+echo "Generating Conan profile for Musl (Static)..."
+cat > "$CONAN_PROFILE_MUSL" <<EOF
+[settings]
+os=Linux
+arch=x86_64
+compiler=clang
+compiler.version=15
+compiler.libcxx=libstdc++11
+
+[conf]
+tools.build:compiler_executables={"c": "${PROJECT_ROOT}/scripts/zig-cc", "cpp": "${PROJECT_ROOT}/scripts/zig-cxx"}
+tools.build:cflags=["-target", "x86_64-linux-musl"]
+tools.build:cxxflags=["-target", "x86_64-linux-musl"]
+tools.build:exelinkflags=["-target", "x86_64-linux-musl"]
+EOF
+
 build_config() {
     local config_name="$1"
     local arena="$2"
@@ -58,9 +80,20 @@ build_config() {
     # Install Conan dependencies for this specific build config
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
-    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option; then
-        echo "ERROR: Conan install failed for: $config_name ($build_type)"
-        exit 1
+    if [ "$static_build" == "ON" ]; then
+        if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing \
+            -pr:h "$CONAN_PROFILE_MUSL" -pr:b default \
+            -s build_type="$build_type" \
+            -c "tools.build:cflags=['-std=gnu11', '-target', 'x86_64-linux-musl']" \
+            $conan_shared_option; then
+            echo "ERROR: Conan install failed for: $config_name ($build_type)"
+            exit 1
+        fi
+    else
+        if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']"; then
+            echo "ERROR: Conan install failed for: $config_name ($build_type)"
+            exit 1
+        fi
     fi
 
     # Configure CMake using the Conan toolchain
@@ -117,6 +150,8 @@ run_builds "Arena_Logging" ON ON ON
 
 # 5. Redis OFF (Hashmap fallback)
 run_builds "No_Redis" ON ON OFF
+
+rm -f "$CONAN_PROFILE_MUSL"
 
 echo ""
 echo "###############################################"
