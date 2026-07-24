@@ -35,6 +35,7 @@ if(PCAP_LIBRARY)
     message(STATUS "Found libpcap: ${PCAP_LIBRARY}")
 else()
     message(WARNING "libpcap not found. Pcap parsing will be disabled.")
+    set(PCAP_LIBRARY "")
 endif()
 # find_package(criterion REQUIRED) # Not available in Conan Center
 
