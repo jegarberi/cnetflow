@@ -391,11 +391,6 @@ static void on_metrics_write(uv_write_t *req, int status) {
   free(req);
 }
 
-static void on_metrics_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  (void)handle;
-  buf->base = malloc(suggested_size);
-  buf->len = suggested_size;
-}
 
 static void on_metrics_connection(uv_stream_t *server, int status) {
   if (status < 0) {

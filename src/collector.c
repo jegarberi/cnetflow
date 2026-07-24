@@ -211,7 +211,8 @@ int8_t collector_default(collector_t *col_conf) {
 }
 
 int8_t collector_setup(collector_t *collector) {
-  LOG_DEBUG("%s %d %s %p\n", __FILE__, __LINE__, __func__, collector->alloc);
+  (void)collector;
+  LOG_DEBUG("%s %d %s %p\n", __FILE__, __LINE__, __func__, (void*)collector->alloc);
   return 0;
 }
 
@@ -228,12 +229,14 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
+  (void)handle;
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
   // return;
   static volatile int data_counter = 1;
+  (void)data_counter;
   suggested_size = 2000; // should be enough for most packets
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);\n", __FILE__,
             __LINE__, __func__);
@@ -245,6 +248,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #else
     size_t arena_offset = 0;
 #endif
+    (void)arena_offset;
     LOG_ERROR("%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
               __FILE__, __LINE__, __func__, data_counter, (void *) handle, suggested_size, buf->base, buf->len,
               arena_offset);
@@ -257,6 +261,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #else
   size_t arena_offset_debug = 0;
 #endif
+  (void)arena_offset_debug;
   LOG_DEBUG("%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (void *) handle, suggested_size, buf->base, buf->len,
             arena_offset_debug);
