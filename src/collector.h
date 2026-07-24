@@ -22,6 +22,7 @@ typedef struct {
   void *data;
   uint64_t processed_flows;
   uint32_t now;
+  uint32_t flags;
 } parse_args_t;
 
 typedef struct {
@@ -32,6 +33,7 @@ typedef struct {
   void(*(*alloc)(arena_struct_t *arena, size_t bytes));
   void(*(*realloc)(void *) );
   void(*(*free)(void *) );
+  char *pcap_file;
 } collector_t;
 char *ip_int_to_str(const unsigned int addr);
 void signal_handler(const int signal);
@@ -43,4 +45,5 @@ void collector_inc_received_flows(uint64_t count);
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags);
 void print_rss_max_usage(void);
 void after_work_cb(uv_work_t *req, int status);
+int parse_pcap_file(collector_t *collector, const char *filename);
 #endif // COLLECTOR_H

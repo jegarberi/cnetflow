@@ -228,7 +228,9 @@ void *parse_ipfix(uv_work_t *req) {
       }
 
     } else if (flowset_id >= 256) {
-
+      if (args->flags == 1) {
+        goto skip_ipfix_record_pass;
+      }
 
       LOG_ERROR("%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
 
@@ -682,6 +684,7 @@ void *parse_ipfix(uv_work_t *req) {
         collector_inc_received_flows(record_counter);
         insert_flows(exporter_host, &flows_to_insert);
       }
+      skip_ipfix_record_pass:;
     } else if (flowset_id == IPFIX_OPTION_SET) {
       // Options Template Set (ID = 3)
       LOG_ERROR("%s %d %s: IPFIX options template set (not implemented)\n", __FILE__, __LINE__, __func__);

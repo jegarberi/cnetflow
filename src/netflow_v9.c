@@ -239,6 +239,9 @@ void *parse_v9(uv_work_t *req) {
         }
       }
     } else if (flowset_id >= 256) {
+      if (args->flags == 1) {
+        goto skip_v9_record_pass;
+      }
       // this a record flowset
       LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
       LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
@@ -811,6 +814,7 @@ void *parse_v9(uv_work_t *req) {
         collector_inc_received_flows(record_counter);
         insert_flows(exporter_host, &flows_to_insert);
       }
+      skip_v9_record_pass:;
     } else if (flowset_id == 1) {
       // this is an option flowset, skip it entirely
     } else if (flowset_id > 1 && flowset_id < 256) {

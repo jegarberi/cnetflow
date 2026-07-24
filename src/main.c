@@ -60,12 +60,15 @@ void print_compile_options(void) {
  * @return Returns 0 if the program completes successfully.
  */
 int main(int argc, char *argv[]) {
-  if (argc > 1) {
-    if (strcmp(argv[1], "--options") == 0 || strcmp(argv[1], "-o") == 0) {
+  char *pcap_file = NULL;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--options") == 0 || strcmp(argv[i], "-o") == 0) {
       print_compile_options();
       return 0;
+    } else if (strcmp(argv[i], "--pcap") == 0 && i + 1 < argc) {
+      pcap_file = argv[++i];
     } else {
-      printf("Usage: %s [--options|-o]\n", argv[0]);
+      printf("Usage: %s [--options|-o] [--pcap <file>]\n", argv[0]);
       return 1;
     }
   }
@@ -78,6 +81,7 @@ int main(int argc, char *argv[]) {
   LOG_ERROR("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
   collector_t col_config;
   collector_default(&col_config);
+  col_config.pcap_file = pcap_file;
   collector_start(&col_config);
   LOG_ERROR("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
   LOG_INFO("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);

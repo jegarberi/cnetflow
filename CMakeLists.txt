@@ -25,6 +25,14 @@ endif()
 find_package(libuv REQUIRED)
 find_package(hiredis REQUIRED)
 find_package(CURL REQUIRED)
+
+find_library(PCAP_LIBRARY pcap)
+if(PCAP_LIBRARY)
+    add_compile_definitions(HAVE_PCAP=1)
+    message(STATUS "Found libpcap: ${PCAP_LIBRARY}")
+else()
+    message(WARNING "libpcap not found. Pcap parsing will be disabled.")
+endif()
 # find_package(criterion REQUIRED) # Not available in Conan Center
 
 # --- REDIS CONFIGURATION ---
@@ -151,8 +159,8 @@ endif()
 target_link_libraries(netflow_v9 arena hashmap netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} ${REDIS_LIB})
 target_link_libraries(netflow_v5 ${DB_LINK_LIBRARIES})
 target_link_libraries(netflow_ipfix ${DB_LINK_LIBRARIES})
-target_link_libraries(collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${REDIS_LIB})
-target_link_libraries(cnetflow collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array)
+target_link_libraries(collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${REDIS_LIB} ${PCAP_LIBRARY})
+target_link_libraries(cnetflow collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${PCAP_LIBRARY})
 
 if (BUILD_STATIC)
     target_link_options(cnetflow PRIVATE -static)

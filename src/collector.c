@@ -262,6 +262,109 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
             arena_offset_debug);
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
+#ifdef HAVE_PCAP
+#include <pcap.h>
+#include <netinet/in.h>
+#include <netinet/if_ether.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#ifndef DLT_LINUX_SLL
+#define DLT_LINUX_SLL 113
+#endif
+#ifndef DLT_EN10MB
+#define DLT_EN10MB 1
+#endif
+#ifndef DLT_NULL
+#define DLT_NULL 0
+#endif
+
+int parse_pcap_file(collector_t *collector, const char *filename) {
+    LOG_INFO("Pass 1: Parsing templates from pcap file %s...\n", filename);
+    char errbuf[PCAP_ERRBUF_SIZE];
+    for (int pass = 1; pass <= 2; pass++) {
+        pcap_t *pcap = pcap_open_offline(filename, errbuf);
+        if (pcap == NULL) {
+            LOG_ERROR("Error opening pcap file %s: %s\n", filename, errbuf);
+            return -1;
+        }
+        
+        struct pcap_pkthdr *header;
+        const u_char *data;
+        
+        int linktype = pcap_datalink(pcap);
+        if (pass == 2) {
+             LOG_INFO("Pass 2: Parsing data records from pcap file %s...\n", filename);
+        }
+    
+    while (pcap_next_ex(pcap, &header, &data) >= 0) {
+        int offset = 0;
+        if (linktype == DLT_EN10MB) {
+            offset = 14;
+        } else if (linktype == DLT_LINUX_SLL) {
+            offset = 16;
+        } else if (linktype == DLT_NULL) {
+            offset = 4;
+        } else {
+            if (pass == 1) LOG_ERROR("Unsupported pcap datalink type: %d\n", linktype);
+            break;
+        }
+        
+        if (header->caplen < offset + sizeof(struct ip)) continue;
+        
+        struct ip *ip_hdr = (struct ip *)(data + offset);
+        if (ip_hdr->ip_p != IPPROTO_UDP) continue;
+        
+        int ip_len = ip_hdr->ip_hl * 4;
+        if (header->caplen < offset + ip_len + sizeof(struct udphdr)) continue;
+        
+        struct udphdr *udp_hdr = (struct udphdr *)(data + offset + ip_len);
+        
+        int udp_len = ntohs(udp_hdr->uh_ulen);
+        if (udp_len < 8) continue;
+        
+        int payload_len = udp_len - 8;
+        if (header->caplen < offset + ip_len + 8 + payload_len) continue;
+        
+        const u_char *payload = data + offset + ip_len + 8;
+        
+        uv_buf_t buf;
+        buf.base = (char *) collector->alloc(arena_udp_handle, payload_len);
+        if (!buf.base) continue;
+        buf.len = payload_len;
+        memcpy(buf.base, payload, payload_len);
+        
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr = ip_hdr->ip_src;
+        addr.sin_port = udp_hdr->uh_sport;
+        
+        active_requests++; // temporarily bump to prevent early exit if udp_handle errors before queuing
+        udp_handle(NULL, payload_len, &buf, (struct sockaddr *)&addr, (pass == 1) ? 1 : 0);
+        active_requests--;
+        
+        while (active_requests > 1000) {
+            uv_run(loop_udp, UV_RUN_ONCE);
+        }
+    }
+    
+    pcap_close(pcap);
+    // Wait for all tasks to finish before starting next pass or exiting
+    while (active_requests > 0) {
+        uv_run(loop_udp, UV_RUN_ONCE);
+    }
+  }
+  return 0;
+}
+#else
+int parse_pcap_file(collector_t *collector, const char *filename) {
+    (void)collector;
+    (void)filename;
+    LOG_ERROR("cnetflow was built without libpcap support.\n");
+    return -1;
+}
+#endif
+
 /**
  * Initializes and starts the collector process, setting up signal handlers,
  * memory allocation, and UDP server for receiving data packets.
@@ -422,13 +525,24 @@ int8_t collector_start(collector_t *collector) {
     LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
     goto error_destroy_arena;
   }
-  const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
-  if (listen < 0) {
-    LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
-    goto error_destroy_arena;
-  }
+  if (collector->pcap_file) {
+    LOG_INFO("Parsing pcap file: %s\n", collector->pcap_file);
+    parse_pcap_file(collector, collector->pcap_file);
+    // After parsing, allow remaining tasks to finish
+    while (active_requests > 0) {
+      uv_run(loop_udp, UV_RUN_ONCE);
+    }
+    // We are done with pcap parsing, bypass normal listen
+    goto ok;
+  } else {
+    const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
+    if (listen < 0) {
+      LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
+      goto error_destroy_arena;
+    }
 
-  uv_run(loop_udp, UV_RUN_DEFAULT);
+    uv_run(loop_udp, UV_RUN_DEFAULT);
+  }
 
   // Wait for all pending work requests to finish before cleanup
   LOG_INFO("Waiting for %d active requests to finish (max 10s)...\n", active_requests);
@@ -630,6 +744,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->status = collector_data_status_init;
   func_args->index = data_counter;
   func_args->now = (uint32_t) time(NULL);
+  func_args->flags = flags;
   work_req->data = (parse_args_t *) func_args;
   LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, data_counter,
             work_req, buf->base);
@@ -654,6 +769,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   }
   if (work_cb) {
 
+    active_requests++;
     int rc = uv_queue_work(loop_pool, work_req, work_cb, (uv_after_work_cb) after_work_cb);
     if (rc != 0) {
       LOG_ERROR("uv_queue_work failed: %s\n", uv_strerror(rc));
