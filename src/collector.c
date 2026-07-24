@@ -340,7 +340,7 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
         addr.sin_port = udp_hdr->uh_sport;
         
         active_requests++; // temporarily bump to prevent early exit if udp_handle errors before queuing
-        udp_handle(NULL, payload_len, &buf, (struct sockaddr *)&addr, (pass == 1) ? 1 : 0);
+        udp_handle(NULL, payload_len, &buf, (struct sockaddr *)&addr, (pass == 1) ? 3 : 2);
         active_requests--;
         
         while (active_requests > 1000) {

@@ -682,7 +682,13 @@ void *parse_ipfix(uv_work_t *req) {
                  is_ipv6 ? "IPv6" : "IPv4");
         total_flows_in_packet += record_counter;
         collector_inc_received_flows(record_counter);
-        insert_flows(exporter_host, &flows_to_insert);
+        if (args->flags & 2) {
+            for (size_t i = 0; i < record_counter; i++) {
+                printf_v9(stdout, &flows_to_insert, i);
+            }
+        } else {
+            insert_flows(exporter_host, &flows_to_insert);
+        }
       }
       skip_ipfix_record_pass:;
     } else if (flowset_id == IPFIX_OPTION_SET) {

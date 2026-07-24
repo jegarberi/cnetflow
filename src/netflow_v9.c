@@ -812,7 +812,13 @@ void *parse_v9(uv_work_t *req) {
         LOG_INFO("%s %d %s Inserting %lu v9 flows\n", __FILE__, __LINE__, __func__, record_counter);
         total_flows_in_packet += record_counter;
         collector_inc_received_flows(record_counter);
-        insert_flows(exporter_host, &flows_to_insert);
+        if (args->flags & 2) {
+            for (size_t i = 0; i < record_counter; i++) {
+                printf_v9(stdout, &flows_to_insert, i);
+            }
+        } else {
+            insert_flows(exporter_host, &flows_to_insert);
+        }
       }
       skip_v9_record_pass:;
     } else if (flowset_id == 1) {

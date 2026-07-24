@@ -147,7 +147,13 @@ void *parse_v5(uv_work_t *req) {
   uint32_t exporter_host = args->exporter;
   swap_endianness((void *) &exporter_host, sizeof(exporter_host));
 
-  insert_flows(exporter_host, &flows_to_insert);
+  if (args->flags & 2) {
+    for (size_t i = 0; i < netflow_packet_ptr->header.count; i++) {
+        printf_v9(stdout, &flows_to_insert, i);
+    }
+  } else {
+    insert_flows(exporter_host, &flows_to_insert);
+  }
 
 #ifdef ENABLE_METRICS
   metrics_inc_v5_parsed();
