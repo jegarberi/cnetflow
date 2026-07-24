@@ -144,8 +144,8 @@ run_builds() {
     build_config "$name" "$ch" "$ar" "$log" "$rd" "$met" "ON" "Debug"
 }
 
-# 1. Minimal build (everything OFF)
-run_builds "Minimal" OFF OFF OFF OFF OFF
+# 1. Minimal build (everything OFF except Redis)
+run_builds "Minimal" OFF OFF OFF ON OFF
 
 # 2. Standard with Logging
 run_builds "Logging" OFF OFF ON ON ON

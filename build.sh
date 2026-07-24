@@ -23,10 +23,21 @@ build_config() {
     local arena="$2"
     local logging="$3"
     local redis="$4"
-    local build_type="$5"
+    local static_build="$5"
+    local build_type="$6"
+    
+    local static_suffix=""
+    local cmake_static_flag="OFF"
+    local conan_shared_option=""
+
+    if [ "$static_build" == "ON" ]; then
+        static_suffix="_static"
+        cmake_static_flag="ON"
+        conan_shared_option="-o *:shared=False"
+    fi
 
     echo "========================================"
-    echo "Building: $config_name ($build_type)"
+    echo "Building: $config_name ($build_type) $([ "$static_build" == "ON" ] && echo "STATIC" || echo "DYNAMIC")"
     echo "========================================"
 
     # Sanitize config_name for directory use
@@ -35,7 +46,7 @@ build_config() {
     safe_config_name="${safe_config_name//=/_}"
     
     # Create build directory in PROJECT_ROOT
-    local build_dir="${PROJECT_ROOT}/cmake-build-${safe_config_name}-${build_type}"
+    local build_dir="${PROJECT_ROOT}/cmake-build-${safe_config_name}-${build_type}${static_suffix}"
     
     # Clean up previous build to ensure CMake uses the new toolchain
     if [ -d "$build_dir" ]; then
@@ -47,7 +58,7 @@ build_config() {
     # Install Conan dependencies for this specific build config
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
-    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']"; then
+    if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']" $conan_shared_option; then
         echo "ERROR: Conan install failed for: $config_name ($build_type)"
         exit 1
     fi
@@ -57,6 +68,7 @@ build_config() {
     if ! cmake -DUSE_ARENA="$arena" \
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
+              -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
               "$PROJECT_ROOT"; then
@@ -73,33 +85,38 @@ build_config() {
     echo ""
 }
 
-# Test all configurations in both Release and Debug modes
-for build_type in Release Debug; do
-    echo ""
-    echo "###############################################"
-    echo "# Testing $build_type builds"
-    echo "###############################################"
-    echo ""
+run_builds() {
+    local name="$1"
+    local ar="$2"
+    local log="$3"
+    local rd="$4"
+    
+    build_config "$name" "$ar" "$log" "$rd" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "ON" "Debug"
+}
 
-    # Combination 1: All OFF (except Redis default ON for now, wait, "All OFF" implies everything optional off. Let's make All OFF have Redis OFF too?)
-    # No, let's keep previous behavior mostly, but "All OFF" usually means minimal features.
-    # Let's add Redis arg to all calls.
+echo ""
+echo "###############################################"
+echo "# Testing all builds (Release/Debug, Dynamic/Static)"
+echo "###############################################"
+echo ""
 
-    # 1. Minimal build (everything OFF)
-    build_config "Minimal" OFF OFF OFF $build_type
+# 1. Minimal build (everything OFF except Redis)
+run_builds "Minimal" OFF OFF ON
 
-    # 2. Standard with Logging
-    build_config "Logging" OFF ON ON $build_type
+# 2. Standard with Logging
+run_builds "Logging" OFF ON ON
 
-    # 3. Arena ON
-    build_config "Arena" ON OFF ON $build_type
+# 3. Arena ON
+run_builds "Arena" ON OFF ON
 
-    # 4. Arena + Logging
-    build_config "Arena_Logging" ON ON ON $build_type
+# 4. Arena + Logging
+run_builds "Arena_Logging" ON ON ON
 
-    # 5. Redis OFF (Hashmap fallback)
-    build_config "No_Redis" ON ON OFF $build_type
-done
+# 5. Redis OFF (Hashmap fallback)
+run_builds "No_Redis" ON ON OFF
 
 echo ""
 echo "###############################################"
