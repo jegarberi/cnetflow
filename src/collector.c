@@ -281,12 +281,32 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #ifndef DLT_NULL
 #define DLT_NULL 0
 #endif
+#include "dyn_array.h"
 
 uint32_t global_pcap_frame_number = 0;
+int is_pcap_pass_2 = 0;
+uv_mutex_t pcap_output_mutex;
+dyn_array_t *pcap_output_lines = NULL;
+
+typedef struct {
+    uint32_t frame_number;
+    char text[256];
+} pcap_line_t;
+
+int compare_pcap_lines(const void *a, const void *b) {
+    pcap_line_t *la = (pcap_line_t *)a;
+    pcap_line_t *lb = (pcap_line_t *)b;
+    if (la->frame_number < lb->frame_number) return -1;
+    if (la->frame_number > lb->frame_number) return 1;
+    return strcmp(la->text, lb->text);
+}
 
 int parse_pcap_file(collector_t *collector, const char *filename) {
   LOG_INFO("Pass 1: Parsing templates from pcap file %s...\n", filename);
   char errbuf[PCAP_ERRBUF_SIZE];
+  uv_mutex_init(&pcap_output_mutex);
+  pcap_output_lines = dyn_array_create(arena_collector, 1000, sizeof(pcap_line_t));
+
   for (int pass = 1; pass <= 2; pass++) {
     pcap_t *pcap = pcap_open_offline(filename, errbuf);
     if (pcap == NULL) {
@@ -299,6 +319,7 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
 
     int linktype = pcap_datalink(pcap);
     if (pass == 2) {
+      is_pcap_pass_2 = 1;
       LOG_INFO("Pass 2: Parsing data records from pcap file %s...\n", filename);
     }
 
@@ -369,6 +390,18 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
       uv_run(loop_udp, UV_RUN_ONCE);
     }
   }
+
+  // Sort and print output lines
+  if (pcap_output_lines != NULL) {
+    qsort(pcap_output_lines->data, pcap_output_lines->len, sizeof(pcap_line_t), compare_pcap_lines);
+    for (size_t i = 0; i < pcap_output_lines->len; i++) {
+      pcap_line_t *line = dyn_array_get(pcap_output_lines, i);
+      fprintf(stdout, "%s\n", line->text);
+    }
+    uv_mutex_destroy(&pcap_output_mutex);
+  }
+
+  is_pcap_pass_2 = 0;
   return 0;
 }
 #else

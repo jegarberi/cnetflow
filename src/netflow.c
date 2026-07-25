@@ -2,6 +2,16 @@
 // Created by jon on 6/3/25.
 //
 #include "netflow.h"
+#include "dyn_array.h"
+#include <uv.h>
+
+typedef struct {
+    uint32_t frame_number;
+    char text[256];
+} pcap_line_t;
+extern dyn_array_t *pcap_output_lines;
+extern uv_mutex_t pcap_output_mutex;
+extern int is_pcap_pass_2;
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -416,13 +426,28 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
   tmp = ip_int_to_str(htonl(dstaddr));
   strncpy(ip_dst_str, tmp, strlen(tmp));
 
-  if (frame_number > 0) {
-    fprintf(file, "frame %u template %u flowset %u ", frame_number, template_id, flowset_id);
+  if (pcap_output_lines != NULL) {
+    if (is_pcap_pass_2) {
+      pcap_line_t line;
+      line.frame_number = frame_number;
+      snprintf(line.text, sizeof(line.text), "frame %u template %u flowset %u %s:%u -> %s:%u prot: %u",
+               frame_number, template_id, flowset_id,
+               ip_src_str, netflow_packet->records[i].srcport,
+               ip_dst_str, netflow_packet->records[i].dstport,
+               netflow_packet->records[i].prot);
+      uv_mutex_lock(&pcap_output_mutex);
+      dyn_array_push(pcap_output_lines, &line);
+      uv_mutex_unlock(&pcap_output_mutex);
+    }
+  } else {
+    if (frame_number > 0) {
+      fprintf(file, "frame %u template %u flowset %u ", frame_number, template_id, flowset_id);
+    }
+    // Ports are already in host byte order after parsing.
+    fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str,
+            netflow_packet->records[i].srcport, ip_dst_str,
+            netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
   }
-  // Ports are already in host byte order after parsing.
-  fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str,
-          netflow_packet->records[i].srcport, ip_dst_str,
-          netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
 }
 void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   char ip_src_str[50] = {0};
