@@ -506,32 +506,9 @@ int8_t collector_start(collector_t *collector) {
     goto error_destroy_arena;
   }
   const struct sockaddr *addr_const = addr;
-  const char *ip_bind = getenv("CNETFLOW_BIND_IP");
-  if (!ip_bind) {
-    LOG_ERROR("Environment variable CNETFLOW_BIND_IP is not set.\n");
-    goto error_destroy_arena;
-  }
-
-  const char *port_bind_str = getenv("CNETFLOW_BIND_PORT");
-  if (!port_bind_str) {
-    LOG_ERROR("Environment variable CNETFLOW_BIND_PORT is not set.\n");
-    goto error_destroy_arena;
-  }
-
-  const int port = (int) strtoul(port_bind_str, NULL, 10);
-  int addr_ret = uv_ip4_addr(ip_bind, port, (struct sockaddr_in *) addr);
-  if (addr_ret < 0) {
-    LOG_ERROR("Invalid bind IP address %s: %s\n", ip_bind, uv_strerror(addr_ret));
-    goto error_destroy_arena;
-  }
-  LOG_INFO("binding to udp port %d\n", port);
-  const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
-  if (bind_ret < 0) {
-    LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
-    goto error_destroy_arena;
-  }
   if (collector->pcap_file) {
     LOG_INFO("Parsing pcap file: %s\n", collector->pcap_file);
+    fprintf(stderr, "Parsing pcap file: %s\n", collector->pcap_file);
     parse_pcap_file(collector, collector->pcap_file);
     // After parsing, allow remaining tasks to finish
     while (active_requests > 0) {
@@ -539,7 +516,37 @@ int8_t collector_start(collector_t *collector) {
     }
     // We are done with pcap parsing, bypass normal listen
     goto ok;
-  } else {
+  }
+
+  const char *ip_bind = getenv("CNETFLOW_BIND_IP");
+  if (!ip_bind) {
+    LOG_ERROR("Environment variable CNETFLOW_BIND_IP is not set.\n");
+    fprintf(stderr, "Environment variable CNETFLOW_BIND_IP is not set.\n");
+    goto error_destroy_arena;
+  }
+
+  const char *port_bind_str = getenv("CNETFLOW_BIND_PORT");
+  if (!port_bind_str) {
+    LOG_ERROR("Environment variable CNETFLOW_BIND_PORT is not set.\n");
+    fprintf(stderr, "Environment variable CNETFLOW_BIND_PORT is not set.\n");
+    goto error_destroy_arena;
+  }
+
+  const int port = (int) strtoul(port_bind_str, NULL, 10);
+  int addr_ret = uv_ip4_addr(ip_bind, port, (struct sockaddr_in *) addr);
+  if (addr_ret < 0) {
+    LOG_ERROR("Invalid bind IP address %s: %s\n", ip_bind, uv_strerror(addr_ret));
+    fprintf(stderr, "Invalid bind IP address %s: %s\n", ip_bind, uv_strerror(addr_ret));
+    goto error_destroy_arena;
+  }
+  LOG_INFO("binding to udp port %d\n", port);
+  const int bind_ret = uv_udp_bind(udp_server, addr_const, UV_UDP_REUSEADDR);
+  if (bind_ret < 0) {
+    LOG_ERROR("bind failed: %s\n", uv_strerror(bind_ret));
+    fprintf(stderr, "bind failed: %s\n", uv_strerror(bind_ret));
+    goto error_destroy_arena;
+  }
+
     const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
     if (listen < 0) {
       LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
@@ -547,7 +554,6 @@ int8_t collector_start(collector_t *collector) {
     }
 
     uv_run(loop_udp, UV_RUN_DEFAULT);
-  }
 
   // Wait for all pending work requests to finish before cleanup
   LOG_INFO("Waiting for %d active requests to finish (max 10s)...\n", active_requests);
