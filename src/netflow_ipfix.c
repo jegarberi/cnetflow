@@ -256,10 +256,28 @@ void *parse_ipfix(uv_work_t *req) {
         swap_endianness(&field_count, sizeof(field_count));
 
         netflow_v9_uint128_flowset_t flows_to_insert;
+        memset(&flows_to_insert, 0, sizeof(flows_to_insert));
         int is_ipv6 = 0;
         uint64_t local_ipfix_records = 0;
 
-        while (pos + 4 <= flowset_length) {
+        size_t total_record_size = 0;
+        uint8_t *temp_ptr = (uint8_t *) template_hashmap + 4;
+        for (uint16_t i = 0; i < field_count; i++) {
+            uint16_t flen = (temp_ptr[2] << 8) | temp_ptr[3];
+            if (flen == 65535) { // Variable length field (not supported yet, skip size logic if needed)
+               total_record_size = 0;
+               break; 
+            }
+            total_record_size += flen;
+            temp_ptr += 4;
+        }
+
+        if (unlikely(total_record_size == 0)) {
+            LOG_ERROR("%s %d %s: Template %d has 0 record size\n", __FILE__, __LINE__, __func__, template_id);
+            goto unlock_mutex_parse_ipfix;
+        }
+
+        while (pos + total_record_size <= flowset_length) {
           if (record_counter >= 60) {
             LOG_ERROR("%s %d %s: Too many records in FlowSet (> 60), truncating\n", __FILE__, __LINE__, __func__);
             break;
@@ -276,7 +294,6 @@ void *parse_ipfix(uv_work_t *req) {
           metrics_inc_flowsets(1);
 
           uint64_t sysUptimeMillis = 0;
-          memset(&flows_to_insert.records[record_counter], 0, sizeof(netflow_v9_record_insert_uint128_t));
 
           uint8_t *stored_field_ptr = (uint8_t *) template_hashmap + 4;
 
@@ -684,7 +701,7 @@ void *parse_ipfix(uv_work_t *req) {
         collector_inc_received_flows(record_counter);
         if (args->flags & 2) {
             for (size_t i = 0; i < record_counter; i++) {
-                printf_v9(stdout, &flows_to_insert, i);
+                printf_v9(stdout, &flows_to_insert, i, args->frame_number, template_id, flowset_id);
             }
         } else {
             insert_flows(exporter_host, &flows_to_insert);

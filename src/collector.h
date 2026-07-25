@@ -23,6 +23,7 @@ typedef struct {
   uint64_t processed_flows;
   uint32_t now;
   uint32_t flags;
+  uint32_t frame_number;
 } parse_args_t;
 
 typedef struct {

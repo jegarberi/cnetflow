@@ -149,7 +149,7 @@ void *parse_v5(uv_work_t *req) {
 
   if (args->flags & 2) {
     for (size_t i = 0; i < netflow_packet_ptr->header.count; i++) {
-        printf_v9(stdout, &flows_to_insert, i);
+        printf_v9(stdout, &flows_to_insert, i, args->frame_number, 0, 0);
     }
   } else {
     insert_flows(exporter_host, &flows_to_insert);

@@ -212,21 +212,22 @@ void *fix_endianness(void *buf, void *data, size_t len) {
         memcpy(buf, (uint8_t *) data, 1);
         break;
       case 2: {
-        int16_t *ptr16 = (uint16_t *) data;
-        int16_t tmp16 = *ptr16;
+        uint16_t *ptr16 = (uint16_t *) data;
+        uint16_t tmp16 = *ptr16;
         tmp16 = ntohs(tmp16);
         memcpy(buf, &tmp16, 2);
         break;
       }
       case 4: {
-        int32_t *ptr32 = (uint32_t *) data;
-        int32_t tmp32 = *ptr32;
+        uint32_t *ptr32 = (uint32_t *) data;
+        uint32_t tmp32 = *ptr32;
         tmp32 = ntohl(tmp32);
         memcpy(buf, &tmp32, 4);
         break;
       }
     }
   }
+  return buf;
 }
 
 int is_ipv4_private(const uint32_t ip) {
@@ -401,35 +402,46 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, netflow_packet->records[i].prot);
 }
-void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i) {
+void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i, uint32_t frame_number, uint16_t template_id, uint16_t flowset_id) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
 
   char *tmp;
-  tmp = ip_int_to_str((uint32_t) netflow_packet->records[i].srcaddr);
+  // srcaddr/dstaddr are already in host byte order after parse_v9 applied swap_endianness.
+  // ip_int_to_str expects network byte order (s_addr), so we swap once for display.
+  uint32_t srcaddr = netflow_packet->records[i].srcaddr;
+  uint32_t dstaddr = netflow_packet->records[i].dstaddr;
+  tmp = ip_int_to_str(htonl(srcaddr));
   strncpy(ip_src_str, tmp, strlen(tmp));
-  uint16_t tmp_src_port = netflow_packet->records[i].srcport;
-  uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
-  swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
-  swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
-  tmp = ip_int_to_str((uint32_t) netflow_packet->records[i].dstaddr);
+  tmp = ip_int_to_str(htonl(dstaddr));
   strncpy(ip_dst_str, tmp, strlen(tmp));
-  fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
-          tmp_dst_port, netflow_packet->records[i].prot);
+
+  if (frame_number > 0) {
+    fprintf(file, "frame %u template %u flowset %u ", frame_number, template_id, flowset_id);
+  }
+  // Ports are already in host byte order after parsing.
+  fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str,
+          netflow_packet->records[i].srcport, ip_dst_str,
+          netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
 }
 void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
 
   char *tmp;
-  tmp = ip_int_to_str((uint32_t) record->srcaddr);
+  uint32_t net_srcaddr = record->srcaddr;
+  swap_endianness(&net_srcaddr, sizeof(net_srcaddr));
+  tmp = ip_int_to_str(net_srcaddr);
   strncpy(ip_src_str, tmp, strlen(tmp));
+  
   uint16_t tmp_src_port = record->srcport;
   uint16_t tmp_dst_port = record->dstport;
-  swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
-  swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
-  tmp = ip_int_to_str((uint32_t) record->dstaddr);
+  
+  uint32_t net_dstaddr = record->dstaddr;
+  swap_endianness(&net_dstaddr, sizeof(net_dstaddr));
+  tmp = ip_int_to_str(net_dstaddr);
   strncpy(ip_dst_str, tmp, strlen(tmp));
+  
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, record->prot);
 }

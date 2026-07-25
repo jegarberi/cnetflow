@@ -67,8 +67,11 @@ int main(int argc, char *argv[]) {
       return 0;
     } else if (strcmp(argv[i], "--pcap") == 0 && i + 1 < argc) {
       pcap_file = argv[++i];
+    } else if ((strcmp(argv[i], "--threads") == 0 || strcmp(argv[i], "-t") == 0) && i + 1 < argc) {
+      char *threads = argv[++i];
+      setenv("UV_THREADPOOL_SIZE", threads, 1);
     } else {
-      printf("Usage: %s [--options|-o] [--pcap <file>]\n", argv[0]);
+      printf("Usage: %s [--options|-o] [--pcap <file>] [--threads|-t <N>]\n", argv[0]);
       return 1;
     }
   }

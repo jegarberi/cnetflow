@@ -91,12 +91,13 @@ void check_backlog_cb(uv_timer_t *handle) {
   uint64_t delta_received = total_received_flows - last_received_flows;
   uint64_t delta_recv_msgs = total_received_msgs - last_received_msgs;
   uint64_t delta_proc_msgs = total_processed_msgs - last_processed_msgs;
-  double flows_per_sec = (double)delta_flows / 60.0; // timer runs every 60s
-  double recv_flows_per_sec = (double)delta_received / 60.0;
-  double recv_msgs_per_sec = (double)delta_recv_msgs / 60.0;
-  double proc_msgs_per_sec = (double)delta_proc_msgs / 60.0;
+  double flows_per_sec = (double) delta_flows / 60.0; // timer runs every 60s
+  double recv_flows_per_sec = (double) delta_received / 60.0;
+  double recv_msgs_per_sec = (double) delta_recv_msgs / 60.0;
+  double proc_msgs_per_sec = (double) delta_proc_msgs / 60.0;
   if (current_backlog > last_backlog && current_backlog > 100) {
-    printf("Messages are arriving faster than they can be processed (backlog: %d, recv flows/s: %.2f, proc flows/s: %.2f, recv msgs/s: %.2f, proc msgs/s: %.2f)\n",
+    printf("Messages are arriving faster than they can be processed (backlog: %d, recv flows/s: %.2f, proc flows/s: "
+           "%.2f, recv msgs/s: %.2f, proc msgs/s: %.2f)\n",
            current_backlog, recv_flows_per_sec, flows_per_sec, recv_msgs_per_sec, proc_msgs_per_sec);
   }
   last_backlog = current_backlog;
@@ -106,9 +107,7 @@ void check_backlog_cb(uv_timer_t *handle) {
   last_processed_msgs = total_processed_msgs;
 }
 
-void collector_inc_received_flows(uint64_t count) {
-  __sync_fetch_and_add(&total_received_flows, count);
-}
+void collector_inc_received_flows(uint64_t count) { __sync_fetch_and_add(&total_received_flows, count); }
 
 /**
  * Converts an IPv4 address in integer format to a string representation.
@@ -211,8 +210,8 @@ int8_t collector_default(collector_t *col_conf) {
 }
 
 int8_t collector_setup(collector_t *collector) {
-  (void)collector;
-  LOG_DEBUG("%s %d %s %p\n", __FILE__, __LINE__, __func__, (void*)collector->alloc);
+  (void) collector;
+  LOG_DEBUG("%s %d %s %p\n", __FILE__, __LINE__, __func__, (void *) collector->alloc);
   return 0;
 }
 
@@ -229,14 +228,14 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  (void)handle;
+  (void) handle;
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
   // buf->base = malloc(suggested_size);
   // buf->len = suggested_size;
   // return;
   static volatile int data_counter = 1;
-  (void)data_counter;
+  (void) data_counter;
   suggested_size = 2000; // should be enough for most packets
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);\n", __FILE__,
             __LINE__, __func__);
@@ -248,7 +247,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #else
     size_t arena_offset = 0;
 #endif
-    (void)arena_offset;
+    (void) arena_offset;
     LOG_ERROR("%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
               __FILE__, __LINE__, __func__, data_counter, (void *) handle, suggested_size, buf->base, buf->len,
               arena_offset);
@@ -261,18 +260,18 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #else
   size_t arena_offset_debug = 0;
 #endif
-  (void)arena_offset_debug;
+  (void) arena_offset_debug;
   LOG_DEBUG("%s %d %s alloc_cb: [%d] called for handle %p size: %lu buf->base: %p buf->len: %lu arena_offset: %lu\n",
             __FILE__, __LINE__, __func__, data_counter, (void *) handle, suggested_size, buf->base, buf->len,
             arena_offset_debug);
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
 #ifdef HAVE_PCAP
-#include <pcap.h>
-#include <netinet/in.h>
 #include <netinet/if_ether.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <pcap.h>
 #ifndef DLT_LINUX_SLL
 #define DLT_LINUX_SLL 113
 #endif
@@ -283,90 +282,101 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #define DLT_NULL 0
 #endif
 
+uint32_t global_pcap_frame_number = 0;
+
 int parse_pcap_file(collector_t *collector, const char *filename) {
-    LOG_INFO("Pass 1: Parsing templates from pcap file %s...\n", filename);
-    char errbuf[PCAP_ERRBUF_SIZE];
-    for (int pass = 1; pass <= 2; pass++) {
-        pcap_t *pcap = pcap_open_offline(filename, errbuf);
-        if (pcap == NULL) {
-            LOG_ERROR("Error opening pcap file %s: %s\n", filename, errbuf);
-            return -1;
-        }
-        
-        struct pcap_pkthdr *header;
-        const u_char *data;
-        
-        int linktype = pcap_datalink(pcap);
-        if (pass == 2) {
-             LOG_INFO("Pass 2: Parsing data records from pcap file %s...\n", filename);
-        }
-    
-    while (pcap_next_ex(pcap, &header, &data) >= 0) {
-        int offset = 0;
-        if (linktype == DLT_EN10MB) {
-            offset = 14;
-        } else if (linktype == DLT_LINUX_SLL) {
-            offset = 16;
-        } else if (linktype == DLT_NULL) {
-            offset = 4;
-        } else {
-            if (pass == 1) LOG_ERROR("Unsupported pcap datalink type: %d\n", linktype);
-            break;
-        }
-        
-        if (header->caplen < offset + sizeof(struct ip)) continue;
-        
-        struct ip *ip_hdr = (struct ip *)(data + offset);
-        if (ip_hdr->ip_p != IPPROTO_UDP) continue;
-        
-        int ip_len = ip_hdr->ip_hl * 4;
-        if (header->caplen < offset + ip_len + sizeof(struct udphdr)) continue;
-        
-        struct udphdr *udp_hdr = (struct udphdr *)(data + offset + ip_len);
-        
-        int udp_len = ntohs(udp_hdr->uh_ulen);
-        if (udp_len < 8) continue;
-        
-        int payload_len = udp_len - 8;
-        if (header->caplen < offset + ip_len + 8 + payload_len) continue;
-        
-        const u_char *payload = data + offset + ip_len + 8;
-        
-        uv_buf_t buf;
-        buf.base = (char *) collector->alloc(arena_udp_handle, payload_len);
-        if (!buf.base) continue;
-        buf.len = payload_len;
-        memcpy(buf.base, payload, payload_len);
-        
-        struct sockaddr_in addr;
-        memset(&addr, 0, sizeof(addr));
-        addr.sin_family = AF_INET;
-        addr.sin_addr = ip_hdr->ip_src;
-        addr.sin_port = udp_hdr->uh_sport;
-        
-        active_requests++; // temporarily bump to prevent early exit if udp_handle errors before queuing
-        udp_handle(NULL, payload_len, &buf, (struct sockaddr *)&addr, (pass == 1) ? 3 : 2);
-        active_requests--;
-        
-        while (active_requests > 1000) {
-            uv_run(loop_udp, UV_RUN_ONCE);
-        }
+  LOG_INFO("Pass 1: Parsing templates from pcap file %s...\n", filename);
+  char errbuf[PCAP_ERRBUF_SIZE];
+  for (int pass = 1; pass <= 2; pass++) {
+    pcap_t *pcap = pcap_open_offline(filename, errbuf);
+    if (pcap == NULL) {
+      LOG_ERROR("Error opening pcap file %s: %s\n", filename, errbuf);
+      return -1;
     }
-    
+
+    struct pcap_pkthdr *header;
+    const u_char *data;
+
+    int linktype = pcap_datalink(pcap);
+    if (pass == 2) {
+      LOG_INFO("Pass 2: Parsing data records from pcap file %s...\n", filename);
+    }
+
+    global_pcap_frame_number = 0;
+    while (pcap_next_ex(pcap, &header, &data) >= 0) {
+      global_pcap_frame_number++;
+      int offset = 0;
+      if (linktype == DLT_EN10MB) {
+        offset = 14;
+      } else if (linktype == DLT_LINUX_SLL) {
+        offset = 16;
+      } else if (linktype == DLT_NULL) {
+        offset = 4;
+      } else {
+        if (pass == 1)
+          LOG_ERROR("Unsupported pcap datalink type: %d\n", linktype);
+        break;
+      }
+
+      if (header->caplen < offset + sizeof(struct ip))
+        continue;
+
+      struct ip *ip_hdr = (struct ip *) (data + offset);
+      if (ip_hdr->ip_p != IPPROTO_UDP)
+        continue;
+
+      int ip_len = ip_hdr->ip_hl * 4;
+      if (header->caplen < offset + ip_len + sizeof(struct udphdr))
+        continue;
+
+      struct udphdr *udp_hdr = (struct udphdr *) (data + offset + ip_len);
+
+      int udp_len = ntohs(udp_hdr->uh_ulen);
+      if (udp_len < 8)
+        continue;
+
+      int payload_len = udp_len - 8;
+      if (header->caplen < offset + ip_len + 8 + payload_len)
+        continue;
+
+      const u_char *payload = data + offset + ip_len + 8;
+
+      uv_buf_t buf;
+      buf.base = (char *) collector->alloc(arena_udp_handle, payload_len);
+      if (!buf.base)
+        continue;
+      buf.len = payload_len;
+      memcpy(buf.base, payload, payload_len);
+
+      struct sockaddr_in addr;
+      memset(&addr, 0, sizeof(addr));
+      addr.sin_family = AF_INET;
+      addr.sin_addr = ip_hdr->ip_src;
+      addr.sin_port = udp_hdr->uh_sport;
+
+      active_requests++; // temporarily bump to prevent early exit if udp_handle errors before queuing
+      udp_handle(NULL, payload_len, &buf, (struct sockaddr *) &addr, (pass == 1) ? 3 : 2);
+      active_requests--;
+
+      while (active_requests > 1000000) {
+        uv_run(loop_udp, UV_RUN_ONCE);
+      }
+    }
+
     pcap_close(pcap);
     // Wait for all tasks to finish before starting next pass or exiting
     while (active_requests > 0) {
-        uv_run(loop_udp, UV_RUN_ONCE);
+      uv_run(loop_udp, UV_RUN_ONCE);
     }
   }
   return 0;
 }
 #else
 int parse_pcap_file(collector_t *collector, const char *filename) {
-    (void)collector;
-    (void)filename;
-    LOG_ERROR("cnetflow was built without libpcap support.\n");
-    return -1;
+  (void) collector;
+  (void) filename;
+  LOG_ERROR("cnetflow was built without libpcap support.\n");
+  return -1;
 }
 #endif
 
@@ -456,11 +466,14 @@ int8_t collector_start(collector_t *collector) {
 
   // Cache environment variables
   const char *max_flows_str = getenv("CNETFLOW_MAX_FLOWS");
-  if (max_flows_str) g_max_flows = atoi(max_flows_str);
+  if (max_flows_str)
+    g_max_flows = atoi(max_flows_str);
   const char *max_diff_str = getenv("CNETFLOW_MAX_DIFF");
-  if (max_diff_str) g_max_diff = atoi(max_diff_str);
+  if (max_diff_str)
+    g_max_diff = atoi(max_diff_str);
   const char *ch_conn_str = getenv("CH_CONN_STRING");
-  if (ch_conn_str) g_ch_conn_string = strdup(ch_conn_str);
+  if (ch_conn_str)
+    g_ch_conn_string = strdup(ch_conn_str);
 
   LOG_ERROR("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
@@ -547,13 +560,13 @@ int8_t collector_start(collector_t *collector) {
     goto error_destroy_arena;
   }
 
-    const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
-    if (listen < 0) {
-      LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
-      goto error_destroy_arena;
-    }
+  const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
+  if (listen < 0) {
+    LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
+    goto error_destroy_arena;
+  }
 
-    uv_run(loop_udp, UV_RUN_DEFAULT);
+  uv_run(loop_udp, UV_RUN_DEFAULT);
 
   // Wait for all pending work requests to finish before cleanup
   LOG_INFO("Waiting for %d active requests to finish (max 10s)...\n", active_requests);
@@ -612,13 +625,13 @@ error_no_arena:
 }
 
 void after_work_cb(uv_work_t *req, int status) {
-  (void)status;
+  (void) status;
   if (req == NULL) {
     LOG_ERROR("%s %d %s: req is NULL\n", __FILE__, __LINE__, __func__);
     return;
   }
 
-  parse_args_t *func_args = (parse_args_t *)req->data;
+  parse_args_t *func_args = (parse_args_t *) req->data;
   if (func_args == NULL) {
     LOG_ERROR("%s %d %s: func_args is NULL\n", __FILE__, __LINE__, __func__);
     // Still try to free req safely
@@ -726,6 +739,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->len = 0;
   func_args->data = NULL;
   func_args->status = collector_data_status_init;
+  func_args->frame_number = global_pcap_frame_number;
 
   LOG_ERROR("%s %d %s work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));\n", __FILE__, __LINE__,
             __func__);
