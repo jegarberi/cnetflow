@@ -430,8 +430,8 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
     if (is_pcap_pass_2) {
       pcap_line_t line;
       line.frame_number = frame_number;
-      snprintf(line.text, sizeof(line.text), "frame %u template %u flowset %u %s:%u -> %s:%u prot: %u",
-               frame_number, template_id, flowset_id,
+      snprintf(line.text, sizeof(line.text), "frame %u template %u flowset %u flow %zu %s:%u -> %s:%u prot: %u",
+               frame_number, template_id, flowset_id, i,
                ip_src_str, netflow_packet->records[i].srcport,
                ip_dst_str, netflow_packet->records[i].dstport,
                netflow_packet->records[i].prot);
@@ -441,7 +441,7 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
     }
   } else {
     if (frame_number > 0) {
-      fprintf(file, "frame %u template %u flowset %u ", frame_number, template_id, flowset_id);
+      fprintf(file, "frame %u template %u flowset %u flow %zu ", frame_number, template_id, flowset_id, i);
     }
     // Ports are already in host byte order after parsing.
     fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str,

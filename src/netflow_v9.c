@@ -19,7 +19,7 @@
 // Pending flowset queue — stores raw flowset data when template is not yet
 // known, for later replay once the matching template arrives.
 // ---------------------------------------------------------------------------
-#define PENDING_QUEUE_MAX_PER_KEY 512
+#define PENDING_QUEUE_MAX_PER_KEY 100000
 
 typedef struct pending_flowset_s {
   uint8_t  *data;          // Raw copy of the flowset bytes (flowset_id + length + records)
@@ -221,7 +221,6 @@ void *parse_v9(uv_work_t *req) {
     LOG_ERROR("%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
     goto cleanup_template_and_unlock;
   }
-  size_t total_records = header->count;
   LOG_ERROR("%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
   if (header->SysUptime == 1384148828) {
@@ -236,12 +235,9 @@ void *parse_v9(uv_work_t *req) {
 
   flowset_union_t *flowset;
 
-  size_t total_record_counter = 0;
   size_t record_counter = 0;
-  size_t template_counter = 0;
   size_t flowset_base = 0;
   size_t flowset_end = 0;
-  size_t total_flowsets = 0;
   uint16_t len = 0;
   size_t total_packet_length = args->len;
   LOG_ERROR("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
@@ -268,7 +264,6 @@ void *parse_v9(uv_work_t *req) {
     swap_endianness(&flowset->template.length, sizeof(flowset->template.length));
     uint16_t flowset_id = flowset->template.flowset_id;
     uint16_t flowset_length = flowset->template.length;
-    // uint16_t *template = NULL;
 
     if (0 == flowset_id) {
       LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
@@ -276,7 +271,6 @@ void *parse_v9(uv_work_t *req) {
       // this is a template flowset
       LOG_ERROR("%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
       size_t pos = 4; // Skip flowset_id and length
-      template_counter = 0;
       while (pos + 4 <= flowset_length) {
         uint8_t *template_ptr = args->data + flowset_base + pos;
         uint16_t template_id = (template_ptr[0] << 8) | template_ptr[1];
@@ -344,8 +338,6 @@ void *parse_v9(uv_work_t *req) {
         }
 #endif
 
-        LOG_ERROR("%s %d %s: template_counter: %lu\n", __FILE__, __LINE__, __func__, template_counter);
-
 #ifdef ENABLE_METRICS
         metrics_inc_v9_templates_received();
 #endif
@@ -354,8 +346,6 @@ void *parse_v9(uv_work_t *req) {
         metrics_track_exporter(args->exporter);
         metrics_inc_flowsets(1);
 
-        template_counter++;
-        total_flowsets++;
         pos += 4 + field_count * 4;
       }
     } else if (flowset_id >= 256) {
@@ -374,7 +364,6 @@ void *parse_v9(uv_work_t *req) {
         goto cleanup_template_and_unlock;
       }
 
-      size_t has_more_records = 1;
       size_t pos = 0;
 
       // Validate we have enough space for record header
@@ -404,18 +393,10 @@ void *parse_v9(uv_work_t *req) {
                                 args->frame_number);
       } else {
         void *pointer = args->data + flowset_base + 4;
-        uint16_t record_length = 0;
-        uint16_t template_id = template_hashmap[0];
-        swap_endianness(&template_id, sizeof(template_id));
         uint16_t field_count = template_hashmap[1];
         swap_endianness(&field_count, sizeof(field_count));
         // SKIP FLOWSET HEADER
         pos = 4;
-        // pos += 4;
-        // FILE *ftemplate = fopen("templates.txt", "a");
-        // netflow_v9_flowset_t *netflow_packet_ptr;
-        // netflow_v9_flowset_t netflow_packet = {0};
-        // netflow_packet_ptr = &netflow_packet;
         netflow_v9_uint128_flowset_t flows_to_insert;
         memset(&flows_to_insert, 0, sizeof(flows_to_insert));
         int is_ipv6 = 0;
@@ -464,15 +445,11 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("%s %d %s: Too many records in FlowSet (> 60), truncating\n", __FILE__, __LINE__, __func__);
             break;
           }
-          // netflow_v9_record_value_t *record_value;
-          size_t print_flow = 0;
 #ifdef CNETFLOW_DEBUG_BUILD
-          fprintf(stdout, "exporter: %s template: %d flowsets: %d record_no: %d field_count: %d",
-                  ip_int_to_str(args->exporter), template_id, total_records + 1, record_counter + 1, field_count);
+          fprintf(stdout, "exporter: %s template: %d record_no: %d field_count: %d",
+                  ip_int_to_str(args->exporter), template_id, record_counter + 1, field_count);
 #endif
-          size_t reading_field = 0;
           for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
-            reading_field++;
 
             // CRITICAL FIX: Validate pointer is within packet bounds before accessing
             size_t pointer_offset = (size_t) pointer - (size_t) args->data;
@@ -484,11 +461,7 @@ void *parse_v9(uv_work_t *req) {
 
             uint16_t field_type = template_hashmap[count];
             swap_endianness(&field_type, sizeof(field_type));
-            // memset(&netflow_packet_ptr->records[record_counter], 0,
-            // sizeof(netflow_packet_ptr->records[record_counter]));
             if (unlikely(field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)))) {
-              // assert(-1);
-              // exit(-1);
               goto cleanup_template_and_unlock;
             }
             uint16_t field_length = template_hashmap[count + 1];
@@ -504,15 +477,6 @@ void *parse_v9(uv_work_t *req) {
               }
               goto cleanup_template_and_unlock;
             }
-#ifdef CNETFLOW_DEBUG_BUILD
-            fprintf(stdout, " field_no_%lu_%s[%d]_%d ", reading_field,
-                    ipfix_field_types[field_type].name ? ipfix_field_types[field_type].name : "unknown", field_type,
-                    field_length);
-#endif
-            /*if (field_type == 8) {
-              printf("STAP!\n");
-            }*/
-            // record_length = ipfix_field_types[field].length;
 
             uint16_t record_length = field_length;
             uint8_t *tmp8 = NULL;
@@ -546,8 +510,6 @@ void *parse_v9(uv_work_t *req) {
                 val_tmp64 = *tmp64;
                 swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 val_tmp64 &= 0x0000ffffffffffff;
-                // val_tmp64 = val_tmp64 >> 16;
-
                 break;
               case 8:
                 tmp64 = (uint64_t *) pointer;
@@ -560,25 +522,16 @@ void *parse_v9(uv_work_t *req) {
                 swap_endianness(&val_tmp128, sizeof(val_tmp128));
                 break;
             }
-            if (field_type == 21 || field_type == 22) {
-            }
-            if (field_type > 337) {
-              goto cleanup_template_and_unlock;
-            }
 
             // Process field based on IPFIX field type (same as NetFlow v9)
             switch (field_type) {
               case IPFIX_FT_FLOWENDSYSUPTIME:
                 if (record_length == 4) {
-                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
-                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   flows_to_insert.records[record_counter].Last = val_tmp32;
                 } else if (record_length == 8) {
-                  // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  // swap_endianness(&val32, sizeof(val32));
                   flows_to_insert.records[record_counter].Last = val32;
                 } else {
                   flows_to_insert.records[record_counter].Last = 0;
@@ -586,35 +539,27 @@ void *parse_v9(uv_work_t *req) {
                 break;
               case IPFIX_FT_FLOWSTARTSYSUPTIME:
                 if (record_length == 4) {
-                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   val_tmp32 = val_tmp32 / 1000 + diff;
-                  // swap_endianness(&val_tmp32, sizeof(val_tmp32));
                   flows_to_insert.records[record_counter].First = val_tmp32;
                 } else if (record_length == 8) {
-                  // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                   val_tmp64 = val_tmp64 / 1000 + diff;
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  // swap_endianness(&val32, sizeof(val32));
                   flows_to_insert.records[record_counter].First = val32;
                 } else {
                   flows_to_insert.records[record_counter].First = 0;
                 }
                 break;
               case IPFIX_FT_FLOWSTARTMILLISECONDS:
-                // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  // swap_endianness(&val32, sizeof(val32));
                   flows_to_insert.records[record_counter].First = val32;
                 }
                 break;
               case IPFIX_FT_FLOWENDMILLISECONDS:
-                // swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 val_tmp64 = val_tmp64 / 1000 + diff;
                 {
                   uint32_t val32 = (uint32_t) val_tmp64;
-                  // swap_endianness(&val32, sizeof(val32));
                   flows_to_insert.records[record_counter].Last = val32;
                 }
                 break;
@@ -790,131 +735,19 @@ void *parse_v9(uv_work_t *req) {
                 break;
             }
 
-            if (field_type > 337) {
-              goto cleanup_template_and_unlock;
-            }
-#ifdef CNETFLOW_DEBUG_BUILD
-            {
-              switch (ipfix_field_types[field_type].coding) {
-                case IPFIX_CODING_INT:
-                  switch (record_length) {
-                    case 1:
-                      fprintf(stdout, "%d ", *tmp8);
-                      break;
-                    case 2:
-                      fprintf(stdout, "%d ", *tmp16);
-                      break;
-                    case 4:
-                      fprintf(stdout, "%d ", *tmp32);
-                      break;
-                    case 8:
-                      fprintf(stdout, "%ld ", *tmp64);
-                      break;
-                  }
-                  break;
-                case IPFIX_CODING_UINT:
-                  switch (record_length) {
-                    case 1:
-                      fprintf(stdout, "%u ", *tmp8);
-                      break;
-                    case 2:
-                      fprintf(stdout, "%u ", *tmp16);
-                      break;
-                    case 4:
-                      fprintf(stdout, "%u ", *tmp32);
-                      break;
-                    case 8:
-                      fprintf(stdout, "%lu ", *tmp64);
-                      break;
-                  }
-                  break;
-                case IPFIX_CODING_BYTES:
-                  switch (record_length) {
-                    case 1:
-                      fprintf(stdout, "%u ", *tmp8);
-                      break;
-                    case 2:
-                      fprintf(stdout, "%u ", *tmp16);
-                      break;
-                    case 4:
-                      fprintf(stdout, "%u ", *tmp32);
-                      break;
-                    case 6:
-                      fprintf(stdout, "%lx ", tmp64);
-                      break;
-                    case 8:
-                      fprintf(stdout, "%lu ", *tmp64);
-                      break;
-                  }
-                  break;
-                case IPFIX_CODING_STRING:
-                case IPFIX_CODING_FLOAT:
-                case IPFIX_CODING_NTP:
-                  break;
-                case IPFIX_CODING_IPADDR:
-                  switch (record_length) {
-                    case 4:
-                      tmp8 = (uint8_t *) pointer;
-                      fprintf(stdout, "%u.%u.%u.%u ", *(tmp8 + 3), *(tmp8 + 2), *(tmp8 + 1), *(tmp8));
-                      break;
-                    case 16:
-                      tmp8 = (uint8_t *) pointer;
-                      fprintf(stdout, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ",
-                              *(tmp8 + 15), *(tmp8 + 14), *(tmp8 + 13), *(tmp8 + 12), *(tmp8 + 11), *(tmp8 + 10),
-                              *(tmp8 + 9), *(tmp8 + 8), *(tmp8 + 7), *(tmp8 + 6), *(tmp8 + 5), *(tmp8 + 4), *(tmp8 + 3),
-                              *(tmp8 + 2), *(tmp8 + 1), *(tmp8 + 0));
-                      break;
-                    default:
-                      EXIT_WITH_MSG(-1, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
-                  }
-                  break;
-                default:
-                  break;
-              }
-            }
-#endif
             pointer += record_length;
             pos += record_length;
           }
 
-#ifdef CNETFLOW_DEBUG_BUILD
-          fprintf(stdout, "\n");
-#endif
           if (flows_to_insert.records[record_counter].Last != 0 &&
               flows_to_insert.records[record_counter].First != 0) {
-            // swap_endianness(&flows_to_insert.records[record_counter].Last,
-            //                 sizeof(flows_to_insert.records[record_counter].Last));
-            // swap_endianness(&flows_to_insert.records[record_counter].First,
-            //                 sizeof(flows_to_insert.records[record_counter].First));
             uint32_t duration =
                 flows_to_insert.records[record_counter].Last - flows_to_insert.records[record_counter].First;
             flows_to_insert.records[record_counter].Last = now;
             flows_to_insert.records[record_counter].First = now - duration;
-            // swap_endianness(&flows_to_insert.records[record_counter].Last,
-            //                 sizeof(flows_to_insert.records[record_counter].Last));
-            // swap_endianness(&flows_to_insert.records[record_counter].First,
-            //                 sizeof(flows_to_insert.records[record_counter].First));
           }
           if (!is_ipv6) {
-            // swap_endianness(&flows_to_insert.records[record_counter].srcport,
-            //                 sizeof(flows_to_insert.records[record_counter].srcport));
-            // swap_endianness(&flows_to_insert.records[record_counter].dstport,
-            //                 sizeof(flows_to_insert.records[record_counter].dstport));
-            // swap_endianness(&flows_to_insert.records[record_counter].srcaddr,
-            //                 sizeof(flows_to_insert.records[record_counter].srcaddr));
-            // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
-            //                 sizeof(flows_to_insert.records[record_counter].dstaddr));
-
-
             swap_src_dst_v9_ipv4(&flows_to_insert.records[record_counter]);
-            //  swap_endianness(&flows_to_insert.records[record_counter].srcport,
-            //                sizeof(flows_to_insert.records[record_counter].srcport));
-            // swap_endianness(&flows_to_insert.records[record_counter].dstport,
-            // sizeof(flows_to_insert.records[record_counter].dstport));
-            // swap_endianness(&flows_to_insert.records[record_counter].srcaddr,
-            // sizeof(flows_to_insert.records[record_counter].srcaddr));
-            // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
-            // sizeof(flows_to_insert.records[record_counter].dstaddr));
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, &flows_to_insert, record_counter, args->frame_number, template_id, flowset_id);
 #endif
@@ -922,9 +755,6 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("ipv6 not supported at the moment...\n");
           }
 
-// #ifdef ENABLE_METRICS
-//           metrics_inc_v9_records_received();
-// #endif
           local_v9_records++;
 
           if (flows_to_insert.records[record_counter].input != 0) {
@@ -935,12 +765,6 @@ void *parse_v9(uv_work_t *req) {
           }
 
           record_counter++;
-          // Bounds check is now handled automatically by the while loop condition
-
-          // if (record_counter + template_counter >= total_records) {
-          //   has_more_records = 0;
-          //  exit(-1);
-          //}
         }
 
 #ifdef ENABLE_METRICS
@@ -967,11 +791,9 @@ void *parse_v9(uv_work_t *req) {
             for (size_t i = 0; i < record_counter; i++) {
                 uint32_t saddr = flows_to_insert.records[i].srcaddr;
                 uint32_t daddr = flows_to_insert.records[i].dstaddr;
-                // Skip records with zero or obviously invalid addresses
                 if (saddr == 0 || daddr == 0) {
                     continue;
                 }
-                // Skip records where the first byte of the IP is 0 (non-routable garbage from template transitions)
                 if ((saddr >> 24) == 0 || (daddr >> 24) == 0) {
                     continue;
                 }
@@ -983,7 +805,6 @@ void *parse_v9(uv_work_t *req) {
       }
       skip_v9_record_pass:;
     } else if (flowset_id == 1) {
-      // this is an option flowset, skip it entirely
     } else if (flowset_id > 1 && flowset_id < 256) {
       LOG_ERROR("%s %d %s this is a reserved flowset: %d\n", __FILE__, __LINE__, __func__, flowset_id);
     } else {
@@ -994,12 +815,8 @@ void *parse_v9(uv_work_t *req) {
     flowset_base = flowset_end;
   }
 
-
-  // insert_flows(exporter_host, &flows_to_insert);
-
 cleanup_template_and_unlock:
 
-unlock_mutex_parse_v9:
   uv_mutex_unlock(&v9_parse_mutex);
   args->processed_flows = total_flows_in_packet;
   args->status = collector_data_status_done;
