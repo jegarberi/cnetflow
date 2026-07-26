@@ -1,0 +1,35 @@
+name: CentOS 6 CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-centos6:
+    name: Build CentOS 6 Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config python3-pip python3-venv
+          pip install conan
+          conan profile detect --force
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+
+      - name: Link Zig for scripts
+        run: |
+          ln -sf $(which zig) scripts/zig
+          chmod +x scripts/zig-cc scripts/zig-cxx
+
+      - name: Build CentOS 6 Binaries
+        run: ./scripts/build_centos6_binaries.sh
