@@ -199,6 +199,7 @@ endif()
 # CPack configuration
 set(CPACK_PACKAGE_NAME "cnetflow")
 set(CPACK_PACKAGE_VENDOR "cnetflow")
+set(CPACK_PACKAGE_CONTACT "maintainer@example.com")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "cnetflow - Netflow Collector")
 set(CPACK_GENERATOR "RPM;DEB")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/")

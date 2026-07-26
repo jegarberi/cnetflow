@@ -270,6 +270,9 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#ifndef __FAVOR_BSD
+#define __FAVOR_BSD 1
+#endif
 #include <netinet/udp.h>
 #include <pcap.h>
 #ifndef DLT_LINUX_SLL
@@ -519,7 +522,7 @@ int8_t collector_start(collector_t *collector) {
   // Start the per-second rate updater timer calculation
   metrics_timer_start();
 
-  uv_timer_t timer_req_snmp;
+  // uv_timer_t timer_req_snmp;
   uv_timer_t timer_req_rss;
   uv_timer_t timer_backlog;
   // uv_timer_init(loop_timer_snmp, &timer_req_snmp);
@@ -804,7 +807,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->now = (uint32_t) time(NULL);
   func_args->flags = flags;
   work_req->data = (parse_args_t *) func_args;
-  LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, data_counter,
+  LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, (int)data_counter,
             work_req, buf->base);
   switch (nf_version) {
     case NETFLOW_V5:
