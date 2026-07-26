@@ -49,6 +49,7 @@ Test(netflow, endianness_and_swaps) {
   __uint128_t u128 = (((__uint128_t) 0x0123456789abcdefULL) << 64) | 0xfedcba9876543210ULL;
   __uint128_t s128 = swap_endian_128(u128);
   __uint128_t expect128 = (((__uint128_t) 0x1032547698badcfeULL) << 64) | 0xefcdab8967452301ULL;
+  (void)expect128;
   // Validate by splitting to 64-bit halves
   uint64_t s128_hi = (uint64_t) (s128 >> 64);
   uint64_t s128_lo = (uint64_t) (s128 & 0xFFFFFFFFFFFFFFFFULL);
