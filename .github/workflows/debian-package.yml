@@ -27,12 +27,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config \
-            libpq-dev libuv1-dev
+            build-essential cmake pkg-config python3-pip python3-venv
+          pip install conan
+          conan profile detect --force
+          conan install . --build=missing -s build_type=Release -c "tools.build:cflags=['-std=gnu11']"
 
       - name: Configure (Release)
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_PACKAGE_VERSION=${PKG_VERSION:-1.0.0}
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_PACKAGE_VERSION=${PKG_VERSION:-1.0.0}
 
       - name: Build
         run: |

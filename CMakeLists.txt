@@ -196,7 +196,16 @@ if (NOT BUILD_STATIC)
     install(FILES "${CMAKE_BINARY_DIR}/cnetflow.conf" DESTINATION /etc/ld.so.conf.d/)
 
 endif()
-# Note: CPack configuration and installation scripts are generally designed for dynamic builds
+# CPack configuration
+set(CPACK_PACKAGE_NAME "cnetflow")
+set(CPACK_PACKAGE_VENDOR "cnetflow")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "cnetflow - Netflow Collector")
+set(CPACK_GENERATOR "RPM;DEB")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/")
+if (NOT CPACK_PACKAGE_VERSION)
+    set(CPACK_PACKAGE_VERSION "1.0.0")
+endif()
+include(CPack)
 # where library files need to be placed. For a true static binary, much of the
 # installation and CPack logic (especially for libraries and ld.so.conf.d) would be irrelevant,
 # but I am leaving it in an `if (NOT BUILD_STATIC)` block to preserve the dynamic build behavior.
