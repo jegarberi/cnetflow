@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
   }
   fprintf(stderr, "Starting main...\n");
   fprintf(stdout, "Starting main...\n");
-  //fflush(stderr);
-  //fflush(stdout);
+  const char *tp_size = getenv("UV_THREADPOOL_SIZE");
+  LOG_INFO("Libuv threadpool size (UV_THREADPOOL_SIZE): %s\n", tp_size ? tp_size : "4 (default)");
   LOG_INFO("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
   LOG_ERROR("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
   LOG_ERROR("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);

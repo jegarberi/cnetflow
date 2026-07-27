@@ -16,14 +16,15 @@
 #include "redis_handler.h"
 #endif
 static hashmap_t *templates_ipfix_hashmap;
+uv_mutex_t ipfix_parse_mutex;
 
-// static hashmap_t *templates_ipfix_hashmap;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;
 
 void init_ipfix(arena_struct_t *arena, const size_t cap) {
   LOG_ERROR("%s %d %s: Initializing IPFIX (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_ipfix_hashmap = hashmap_create(arena, cap);
+  uv_mutex_init(&ipfix_parse_mutex);
 
 #ifdef USE_REDIS
   LOG_ERROR("%s %d %s: Loading IPFIX templates from Redis...\n", __FILE__, __LINE__, __func__);
@@ -43,7 +44,9 @@ void init_ipfix(arena_struct_t *arena, const size_t cap) {
              struct in_addr in;
              if (inet_pton(AF_INET, ip_str, &in) == 1) {
                  uint64_t hkey = ((uint64_t)in.s_addr << 32) | tid;
+                 uv_mutex_lock(&ipfix_parse_mutex);
                  hashmap_set(templates_ipfix_hashmap, arena, &hkey, sizeof(uint64_t), arena_val);
+                 uv_mutex_unlock(&ipfix_parse_mutex);
                  LOG_INFO("Loaded IPFIX template %s from Redis\n", keys[i]);
              }
           }
@@ -200,7 +203,9 @@ void *parse_ipfix(uv_work_t *req) {
         if (temp) {
           memcpy(temp, (void *) template_record_start, template_size);
           // Store in Hashmap
+          uv_mutex_lock(&ipfix_parse_mutex);
           hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, &hkey, sizeof(uint64_t), temp);
+          uv_mutex_unlock(&ipfix_parse_mutex);
           LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, redis_key);
 
 #ifdef USE_REDIS
@@ -237,7 +242,9 @@ void *parse_ipfix(uv_work_t *req) {
       uint16_t template_id = flowset_id;
       uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
 
+      uv_mutex_lock(&ipfix_parse_mutex);
       template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, &hkey, sizeof(uint64_t));
+      uv_mutex_unlock(&ipfix_parse_mutex);
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,

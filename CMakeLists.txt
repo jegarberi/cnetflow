@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.16)
 project(cnetflow C)
 SET(CMAKE_PROJECT_NAME "cnetflow")
 
+set(CMAKE_LINK_DEPENDS_USE_COMPILER OFF)
+set(CMAKE_C_LINKER_DEPFILE_SUPPORTED FALSE)
+
 # --- STATIC BUILD OPTION ---
 # 1. New option to control static linking
 option(BUILD_STATIC "Build cnetflow as a static executable" OFF)

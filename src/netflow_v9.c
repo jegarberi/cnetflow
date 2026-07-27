@@ -63,7 +63,6 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 void *parse_v9(uv_work_t *req) {
   uint16_t *template_hashmap = NULL;
   parse_args_t *args = (parse_args_t *) req->data;
-  uv_mutex_lock(&v9_parse_mutex);
   uint64_t total_flows_in_packet = 0;
   if (unlikely(templates_nfv9_hashmap == NULL)) {
     goto cleanup_template_and_unlock;
@@ -183,7 +182,9 @@ void *parse_v9(uv_work_t *req) {
         memcpy(temp, template_ptr, alloc_size);
 
         // Store in Hashmap
+        uv_mutex_lock(&v9_parse_mutex);
         hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
+        uv_mutex_unlock(&v9_parse_mutex);
         LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
 
 
@@ -234,7 +235,9 @@ void *parse_v9(uv_work_t *req) {
 
       uint16_t template_id = flowset_id;
       uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
+      uv_mutex_lock(&v9_parse_mutex);
       template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
+      uv_mutex_unlock(&v9_parse_mutex);
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s template %d not found for exporter %s — discarding flowset\n", __FILE__, __LINE__, __func__, template_id,
@@ -655,7 +658,6 @@ void *parse_v9(uv_work_t *req) {
 
 cleanup_template_and_unlock:
 
-  uv_mutex_unlock(&v9_parse_mutex);
   args->processed_flows = total_flows_in_packet;
   args->status = collector_data_status_done;
 
