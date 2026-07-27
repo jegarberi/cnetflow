@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17.5)
+cmake_minimum_required(VERSION 3.16)
 project(cnetflow C)
 SET(CMAKE_PROJECT_NAME "cnetflow")
 
@@ -51,10 +51,6 @@ endif()
 
 # Rest of the initial configuration remains the same
 #SET (CMAKE_BUILD_TYPE Debug)
-# Only set compiler if not already specified via command line
-if (NOT CMAKE_C_COMPILER)
-    SET(CMAKE_C_COMPILER "/usr/bin/gcc")
-endif ()
 if(MSVC)
     add_compile_options(/W4)
     if(NOT CMAKE_C_COMPILER)

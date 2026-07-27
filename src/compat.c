@@ -1,7 +1,10 @@
-#ifdef COMPAT_CENTOS6
 #define _GNU_SOURCE
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <string.h>
+#include <features.h>
+#include "compat.h"
 
 /*
  * Shim for sendmmsg which is missing in glibc < 2.14.
@@ -10,6 +13,7 @@
  * We provide a dummy implementation to satisfy the linker.
  * libuv should handle the ENOSYS error if it attempts to call it.
  */
+#if defined(COMPAT_CENTOS6) || (defined(__GLIBC__) && !__GLIBC_PREREQ(2, 14))
 int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
   (void) sockfd;
   (void) msgvec;
@@ -18,13 +22,12 @@ int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
   errno = ENOSYS;
   return -1;
 }
+#endif
 
 /*
- * Shim for strlcpy which is missing in glibc < 2.38.
+ * Shim for strlcpy which is missing in glibc < 2.38 (e.g. Ubuntu 20.04 with glibc 2.31).
  */
-#include <sys/types.h>
-#include <string.h>
-
+#if defined(COMPAT_CENTOS6) || !defined(__GLIBC__) || (defined(__GLIBC__) && !__GLIBC_PREREQ(2, 38))
 size_t strlcpy(char *dst, const char *src, size_t dsize) {
     const char *osrc = src;
     size_t nleft = dsize;
@@ -47,5 +50,5 @@ size_t strlcpy(char *dst, const char *src, size_t dsize) {
 
     return (src - osrc - 1); /* count does not include NUL */
 }
-
 #endif
+

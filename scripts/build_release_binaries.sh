@@ -29,12 +29,13 @@ fi
 
 CONAN_PROFILE_MUSL="${PROJECT_ROOT}/musl_profile"
 echo "Generating Conan profile for Musl (Static)..."
+CLANG_VER=$(clang --version 2>/dev/null | grep -oP 'clang version \K[0-9]+' || echo "10")
 cat > "$CONAN_PROFILE_MUSL" <<EOF
 [settings]
 os=Linux
 arch=x86_64
 compiler=clang
-compiler.version=15
+compiler.version=${CLANG_VER}
 compiler.libcxx=libstdc++11
 
 [conf]

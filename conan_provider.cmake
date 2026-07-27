@@ -36,7 +36,7 @@ set(CONAN_MINIMUM_VERSION 2.0.5)
 #
 # https://cmake.org/cmake/help/book/mastering-cmake/chapter/Policies.html#the-policy-stack
 cmake_policy(PUSH)
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.16)
 
 
 function(detect_os os os_api_level os_sdk os_subsystem os_version)
