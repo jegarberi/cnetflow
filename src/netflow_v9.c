@@ -15,34 +15,7 @@
 #include "redis_handler.h"
 #endif
 
-// ---------------------------------------------------------------------------
-// Pending flowset queue — stores raw flowset data when template is not yet
-// known, for later replay once the matching template arrives.
-// ---------------------------------------------------------------------------
-#define PENDING_QUEUE_MAX_PER_KEY 100000
-
-typedef struct pending_flowset_s {
-  uint8_t  *data;          // Raw copy of the flowset bytes (flowset_id + length + records)
-  uint16_t  flowset_length;// Value of the flowset length field (already host-byte-order)
-  uint32_t  exporter;      // Source exporter IP
-  uint32_t  now;           // Snapshot of args->now at capture time
-  uint32_t  SysUptime;     // Header SysUptime at capture time
-  uint32_t  unix_secs;     // Header unix_secs at capture time
-  uint32_t  package_sequence;
-  uint32_t  source_id;
-  uint32_t  flags;
-  uint32_t  frame_number;
-  struct pending_flowset_s *next;
-} pending_flowset_t;
-
-typedef struct {
-  pending_flowset_t *head;
-  pending_flowset_t *tail;
-  size_t count;
-} pending_queue_t;
-
 static hashmap_t *templates_nfv9_hashmap;
-static hashmap_t *pending_nfv9_hashmap;  // (exporter<<32|template_id) -> pending_queue_t*
 
 uv_mutex_t v9_parse_mutex;
 
@@ -52,7 +25,6 @@ extern arena_struct_t *arena_hashmap_nf9;
 void init_v9(arena_struct_t *arena, const size_t cap) {
   LOG_ERROR("%s %d %s: Initializing v9 (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
-  pending_nfv9_hashmap   = hashmap_create(arena, cap);
   uv_mutex_init(&v9_parse_mutex);
 
 #ifdef USE_REDIS
@@ -86,119 +58,7 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 #endif
 }
 
-// ---------------------------------------------------------------------------
-// Enqueue a raw flowset for later replay once its template arrives.
-// Copies flowset_length bytes from flowset_data into the arena.
-// Returns 1 on success, 0 if queue is full or allocation fails.
-// ---------------------------------------------------------------------------
-static int enqueue_pending_flowset(uint64_t hkey,
-                                    const uint8_t *flowset_data,
-                                    uint16_t flowset_length,
-                                    uint32_t exporter,
-                                    uint32_t now,
-                                    uint32_t SysUptime,
-                                    uint32_t unix_secs,
-                                    uint32_t package_sequence,
-                                    uint32_t source_id,
-                                    uint32_t flags,
-                                    uint32_t frame_number) {
-  if (unlikely(pending_nfv9_hashmap == NULL)) return 0;
-  pending_queue_t *q = (pending_queue_t *) hashmap_get(pending_nfv9_hashmap, &hkey, sizeof(uint64_t));
 
-  if (q == NULL) {
-    q = (pending_queue_t *) arena_alloc(arena_hashmap_nf9, sizeof(pending_queue_t));
-    if (q == NULL) return 0;
-    q->head = NULL; q->tail = NULL; q->count = 0;
-    hashmap_set(pending_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), q);
-  }
-  if (q->count >= PENDING_QUEUE_MAX_PER_KEY) {
-    LOG_ERROR("pending_queue: dropping oldest flowset for key %lx (queue full)\n", (unsigned long)hkey);
-    // Drop oldest entry to make room
-    pending_flowset_t *old = q->head;
-    q->head = old->next;
-    if (q->head == NULL) q->tail = NULL;
-    q->count--;
-    // Note: arena memory is not freed; it's bump-allocated and will be reclaimed at arena_clean time
-  }
-  pending_flowset_t *pf = (pending_flowset_t *) arena_alloc(arena_hashmap_nf9, sizeof(pending_flowset_t));
-  if (pf == NULL) return 0;
-  uint8_t *buf = (uint8_t *) arena_alloc(arena_hashmap_nf9, flowset_length);
-  if (buf == NULL) return 0;
-  memcpy(buf, flowset_data, flowset_length);
-  pf->data             = buf;
-  pf->flowset_length   = flowset_length;
-  pf->exporter         = exporter;
-  pf->now              = now;
-  pf->SysUptime        = SysUptime;
-  pf->unix_secs        = unix_secs;
-  pf->package_sequence = package_sequence;
-  pf->source_id        = source_id;
-  pf->flags            = flags;
-  pf->frame_number     = frame_number;
-  pf->next             = NULL;
-  if (q->tail) q->tail->next = pf; else q->head = pf;
-  q->tail = pf;
-  q->count++;
-  LOG_ERROR("pending_queue: enqueued flowset (key %lx, len %u, queue depth %zu)\n",
-            (unsigned long)hkey, flowset_length, q->count);
-  return 1;
-}
-
-// Forward-declare decode helper (defined below parse_v9 in the original flow).
-static void decode_v9_data_flowset(const uint8_t *flowset_data,
-                                    uint16_t flowset_length,
-                                    uint16_t *template_hashmap,
-                                    uint32_t exporter,
-                                    uint32_t now,
-                                    uint32_t SysUptime,
-                                    uint32_t unix_secs,
-                                    uint32_t package_sequence,
-                                    uint32_t source_id,
-                                    uint32_t flags,
-                                    uint32_t frame_number);
-
-// ---------------------------------------------------------------------------
-// Flush all pending flowsets for a given (exporter, template_id) key now that
-// the template has been stored in templates_nfv9_hashmap.
-// ---------------------------------------------------------------------------
-static void flush_pending_flowsets(uint64_t hkey) {
-  pending_queue_t *q = (pending_queue_t *) hashmap_get(pending_nfv9_hashmap, &hkey, sizeof(uint64_t));
-  if (q == NULL || q->count == 0) return;
-
-  uint16_t *tmpl = (uint16_t *) hashmap_get(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
-  if (tmpl == NULL) return; // shouldn't happen
-
-  LOG_ERROR("pending_queue: replaying %zu flowset(s) for key %lx\n", q->count, (unsigned long)hkey);
-
-  for (pending_flowset_t *pf = q->head; pf != NULL; pf = pf->next) {
-    // Validate record size still matches before replaying
-    uint16_t field_count = tmpl[1];
-    {
-      uint16_t fc = field_count;
-      swap_endianness(&fc, sizeof(fc));
-      field_count = fc;
-    }
-    size_t record_size = 0;
-    for (size_t c = 2; c < field_count * 2 + 2; c += 2) {
-      uint16_t fl = tmpl[c + 1];
-      swap_endianness(&fl, sizeof(fl));
-      record_size += fl;
-    }
-    size_t data_len = (pf->flowset_length > 4) ? (pf->flowset_length - 4) : 0;
-    if (record_size == 0) continue;
-    size_t remainder = data_len % record_size;
-    if (remainder != 0 && !(pf->flowset_length % 4 == 0 && remainder < 4)) {
-      LOG_ERROR("pending_queue: skipping replayed flowset (size mismatch: data=%zu record=%zu remainder=%zu)\n",
-                data_len, record_size, remainder);
-      continue;
-    }
-    decode_v9_data_flowset(pf->data, pf->flowset_length, tmpl,
-                           pf->exporter, pf->now, pf->SysUptime, pf->unix_secs,
-                           pf->package_sequence, pf->source_id, pf->flags, pf->frame_number);
-  }
-  // Clear the queue (entries are arena-allocated; they'll be reclaimed at arena_clean)
-  q->head = NULL; q->tail = NULL; q->count = 0;
-}
 
 void *parse_v9(uv_work_t *req) {
   uint16_t *template_hashmap = NULL;
@@ -326,8 +186,7 @@ void *parse_v9(uv_work_t *req) {
         hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
         LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
 
-        // Replay any flowsets that arrived before this template was known
-        flush_pending_flowsets(hkey);
+
 
 
 #ifdef USE_REDIS
@@ -378,19 +237,9 @@ void *parse_v9(uv_work_t *req) {
       template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
 
       if (template_hashmap == NULL) {
-        LOG_ERROR("%s %d %s template %d not found for exporter %s — queuing for later\n", __FILE__, __LINE__, __func__, template_id,
+        LOG_ERROR("%s %d %s template %d not found for exporter %s — discarding flowset\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
-        enqueue_pending_flowset(hkey,
-                                (const uint8_t *)(args->data + flowset_base),
-                                flowset_length,
-                                args->exporter,
-                                args->now,
-                                header->SysUptime,
-                                header->unix_secs,
-                                header->package_sequence,
-                                header->source_id,
-                                args->flags,
-                                args->frame_number);
+        goto skip_v9_record_pass;
       } else {
         void *pointer = args->data + flowset_base + 4;
         uint16_t field_count = template_hashmap[1];
@@ -424,19 +273,8 @@ void *parse_v9(uv_work_t *req) {
         size_t flowset_data_len = (flowset_length > 4) ? (flowset_length - 4) : 0;
         size_t remainder = flowset_data_len % total_record_size;
         if (unlikely(remainder != 0 && !(flowset_length % 4 == 0 && remainder < 4))) {
-            LOG_ERROR("%s %d %s: Flowset %d data length %lu not divisible by record size %lu — template mismatch, queuing\n",
+            LOG_ERROR("%s %d %s: Flowset %d data length %lu not divisible by record size %lu — template mismatch, discarding\n",
                       __FILE__, __LINE__, __func__, template_id, flowset_data_len, total_record_size);
-            enqueue_pending_flowset(hkey,
-                                    (const uint8_t *)(args->data + flowset_base),
-                                    flowset_length,
-                                    args->exporter,
-                                    args->now,
-                                    header->SysUptime,
-                                    header->unix_secs,
-                                    header->package_sequence,
-                                    header->source_id,
-                                    args->flags,
-                                    args->frame_number);
             goto skip_v9_record_pass;
         }
 
@@ -824,238 +662,6 @@ cleanup_template_and_unlock:
   return NULL;
 }
 
-// ---------------------------------------------------------------------------
-// decode_v9_data_flowset — decode one raw data flowset using the given template.
-// flowset_data points to the raw bytes starting at the flowset_id field.
-// flowset_length is the full length (including 4-byte header).
-// This is called both from the live parse path and when replaying pending flowsets.
-// ---------------------------------------------------------------------------
-static void decode_v9_data_flowset(const uint8_t *flowset_data,
-                                    uint16_t flowset_length,
-                                    uint16_t *template_hashmap,
-                                    uint32_t exporter,
-                                    uint32_t now,
-                                    uint32_t SysUptime,
-                                    uint32_t unix_secs,
-                                    uint32_t package_sequence,
-                                    uint32_t source_id,
-                                    uint32_t flags,
-                                    uint32_t frame_number) {
-  (void)unix_secs; (void)package_sequence; (void)source_id; // used by caller context only
-  (void)frame_number;
-
-  uint16_t field_count = template_hashmap[1];
-  swap_endianness(&field_count, sizeof(field_count));
-  
-  uint16_t template_id = template_hashmap[0];
-  swap_endianness(&template_id, sizeof(template_id));
-  uint16_t flowset_id = template_id;
-
-  // Compute total size of one record based on template fields
-  size_t total_record_size = 0;
-  for (size_t count = 2; count < field_count * 2 + 2; count += 2) {
-    uint16_t flen = template_hashmap[count + 1];
-    swap_endianness(&flen, sizeof(flen));
-    total_record_size += flen;
-  }
-  if (total_record_size == 0) return;
-
-  size_t flowset_data_len = (flowset_length > 4) ? (flowset_length - 4) : 0;
-  size_t remainder = flowset_data_len % total_record_size;
-  if (remainder != 0 && !(flowset_length % 4 == 0 && remainder < 4)) return;
-
-  uint32_t diff = now - (uint32_t)(SysUptime / 1000);
-
-  netflow_v9_uint128_flowset_t flows_to_insert;
-  memset(&flows_to_insert, 0, sizeof(flows_to_insert));
-  int is_ipv6 = 0;
-  size_t record_counter = 0;
-  uint64_t local_v9_records = 0;
-
-  // The data records start at byte offset 4 (after flowset_id + length)
-  const uint8_t *record_base = flowset_data + 4;
-  size_t pos = 0;
-
-  metrics_track_exporter(exporter);
-  metrics_inc_flowsets(1);
-
-  while (pos + total_record_size <= flowset_data_len) {
-    if (record_counter >= 60) break;
-
-    const uint8_t *pointer = record_base + pos;
-
-    for (size_t count = 2; count < field_count * 2 + 2; count += 2) {
-      uint16_t field_type = template_hashmap[count];
-      swap_endianness(&field_type, sizeof(field_type));
-      if (unlikely(field_type >= (sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t))))
-        goto decode_done;
-
-      uint16_t field_length = template_hashmap[count + 1];
-      swap_endianness(&field_length, sizeof(field_length));
-
-      uint16_t record_length = field_length;
-      uint8_t  val_tmp8  = 0;
-      uint16_t val_tmp16 = 0;
-      uint32_t val_tmp32 = 0;
-      uint64_t val_tmp64 = 0;
-      uint128_t val_tmp128 = 0;
-
-      switch (record_length) {
-        case 1:  val_tmp8  = *(const uint8_t *)pointer; break;
-        case 2:  memcpy(&val_tmp16, pointer, 2); swap_endianness(&val_tmp16, 2); break;
-        case 4:  memcpy(&val_tmp32, pointer, 4); swap_endianness(&val_tmp32, 4); break;
-        case 6:  memcpy(&val_tmp64, pointer, 6); swap_endianness(&val_tmp64, 8); val_tmp64 &= 0x0000ffffffffffffULL; break;
-        case 8:  memcpy(&val_tmp64, pointer, 8); swap_endianness(&val_tmp64, 8); break;
-        case 16: memcpy(&val_tmp128, pointer, 16); swap_endianness(&val_tmp128, 16); break;
-        default: break;
-      }
-
-      switch (field_type) {
-        case IPFIX_FT_FLOWENDSYSUPTIME:
-          flows_to_insert.records[record_counter].Last =
-            (record_length == 4) ? val_tmp32 / 1000 + diff
-            : (record_length == 8) ? (uint32_t)(val_tmp64 / 1000 + diff) : 0;
-          break;
-        case IPFIX_FT_FLOWSTARTSYSUPTIME:
-          flows_to_insert.records[record_counter].First =
-            (record_length == 4) ? val_tmp32 / 1000 + diff
-            : (record_length == 8) ? (uint32_t)(val_tmp64 / 1000 + diff) : 0;
-          break;
-        case IPFIX_FT_FLOWSTARTMILLISECONDS:
-          flows_to_insert.records[record_counter].First = (uint32_t)(val_tmp64 / 1000 + diff);
-          break;
-        case IPFIX_FT_FLOWENDMILLISECONDS:
-          flows_to_insert.records[record_counter].Last = (uint32_t)(val_tmp64 / 1000 + diff);
-          break;
-        case IPFIX_FT_SOURCEIPV4ADDRESS:
-          flows_to_insert.records[record_counter].srcaddr = val_tmp32;
-          flows_to_insert.records[record_counter].ip_version = 4;
-          break;
-        case IPFIX_FT_DESTINATIONIPV4ADDRESS:
-          flows_to_insert.records[record_counter].dstaddr = val_tmp32;
-          break;
-        case IPFIX_FT_SOURCEIPV6ADDRESS:
-          flows_to_insert.records[record_counter].srcaddr = val_tmp128;
-          flows_to_insert.records[record_counter].ip_version = 6;
-          is_ipv6 = 1;
-          break;
-        case IPFIX_FT_DESTINATIONIPV6ADDRESS:
-          flows_to_insert.records[record_counter].dstaddr = val_tmp128;
-          is_ipv6 = 1;
-          break;
-        case IPFIX_FT_OCTETDELTACOUNT:
-          flows_to_insert.records[record_counter].dOctets =
-            (record_length == 4) ? (uint64_t)val_tmp32 : (uint64_t)val_tmp64;
-          break;
-        case IPFIX_FT_PACKETDELTACOUNT:
-          flows_to_insert.records[record_counter].dPkts =
-            (record_length == 4) ? (uint64_t)val_tmp32 : (uint64_t)val_tmp64;
-          break;
-        case IPFIX_FT_SOURCETRANSPORTPORT:
-        case IPFIX_FT_TCPSOURCEPORT:
-        case IPFIX_FT_UDPSOURCEPORT:
-          flows_to_insert.records[record_counter].srcport = val_tmp16;
-          break;
-        case IPFIX_FT_DESTINATIONTRANSPORTPORT:
-        case IPFIX_FT_TCPDESTINATIONPORT:
-        case IPFIX_FT_UDPDESTINATIONPORT:
-          flows_to_insert.records[record_counter].dstport = val_tmp16;
-          break;
-        case IPFIX_FT_PROTOCOLIDENTIFIER:
-          flows_to_insert.records[record_counter].prot = val_tmp8;
-          break;
-        case IPFIX_FT_INGRESSINTERFACE:
-          flows_to_insert.records[record_counter].input =
-            (record_length == 2) ? (uint32_t)val_tmp16 : val_tmp32;
-          break;
-        case IPFIX_FT_EGRESSINTERFACE:
-          flows_to_insert.records[record_counter].output =
-            (record_length == 2) ? (uint32_t)val_tmp16 : val_tmp32;
-          break;
-        case IPFIX_FT_BGPSOURCEASNUMBER:
-          flows_to_insert.records[record_counter].src_as =
-            (record_length == 2) ? (uint32_t)val_tmp16 : val_tmp32;
-          break;
-        case IPFIX_FT_BGPDESTINATIONASNUMBER:
-          flows_to_insert.records[record_counter].dst_as =
-            (record_length == 2) ? (uint32_t)val_tmp16 : val_tmp32;
-          break;
-        case IPFIX_FT_BGPNEXTHOPIPV4ADDRESS:
-          flows_to_insert.records[record_counter].nexthop = val_tmp32;
-          break;
-        case IPFIX_FT_TCPCONTROLBITS:
-          flows_to_insert.records[record_counter].tcp_flags = val_tmp8;
-          break;
-        case IPFIX_FT_IPCLASSOFSERVICE:
-          flows_to_insert.records[record_counter].tos = val_tmp8;
-          break;
-        case IPFIX_FT_SOURCEIPV4PREFIXLENGTH:
-        case IPFIX_FT_SOURCEIPV6PREFIXLENGTH:
-          flows_to_insert.records[record_counter].src_mask = val_tmp8;
-          break;
-        case IPFIX_FT_DESTINATIONIPV4PREFIXLENGTH:
-        case IPFIX_FT_DESTINATIONIPV6PREFIXLENGTH:
-          flows_to_insert.records[record_counter].dst_mask = val_tmp8;
-          break;
-        default:
-          break;
-      }
-
-      pointer += record_length;
-    }
-
-    // Fix up timestamps
-    if (flows_to_insert.records[record_counter].Last != 0 &&
-        flows_to_insert.records[record_counter].First != 0) {
-      uint32_t duration = flows_to_insert.records[record_counter].Last
-                        - flows_to_insert.records[record_counter].First;
-      flows_to_insert.records[record_counter].Last  = now;
-      flows_to_insert.records[record_counter].First = now - duration;
-    }
-
-    if (!is_ipv6) {
-      swap_src_dst_v9_ipv4(&flows_to_insert.records[record_counter]);
-    }
-
-    if (flows_to_insert.records[record_counter].input != 0)
-      metrics_track_interface(exporter, flows_to_insert.records[record_counter].input);
-    if (flows_to_insert.records[record_counter].output != 0)
-      metrics_track_interface(exporter, flows_to_insert.records[record_counter].output);
-
-    local_v9_records++;
-    record_counter++;
-    pos += total_record_size;
-  }
-
-decode_done:
-#ifdef ENABLE_METRICS
-  if (local_v9_records > 0)
-    metrics_inc_v9_records_received_batch(local_v9_records);
-#endif
-
-  flows_to_insert.header.count = record_counter;
-  flows_to_insert.header.SysUptime    = SysUptime;
-  flows_to_insert.header.unix_secs    = unix_secs;
-  flows_to_insert.header.unix_nsecs   = 0;
-  flows_to_insert.header.flow_sequence     = package_sequence;
-  flows_to_insert.header.sampling_interval = source_id;
-
-  uint32_t exporter_host = exporter;
-  swap_endianness(&exporter_host, sizeof(exporter_host));
-
-  collector_inc_received_flows(record_counter);
-
-  if (flags & 2) {
-    for (size_t i = 0; i < record_counter; i++) {
-      uint32_t saddr = flows_to_insert.records[i].srcaddr;
-      uint32_t daddr = flows_to_insert.records[i].dstaddr;
-      if ((saddr >> 24) == 0 || (daddr >> 24) == 0) continue;
-      printf_v9(stdout, &flows_to_insert, i, frame_number, template_id, flowset_id);
-    }
-  } else {
-    insert_flows(exporter_host, &flows_to_insert);
-  }
-}
 
 
 
