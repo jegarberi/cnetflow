@@ -540,7 +540,7 @@ int8_t collector_start(collector_t *collector) {
   }
   udp_server_global = udp_server;
 #ifdef __linux__
-  uv_udp_init_ex(loop_udp, udp_server, NULL);
+  uv_udp_init_ex(loop_udp, udp_server, 0);
 #else
   uv_udp_init(loop_udp, udp_server);
 #endif
