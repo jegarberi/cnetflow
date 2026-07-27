@@ -61,11 +61,12 @@ void print_compile_options(void) {
  */
 int main(int argc, char *argv[]) {
   char *pcap_file = NULL;
+
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--options") == 0 || strcmp(argv[i], "-o") == 0) {
       print_compile_options();
       return 0;
-    } else if (strcmp(argv[i], "--pcap") == 0 && i + 1 < argc) {
+    }   /*else if (strcmp(argv[i], "--pcap") == 0 && i + 1 < argc) {
       pcap_file = argv[++i];
       if ((strcmp(argv[i], "--threads") == 0 || strcmp(argv[i], "-t") == 0) && i + 1 < argc) {
         char *threads = argv[++i];
@@ -75,7 +76,9 @@ int main(int argc, char *argv[]) {
       printf("Usage: %s [--options|-o] [--pcap <file>] [--threads|-t <N>]\n", argv[0]);
       return 1;
     }
+      */
   }
+
   fprintf(stderr, "Starting main...\n");
   fprintf(stdout, "Starting main...\n");
   const char *tp_size = getenv("UV_THREADPOOL_SIZE");
