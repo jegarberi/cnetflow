@@ -3,7 +3,13 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <string.h>
-#include <features.h>
+
+#if defined(__has_include)
+# if __has_include(<features.h>)
+#  include <features.h>
+# endif
+#endif
+
 #include "compat.h"
 
 /*
@@ -27,7 +33,7 @@ int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
 /*
  * Shim for strlcpy which is missing in glibc < 2.38 (e.g. Ubuntu 20.04 with glibc 2.31).
  */
-#if defined(COMPAT_CENTOS6) || !defined(__GLIBC__) || (defined(__GLIBC__) && !__GLIBC_PREREQ(2, 38))
+#if defined(COMPAT_CENTOS6) || !defined(__GLIBC__) || !__GLIBC_PREREQ(2, 38)
 size_t strlcpy(char *dst, const char *src, size_t dsize) {
     const char *osrc = src;
     size_t nleft = dsize;
@@ -51,4 +57,3 @@ size_t strlcpy(char *dst, const char *src, size_t dsize) {
     return (src - osrc - 1); /* count does not include NUL */
 }
 #endif
-

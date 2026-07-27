@@ -2,11 +2,11 @@
 os=Linux
 arch=x86_64
 compiler=clang
-compiler.version=10
+compiler.version=22
 compiler.libcxx=libstdc++11
 
 [conf]
-tools.build:compiler_executables={"c": "scripts/zig-cc", "cpp": "scripts/zig-cxx"}
+tools.build:compiler_executables={"c": "/home/jon/cnetflow/scripts/zig-cc", "cpp": "/home/jon/cnetflow/scripts/zig-cxx"}
 tools.build:cflags=["-target", "x86_64-linux-musl"]
 tools.build:cxxflags=["-target", "x86_64-linux-musl"]
 tools.build:exelinkflags=["-target", "x86_64-linux-musl"]
