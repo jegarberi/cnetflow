@@ -402,6 +402,8 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
       fprintf(stdout, "%s\n", line->text);
     }
     uv_mutex_destroy(&pcap_output_mutex);
+    dyn_array_free(pcap_output_lines);
+    pcap_output_lines = NULL;
   }
 
   is_pcap_pass_2 = 0;
@@ -641,6 +643,13 @@ ok:
   free(arena_udp_handle);
   arena_destroy(arena_collector);
   free(arena_collector);
+
+  if (g_ch_conn_string) {
+    free(g_ch_conn_string);
+    g_ch_conn_string = NULL;
+  }
+
+  metrics_cleanup();
 
   LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
   LOG_ERROR("exit collector_thread\n");

@@ -338,3 +338,8 @@ hashmap_delete_error:
   uv_rwlock_wrunlock(hashmap->rwlock);
   return -1;
 }
+
+void hashmap_destroy(hashmap_t *hashmap) {
+  if (hashmap == NULL) return;
+  uv_rwlock_destroy(hashmap->rwlock);
+}

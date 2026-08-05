@@ -58,6 +58,11 @@ void metrics_init(void);
 void metrics_tcp_start(int port);
 
 /**
+ * @brief Cleans up metrics handlers and arrays.
+ */
+void metrics_cleanup(void);
+
+/**
  * @brief Starts the rate-calculation timer for metrics.
  */
 void metrics_timer_start(void);
@@ -104,6 +109,7 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id);
 
 #define metrics_init() do {} while(0)
 #define metrics_tcp_start(port) do {} while(0)
+#define metrics_cleanup() do {} while(0)
 #define metrics_timer_start() do {} while(0)
 #define metrics_inc_packets() do {} while(0)
 #define metrics_inc_v5_parsed() do {} while(0)

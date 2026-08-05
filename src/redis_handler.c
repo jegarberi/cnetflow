@@ -3,8 +3,49 @@
 #include <string.h>
 #include <time.h>
 #include "log.h"
+#include <uv.h>
 // Thread-local connection
 static THREAD_LOCAL redisContext *redis_conn = NULL;
+
+static uv_mutex_t redis_tracker_mutex;
+static uv_once_t redis_tracker_once = UV_ONCE_INIT;
+static redisContext **tracked_redis_conns = NULL;
+static size_t tracked_redis_count = 0;
+static size_t tracked_redis_capacity = 0;
+
+static void init_redis_tracker(void) {
+  uv_mutex_init(&redis_tracker_mutex);
+}
+
+static void track_redis_conn(redisContext *conn) {
+  if (!conn) return;
+  uv_once(&redis_tracker_once, init_redis_tracker);
+  uv_mutex_lock(&redis_tracker_mutex);
+  if (tracked_redis_count == tracked_redis_capacity) {
+    size_t new_cap = tracked_redis_capacity == 0 ? 16 : tracked_redis_capacity * 2;
+    redisContext **new_arr = realloc(tracked_redis_conns, new_cap * sizeof(redisContext*));
+    if (new_arr) {
+      tracked_redis_conns = new_arr;
+      tracked_redis_capacity = new_cap;
+    }
+  }
+  if (tracked_redis_count < tracked_redis_capacity) {
+    tracked_redis_conns[tracked_redis_count++] = conn;
+  }
+  uv_mutex_unlock(&redis_tracker_mutex);
+}
+
+static void untrack_redis_conn(redisContext *conn) {
+  if (!conn) return;
+  uv_once(&redis_tracker_once, init_redis_tracker);
+  uv_mutex_lock(&redis_tracker_mutex);
+  for (size_t i = 0; i < tracked_redis_count; i++) {
+    if (tracked_redis_conns[i] == conn) {
+      tracked_redis_conns[i] = NULL;
+    }
+  }
+  uv_mutex_unlock(&redis_tracker_mutex);
+}
 
 // Global configuration
 static char g_redis_host[256] = "127.0.0.1";
@@ -36,6 +77,7 @@ int init_redis(const char *hostname, int port, const char *user, const char *pas
 
 static int connect_thread_local_redis(void) {
   if (redis_conn != NULL) {
+    untrack_redis_conn(redis_conn);
     redisFree(redis_conn);
     redis_conn = NULL;
   }
@@ -93,6 +135,7 @@ static int connect_thread_local_redis(void) {
   } else {
     LOG_INFO("Connected to Redis at %s:%d (Thread Local)\n", hostname, port);
   }
+  track_redis_conn(redis_conn);
   return 0;
 }
 
@@ -106,10 +149,23 @@ redisContext *get_redis_conn(void) {
 }
 
 void close_redis(void) {
-  if (redis_conn != NULL) {
-    redisFree(redis_conn);
-    redis_conn = NULL;
+  uv_once(&redis_tracker_once, init_redis_tracker);
+  uv_mutex_lock(&redis_tracker_mutex);
+  for (size_t i = 0; i < tracked_redis_count; i++) {
+    if (tracked_redis_conns[i] != NULL) {
+      redisFree(tracked_redis_conns[i]);
+      tracked_redis_conns[i] = NULL;
+    }
   }
+  if (tracked_redis_conns) {
+    free(tracked_redis_conns);
+    tracked_redis_conns = NULL;
+  }
+  tracked_redis_count = 0;
+  tracked_redis_capacity = 0;
+  uv_mutex_unlock(&redis_tracker_mutex);
+
+  redis_conn = NULL;
 }
 
 void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
