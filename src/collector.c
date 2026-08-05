@@ -227,22 +227,23 @@ int8_t collector_setup(collector_t *collector) {
  * @param buf A pointer to a uv_buf_t structure where the allocated buffer's
  *            base address and size will be stored.
  */
+#ifdef ENABLE_MMSG
+static char mmsg_buffer[20 * 65536];
+#endif
+
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   (void) handle;
-  // buf->base = malloc(suggested_size);
-  // buf->len = suggested_size;
-  // buf->base = malloc(suggested_size);
-  // buf->len = suggested_size;
-  // return;
   static volatile int data_counter = 1;
   (void) data_counter;
 #ifndef ENABLE_MMSG
   suggested_size = 2000; // should be enough for most packets
-#endif
-  // Use libuv's suggested_size to allow recvmmsg batching
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);\n", __FILE__,
             __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);
+#else
+  suggested_size = 20 * 65536; // Batch up to 20 packets per recvmmsg syscall
+  buf->base = mmsg_buffer;
+#endif
   buf->len = suggested_size;
   if (buf->base == NULL) {
 #ifdef USE_ARENA_ALLOCATOR
@@ -732,18 +733,28 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
             flags, nread);
 
   if (flags & UV_UDP_MMSG_FREE) {
+#ifdef ENABLE_MMSG
+    if (buf->base != mmsg_buffer) {
+      arena_free(arena_udp_handle, buf->base);
+    }
+#else
     arena_free(arena_udp_handle, buf->base);
+#endif
     return;
   }
 
   if (nread > 65536 || nread < 1) {
     if (nread == 0) {
-      LOG_DEBUG("%s %d %s nread == 0\n", __FILE__, __LINE__, __func__);
-    } else if (nread > 65536) {
-      LOG_DEBUG("%s %d %s nread > 65536\n", __FILE__, __LINE__, __func__);
-    } else if (nread < 0) {
-      LOG_DEBUG("%s %d %s nread < 0\n", __FILE__, __LINE__, __func__);
+      LOG_DEBUG("%s %d %s recvmmsg called but nothing to read %d\n", __FILE__, __LINE__, __func__, flags);
     }
+    if (nread < 0) {
+      LOG_ERROR("Read error: %s\n", uv_err_name(nread));
+    }
+#ifdef ENABLE_MMSG
+    if (buf->base == mmsg_buffer) {
+      return; // Do not free the static buffer
+    }
+#endif
     
     if (nread == 0 && addr == NULL) {
       arena_free(arena_udp_handle, buf->base);
@@ -893,6 +904,11 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:
+#ifdef ENABLE_MMSG
+  if (buf->base == mmsg_buffer) {
+    return; // Do not free the static buffer
+  }
+#endif
   if (!(flags & UV_UDP_MMSG_CHUNK)) {
     arena_free(arena_udp_handle, buf->base);
   }
