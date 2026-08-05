@@ -101,6 +101,9 @@ endif()
 
 if (ENABLE_MMSG)
     add_compile_definitions(ENABLE_MMSG=1)
+    if (MMSG_BATCH_SIZE)
+        add_compile_definitions(MMSG_BATCH_SIZE=${MMSG_BATCH_SIZE})
+    endif()
 endif()
 
 if (COMPAT_CENTOS6)

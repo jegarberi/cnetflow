@@ -48,8 +48,9 @@ build_config() {
     local redis="$4"
     local metrics="$5"
     local mmsg="$6"
-    local static_build="$7"
-    local build_type="$8"
+    local mmsg_size="$7"
+    local static_build="$8"
+    local build_type="$9"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -106,6 +107,7 @@ build_config() {
               -DUSE_REDIS="$redis" \
               -DENABLE_METRICS="$metrics" \
               -DENABLE_MMSG="$mmsg" \
+              -DMMSG_BATCH_SIZE="$mmsg_size" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -130,11 +132,12 @@ run_builds() {
     local rd="$4"
     local met="$5"
     local msg="${6:-ON}"
+    local msg_size="${7:-40}"
     
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "ON" "Debug"
 }
 
 if [ -t 0 ]; then
@@ -198,18 +201,38 @@ if [[ "$build_all" =~ ^[Yy]$ ]]; then
     # 16. All features enabled
     run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
 else
-    echo "Select features to enable (default is YES for all):"
-    read -p "Enable Arena Allocator? [Y/n]: " opt_arena
-    read -p "Enable Logging? [Y/n]: " opt_logging
-    read -p "Enable Redis? [Y/n]: " opt_redis
-    read -p "Enable Metrics? [Y/n]: " opt_metrics
-    read -p "Enable MMSG? [Y/n]: " opt_mmsg
+    CONFIG_FILE="${PROJECT_ROOT}/.build_config"
+    DEF_AR="Y"; DEF_LOG="Y"; DEF_RD="Y"; DEF_MET="Y"; DEF_MSG="Y"; DEF_MSG_SIZE="40"
+    DEF_MODE="B"; DEF_TYPE="B"
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    fi
 
-    ar="ON"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; fi
-    log="ON"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; fi
-    rd="ON"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; fi
-    met="ON"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; fi
-    msg="ON"; if [[ "$opt_mmsg" =~ ^[Nn]$ ]]; then msg="OFF"; fi
+    echo "Select features to enable (press Enter to use defaults):"
+    read -p "Enable Arena Allocator? [$DEF_AR/n]: " opt_arena
+    opt_arena=${opt_arena:-$DEF_AR}
+    read -p "Enable Logging? [$DEF_LOG/n]: " opt_logging
+    opt_logging=${opt_logging:-$DEF_LOG}
+    read -p "Enable Redis? [$DEF_RD/n]: " opt_redis
+    opt_redis=${opt_redis:-$DEF_RD}
+    read -p "Enable Metrics? [$DEF_MET/n]: " opt_metrics
+    opt_metrics=${opt_metrics:-$DEF_MET}
+    read -p "Enable MMSG? [$DEF_MSG/n]: " opt_mmsg
+    opt_mmsg=${opt_mmsg:-$DEF_MSG}
+
+    ar="ON"; DEF_AR="Y"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; DEF_AR="n"; fi
+    log="ON"; DEF_LOG="Y"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; DEF_LOG="n"; fi
+    rd="ON"; DEF_RD="Y"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; DEF_RD="n"; fi
+    met="ON"; DEF_MET="Y"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; DEF_MET="n"; fi
+    msg="ON"; DEF_MSG="Y"; if [[ "$opt_mmsg" =~ ^[Nn]$ ]]; then msg="OFF"; DEF_MSG="n"; fi
+
+    msg_size="$DEF_MSG_SIZE"
+    if [ "$msg" == "ON" ]; then
+        read -p "MMSG Batch Size (default $DEF_MSG_SIZE): " opt_mmsg_size
+        opt_mmsg_size=${opt_mmsg_size:-$DEF_MSG_SIZE}
+        if [[ "$opt_mmsg_size" =~ ^[0-9]+$ ]]; then msg_size="$opt_mmsg_size"; fi
+    fi
+    DEF_MSG_SIZE="$msg_size"
 
     name="Custom"
     if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
@@ -219,27 +242,46 @@ else
     if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
     if [ "$name" == "Custom" ]; then name="None"; fi
 
-    echo "Select Build Configurations (default is Both):"
-    read -p "Build Mode? [S]tatic / [D]ynamic / [B]oth: " opt_mode
-    read -p "Build Type? [R]elease / [D]ebug / [B]oth: " opt_type
+    echo "Select Build Configurations (press Enter to use defaults):"
+    read -p "Build Mode? [S]tatic / [D]ynamic / [B]oth [$DEF_MODE]: " opt_mode
+    opt_mode=${opt_mode:-$DEF_MODE}
+    read -p "Build Type? [R]elease / [D]ebug / [B]oth [$DEF_TYPE]: " opt_type
+    opt_type=${opt_type:-$DEF_TYPE}
 
     build_static_flags=()
+    DEF_MODE="B"
     if [[ "$opt_mode" =~ ^[Ss]$ ]]; then
         build_static_flags=("ON")
+        DEF_MODE="S"
     elif [[ "$opt_mode" =~ ^[Dd]$ ]]; then
         build_static_flags=("OFF")
+        DEF_MODE="D"
     else
         build_static_flags=("OFF" "ON")
     fi
 
     build_type_flags=()
+    DEF_TYPE="B"
     if [[ "$opt_type" =~ ^[Rr]$ ]]; then
         build_type_flags=("Release")
+        DEF_TYPE="R"
     elif [[ "$opt_type" =~ ^[Dd]$ ]]; then
         build_type_flags=("Debug")
+        DEF_TYPE="D"
     else
         build_type_flags=("Release" "Debug")
     fi
+
+    cat > "$CONFIG_FILE" <<EOF
+DEF_AR="$DEF_AR"
+DEF_LOG="$DEF_LOG"
+DEF_RD="$DEF_RD"
+DEF_MET="$DEF_MET"
+DEF_MSG="$DEF_MSG"
+DEF_MSG_SIZE="$DEF_MSG_SIZE"
+DEF_MODE="$DEF_MODE"
+DEF_TYPE="$DEF_TYPE"
+EOF
 
     echo ""
     echo "###############################################"
@@ -248,7 +290,7 @@ else
     echo ""
     for btype in "${build_type_flags[@]}"; do
         for bmode in "${build_static_flags[@]}"; do
-            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$bmode" "$btype"
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$bmode" "$btype"
         done
     done
 fi
