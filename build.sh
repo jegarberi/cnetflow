@@ -126,7 +126,7 @@ run_builds() {
     local ar="$2"
     local log="$3"
     local rd="$4"
-    local met="${5:-ON}"
+    local met="$5"
     
     build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Release"
     build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Release"
@@ -140,23 +140,23 @@ echo "# Testing all builds (Release/Debug, Dynamic/Static)"
 echo "###############################################"
 echo ""
 
-# 1. Minimal build (everything OFF except Redis)
-run_builds "Minimal" OFF OFF ON
+# 1. Redis and Metrics enabled
+run_builds "Redis_Metrics" OFF OFF ON ON
 
-# 2. Standard with Logging
-run_builds "Logging" OFF ON ON
+# 2. Logging, Redis, and Metrics enabled
+run_builds "Logging_Redis_Metrics" OFF ON ON ON
 
-# 3. Arena ON
-run_builds "Arena" ON OFF ON
+# 3. Arena, Redis, and Metrics enabled
+run_builds "Arena_Redis_Metrics" ON OFF ON ON
 
-# 4. Arena + Logging
-run_builds "Arena_Logging" ON ON ON
+# 4. Arena, Logging, Redis, and Metrics enabled
+run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
 
-# 5. Redis OFF (Hashmap fallback)
-run_builds "No_Redis" ON ON OFF
+# 5. Arena, Logging, and Metrics enabled
+run_builds "Arena_Logging_Metrics" ON ON OFF ON
 
-# 6. Metrics OFF
-run_builds "No_Metrics" ON ON ON OFF
+# 6. Arena, Logging, and Redis enabled
+run_builds "Arena_Logging_Redis" ON ON ON OFF
 
 rm -f "$CONAN_PROFILE_MUSL"
 
