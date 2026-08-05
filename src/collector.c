@@ -228,7 +228,10 @@ int8_t collector_setup(collector_t *collector) {
  *            base address and size will be stored.
  */
 #ifdef ENABLE_MMSG
-static char mmsg_buffer[20 * 65536];
+#ifndef MMSG_BATCH_SIZE
+#define MMSG_BATCH_SIZE 40
+#endif
+static char mmsg_buffer[MMSG_BATCH_SIZE * 65536];
 #endif
 
 void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
@@ -241,7 +244,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
             __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);
 #else
-  suggested_size = 20 * 65536; // Batch up to 20 packets per recvmmsg syscall
+  suggested_size = MMSG_BATCH_SIZE * 65536; // Batch packets per recvmmsg syscall
   buf->base = mmsg_buffer;
 #endif
   buf->len = suggested_size;
