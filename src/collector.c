@@ -236,7 +236,7 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // return;
   static volatile int data_counter = 1;
   (void) data_counter;
-  suggested_size = 2000; // should be enough for most packets
+  // Use libuv's suggested_size to allow recvmmsg batching
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);\n", __FILE__,
             __LINE__, __func__);
   buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);
@@ -715,9 +715,22 @@ void after_work_cb(uv_work_t *req, int status) {
  *             If NULL, the sender's address is unavailable.
  * @param flags Flags associated with the received packet (e.g., status or additional information).
  */
+#ifndef UV_UDP_MMSG_CHUNK
+#define UV_UDP_MMSG_CHUNK 8
+#endif
+#ifndef UV_UDP_MMSG_FREE
+#define UV_UDP_MMSG_FREE 16
+#endif
+
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
   LOG_DEBUG("%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__, (void *) handle,
             flags, nread);
+
+  if (flags & UV_UDP_MMSG_FREE) {
+    arena_free(arena_udp_handle, buf->base);
+    return;
+  }
+
   if (nread > 65536 || nread < 1) {
     if (nread == 0) {
       LOG_DEBUG("%s %d %s nread == 0\n", __FILE__, __LINE__, __func__);
@@ -726,11 +739,14 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     } else if (nread < 0) {
       LOG_DEBUG("%s %d %s nread < 0\n", __FILE__, __LINE__, __func__);
     }
-    LOG_INFO("%s %d %s relase: %p\n", __FILE__, __LINE__, __func__, buf->base);
-    arena_free(arena_udp_handle, buf->base);
+    
+    if (nread == 0 && addr == NULL) {
+      arena_free(arena_udp_handle, buf->base);
+    } else if (!(flags & UV_UDP_MMSG_CHUNK)) {
+      arena_free(arena_udp_handle, buf->base);
+    }
 
     return;
-    goto udp_handle_free_and_return;
   }
   if (buf->base == NULL) {
     LOG_ERROR("%s %d %s: got buf->base == NULL\n", __FILE__, __LINE__, __func__);
@@ -794,6 +810,20 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     arena_free(arena_collector, func_args);
     goto udp_handle_free_and_return;
   }
+  
+  void *packet_data = NULL;
+  if (flags & UV_UDP_MMSG_CHUNK) {
+    packet_data = collector_config->alloc(arena_udp_handle, nread);
+    if (!packet_data) {
+      arena_free(arena_collector, func_args);
+      arena_free(arena_collector, work_req);
+      goto udp_handle_free_and_return;
+    }
+    memcpy(packet_data, buf->base, nread);
+  } else {
+    packet_data = buf->base;
+  }
+
   // work_req = malloc(sizeof(uv_work_t));
   uv_work_cb work_cb;
   static size_t data_counter = 1;
@@ -809,7 +839,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
     func_args->exporter = 0;
   }
 
-  func_args->data = buf->base;
+  func_args->data = packet_data;
   func_args->len = nread;
   func_args->status = collector_data_status_init;
   func_args->index = data_counter;
@@ -858,5 +888,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
 // memset((void *) buf->base, 0, nread);
 // memset((void *) buf, 0, sizeof(uv_buf_t));
 udp_handle_free_and_return:
-  arena_free(arena_udp_handle, buf->base);
+  if (!(flags & UV_UDP_MMSG_CHUNK)) {
+    arena_free(arena_udp_handle, buf->base);
+  }
 }
