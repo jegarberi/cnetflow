@@ -46,8 +46,9 @@ build_config() {
     local arena="$2"
     local logging="$3"
     local redis="$4"
-    local static_build="$5"
-    local build_type="$6"
+    local metrics="$5"
+    local static_build="$6"
+    local build_type="$7"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -102,6 +103,7 @@ build_config() {
     if ! cmake -DUSE_ARENA="$arena" \
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
+              -DENABLE_METRICS="$metrics" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -124,11 +126,12 @@ run_builds() {
     local ar="$2"
     local log="$3"
     local rd="$4"
+    local met="${5:-ON}"
     
-    build_config "$name" "$ar" "$log" "$rd" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Debug"
 }
 
 echo ""
@@ -151,6 +154,9 @@ run_builds "Arena_Logging" ON ON ON
 
 # 5. Redis OFF (Hashmap fallback)
 run_builds "No_Redis" ON ON OFF
+
+# 6. Metrics OFF
+run_builds "No_Metrics" ON ON ON OFF
 
 rm -f "$CONAN_PROFILE_MUSL"
 
