@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+
 # Resolve project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
@@ -15,12 +15,12 @@ elif [ -f "$PROJECT_ROOT/.venv/bin/conan" ]; then
 else
     echo "ERROR: 'conan' command not found."
     echo "Checked: globally and at $PROJECT_ROOT/.venv/bin/conan"
-    exit 1
+    return 1
 fi
 
 if ! command -v zig &> /dev/null; then
     echo "ERROR: 'zig' command not found. It is required for musl static builds."
-    exit 1
+    return 1
 fi
 
 CONAN_PROFILE_MUSL="${PROJECT_ROOT}/musl_profile"
@@ -89,12 +89,12 @@ build_config() {
             -c "tools.build:cflags=['-std=gnu11', '-target', 'x86_64-linux-musl']" \
             $conan_shared_option; then
             echo "ERROR: Conan install failed for: $config_name ($build_type)"
-            exit 1
+            return 1
         fi
     else
         if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']"; then
             echo "ERROR: Conan install failed for: $config_name ($build_type)"
-            exit 1
+            return 1
         fi
     fi
 
@@ -109,12 +109,12 @@ build_config() {
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
               "$PROJECT_ROOT"; then
         echo "ERROR: CMake configuration failed for: $config_name ($build_type)"
-        exit 1
+        return 1
     fi
 
     if ! cmake --build . -j$(nproc); then
         echo "ERROR: Compilation failed for: $config_name ($build_type)"
-        exit 1
+        return 1
     fi
 
     echo "SUCCESS: $config_name ($build_type) built successfully"
