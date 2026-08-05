@@ -47,8 +47,9 @@ build_config() {
     local logging="$3"
     local redis="$4"
     local metrics="$5"
-    local static_build="$6"
-    local build_type="$7"
+    local mmsg="$6"
+    local static_build="$7"
+    local build_type="$8"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -104,6 +105,7 @@ build_config() {
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
               -DENABLE_METRICS="$metrics" \
+              -DENABLE_MMSG="$mmsg" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -127,11 +129,12 @@ run_builds() {
     local log="$3"
     local rd="$4"
     local met="$5"
+    local msg="${6:-ON}"
     
-    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "ON" "Debug"
 }
 
 if [ -t 0 ]; then
@@ -200,17 +203,20 @@ else
     read -p "Enable Logging? [Y/n]: " opt_logging
     read -p "Enable Redis? [Y/n]: " opt_redis
     read -p "Enable Metrics? [Y/n]: " opt_metrics
+    read -p "Enable MMSG? [Y/n]: " opt_mmsg
 
     ar="ON"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; fi
     log="ON"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; fi
     rd="ON"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; fi
     met="ON"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; fi
+    msg="ON"; if [[ "$opt_mmsg" =~ ^[Nn]$ ]]; then msg="OFF"; fi
 
     name="Custom"
     if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
     if [ "$log" == "ON" ]; then name="${name}_Logging"; fi
     if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
     if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
+    if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
     if [ "$name" == "Custom" ]; then name="None"; fi
 
     echo "Select Build Configurations (default is Both):"
@@ -242,7 +248,7 @@ else
     echo ""
     for btype in "${build_type_flags[@]}"; do
         for bmode in "${build_static_flags[@]}"; do
-            build_config "$name" "$ar" "$log" "$rd" "$met" "$bmode" "$btype"
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$bmode" "$btype"
         done
     done
 fi

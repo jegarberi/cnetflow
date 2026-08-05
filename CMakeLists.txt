@@ -89,6 +89,7 @@ set(CMAKE_C_STANDARD 99)
 option(ENABLE_LOGGING "Enable logging" ON)
 option(USE_ARENA "Use arena allocator" ON)
 option(ENABLE_METRICS "Enable metrics" ON)
+option(ENABLE_MMSG "Enable recvmmsg batching" ON)
 
 if (ENABLE_LOGGING)
     add_compile_definitions(ENABLE_LOGGING=1)
@@ -96,6 +97,10 @@ endif()
 
 if (ENABLE_METRICS)
     add_compile_definitions(ENABLE_METRICS=1)
+endif()
+
+if (ENABLE_MMSG)
+    add_compile_definitions(ENABLE_MMSG=1)
 endif()
 
 if (COMPAT_CENTOS6)

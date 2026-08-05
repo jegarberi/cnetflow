@@ -236,6 +236,9 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
   // return;
   static volatile int data_counter = 1;
   (void) data_counter;
+#ifndef ENABLE_MMSG
+  suggested_size = 2000; // should be enough for most packets
+#endif
   // Use libuv's suggested_size to allow recvmmsg batching
   LOG_DEBUG("%s %d %s buf->base = (char *) collector_config->alloc(arena_udp_handle, suggested_size);\n", __FILE__,
             __LINE__, __func__);
@@ -541,7 +544,9 @@ int8_t collector_start(collector_t *collector) {
     goto error_destroy_arena;
   }
   udp_server_global = udp_server;
-#ifdef __linux__
+#if defined(__linux__) && defined(ENABLE_MMSG)
+  uv_udp_init_ex(loop_udp, udp_server, UV_UDP_RECVMMSG);
+#elif defined(__linux__)
   uv_udp_init_ex(loop_udp, udp_server, 0);
 #else
   uv_udp_init(loop_udp, udp_server);
