@@ -155,19 +155,8 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
 }
 #else
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
-  void *ptr = calloc(1, bytes);
-  if (ptr == NULL) return NULL;
-  arena_fallback_node_t *node = malloc(sizeof(arena_fallback_node_t));
-  if (node == NULL) {
-    free(ptr);
-    return NULL;
-  }
-  node->ptr = ptr;
-  uv_mutex_lock(&arena->mutex);
-  node->next = arena->head;
-  arena->head = node;
-  uv_mutex_unlock(&arena->mutex);
-  return ptr;
+  (void)arena;
+  return calloc(1, bytes);
 }
 #endif
 
@@ -198,16 +187,7 @@ int arena_clean(arena_struct_t *arena) {
 }
 #else
 int arena_clean(arena_struct_t *arena) {
-  uv_mutex_lock(&arena->mutex);
-  arena_fallback_node_t *curr = arena->head;
-  while (curr != NULL) {
-    arena_fallback_node_t *next = curr->next;
-    free(curr->ptr);
-    free(curr);
-    curr = next;
-  }
-  arena->head = NULL;
-  uv_mutex_unlock(&arena->mutex);
+  (void)arena;
   return 0;
 }
 #endif
@@ -336,21 +316,10 @@ int arena_free(arena_struct_t *arena, void *address) {
 }
 #else
 int arena_free(arena_struct_t *arena, void *address) {
-  if (address == NULL) return -1;
-  uv_mutex_lock(&arena->mutex);
-  arena_fallback_node_t **curr = &arena->head;
-  while (*curr != NULL) {
-    if ((*curr)->ptr == address) {
-      arena_fallback_node_t *to_free = *curr;
-      *curr = to_free->next;
-      free(to_free->ptr);
-      free(to_free);
-      uv_mutex_unlock(&arena->mutex);
-      return 0;
-    }
-    curr = &(*curr)->next;
+  (void)arena;
+  if (address != NULL) {
+    free(address);
   }
-  uv_mutex_unlock(&arena->mutex);
-  return -1;
+  return 0;
 }
 #endif
