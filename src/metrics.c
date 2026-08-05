@@ -45,6 +45,9 @@ static uint64_t *interfaces_array = NULL;
 static size_t interfaces_count = 0;
 static size_t interfaces_capacity = 0;
 
+static uv_tcp_t *g_metrics_server = NULL;
+static uv_timer_t *g_metrics_timer = NULL;
+
 // Async update mechanism
 typedef enum {
   METRIC_PACKET_RECEIVED,
@@ -471,6 +474,7 @@ void metrics_tcp_start(int port) {
   }
   
   uv_tcp_t *server = (uv_tcp_t *) malloc(sizeof(uv_tcp_t));
+  g_metrics_server = server;
   uv_tcp_init(&metrics_loop, server);
 
   struct sockaddr_in addr;
@@ -501,6 +505,7 @@ void metrics_timer_start(void) {
     return;
   }
   uv_timer_t *timer = malloc(sizeof(uv_timer_t));
+  g_metrics_timer = timer;
   uv_timer_init(&metrics_loop, timer);
   uv_timer_start(timer, on_metrics_timer, 1000, 1000);
 }
@@ -599,4 +604,30 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
   push_update(&update);
 }
 
+void metrics_cleanup(void) {
+  if (exporters_array) {
+    free(exporters_array);
+    exporters_array = NULL;
+    exporters_count = 0;
+    exporters_capacity = 0;
+  }
+  if (interfaces_array) {
+    free(interfaces_array);
+    interfaces_array = NULL;
+    interfaces_count = 0;
+    interfaces_capacity = 0;
+  }
+  if (g_metrics_server) {
+    if (!uv_is_closing((uv_handle_t*)g_metrics_server)) {
+      uv_close((uv_handle_t*)g_metrics_server, (uv_close_cb)free);
+    }
+    g_metrics_server = NULL;
+  }
+  if (g_metrics_timer) {
+    if (!uv_is_closing((uv_handle_t*)g_metrics_timer)) {
+      uv_close((uv_handle_t*)g_metrics_timer, (uv_close_cb)free);
+    }
+    g_metrics_timer = NULL;
+  }
+}
 #endif // ENABLE_METRICS

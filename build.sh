@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+
 # Resolve project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
@@ -15,12 +15,12 @@ elif [ -f "$PROJECT_ROOT/.venv/bin/conan" ]; then
 else
     echo "ERROR: 'conan' command not found."
     echo "Checked: globally and at $PROJECT_ROOT/.venv/bin/conan"
-    exit 1
+    return 1
 fi
 
 if ! command -v zig &> /dev/null; then
     echo "ERROR: 'zig' command not found. It is required for musl static builds."
-    exit 1
+    return 1
 fi
 
 CONAN_PROFILE_MUSL="${PROJECT_ROOT}/musl_profile"
@@ -46,8 +46,9 @@ build_config() {
     local arena="$2"
     local logging="$3"
     local redis="$4"
-    local static_build="$5"
-    local build_type="$6"
+    local metrics="$5"
+    local static_build="$6"
+    local build_type="$7"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -88,12 +89,12 @@ build_config() {
             -c "tools.build:cflags=['-std=gnu11', '-target', 'x86_64-linux-musl']" \
             $conan_shared_option; then
             echo "ERROR: Conan install failed for: $config_name ($build_type)"
-            exit 1
+            return 1
         fi
     else
         if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']"; then
             echo "ERROR: Conan install failed for: $config_name ($build_type)"
-            exit 1
+            return 1
         fi
     fi
 
@@ -102,17 +103,18 @@ build_config() {
     if ! cmake -DUSE_ARENA="$arena" \
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
+              -DENABLE_METRICS="$metrics" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
               "$PROJECT_ROOT"; then
         echo "ERROR: CMake configuration failed for: $config_name ($build_type)"
-        exit 1
+        return 1
     fi
 
     if ! cmake --build . -j$(nproc); then
         echo "ERROR: Compilation failed for: $config_name ($build_type)"
-        exit 1
+        return 1
     fi
 
     echo "SUCCESS: $config_name ($build_type) built successfully"
@@ -124,37 +126,130 @@ run_builds() {
     local ar="$2"
     local log="$3"
     local rd="$4"
+    local met="$5"
     
-    build_config "$name" "$ar" "$log" "$rd" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Debug"
 }
 
-echo ""
-echo "###############################################"
-echo "# Testing all builds (Release/Debug, Dynamic/Static)"
-echo "###############################################"
-echo ""
+if [ -t 0 ]; then
+    read -p "Do you want to build ALL 16 combinations? (y/N): " build_all
+else
+    build_all="y"
+fi
 
-# 1. Minimal build (everything OFF except Redis)
-run_builds "Minimal" OFF OFF ON
+if [[ "$build_all" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "###############################################"
+    echo "# Testing all builds (Release/Debug, Dynamic/Static)"
+    echo "###############################################"
+    echo ""
 
-# 2. Standard with Logging
-run_builds "Logging" OFF ON ON
+    # 1. No features enabled (Minimal base)
+    run_builds "None" OFF OFF OFF OFF
 
-# 3. Arena ON
-run_builds "Arena" ON OFF ON
+    # 2. Only Metrics
+    run_builds "Metrics" OFF OFF OFF ON
 
-# 4. Arena + Logging
-run_builds "Arena_Logging" ON ON ON
+    # 3. Only Redis
+    run_builds "Redis" OFF OFF ON OFF
 
-# 5. Redis OFF (Hashmap fallback)
-run_builds "No_Redis" ON ON OFF
+    # 4. Redis + Metrics
+    run_builds "Redis_Metrics" OFF OFF ON ON
+
+    # 5. Only Logging
+    run_builds "Logging" OFF ON OFF OFF
+
+    # 6. Logging + Metrics
+    run_builds "Logging_Metrics" OFF ON OFF ON
+
+    # 7. Logging + Redis
+    run_builds "Logging_Redis" OFF ON ON OFF
+
+    # 8. Logging + Redis + Metrics
+    run_builds "Logging_Redis_Metrics" OFF ON ON ON
+
+    # 9. Only Arena
+    run_builds "Arena" ON OFF OFF OFF
+
+    # 10. Arena + Metrics
+    run_builds "Arena_Metrics" ON OFF OFF ON
+
+    # 11. Arena + Redis
+    run_builds "Arena_Redis" ON OFF ON OFF
+
+    # 12. Arena + Redis + Metrics
+    run_builds "Arena_Redis_Metrics" ON OFF ON ON
+
+    # 13. Arena + Logging
+    run_builds "Arena_Logging" ON ON OFF OFF
+
+    # 14. Arena + Logging + Metrics
+    run_builds "Arena_Logging_Metrics" ON ON OFF ON
+
+    # 15. Arena + Logging + Redis
+    run_builds "Arena_Logging_Redis" ON ON ON OFF
+
+    # 16. All features enabled
+    run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
+else
+    echo "Select features to enable (default is YES for all):"
+    read -p "Enable Arena Allocator? [Y/n]: " opt_arena
+    read -p "Enable Logging? [Y/n]: " opt_logging
+    read -p "Enable Redis? [Y/n]: " opt_redis
+    read -p "Enable Metrics? [Y/n]: " opt_metrics
+
+    ar="ON"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; fi
+    log="ON"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; fi
+    rd="ON"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; fi
+    met="ON"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; fi
+
+    name="Custom"
+    if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
+    if [ "$log" == "ON" ]; then name="${name}_Logging"; fi
+    if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
+    if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
+    if [ "$name" == "Custom" ]; then name="None"; fi
+
+    echo "Select Build Configurations (default is Both):"
+    read -p "Build Mode? [S]tatic / [D]ynamic / [B]oth: " opt_mode
+    read -p "Build Type? [R]elease / [D]ebug / [B]oth: " opt_type
+
+    build_static_flags=()
+    if [[ "$opt_mode" =~ ^[Ss]$ ]]; then
+        build_static_flags=("ON")
+    elif [[ "$opt_mode" =~ ^[Dd]$ ]]; then
+        build_static_flags=("OFF")
+    else
+        build_static_flags=("OFF" "ON")
+    fi
+
+    build_type_flags=()
+    if [[ "$opt_type" =~ ^[Rr]$ ]]; then
+        build_type_flags=("Release")
+    elif [[ "$opt_type" =~ ^[Dd]$ ]]; then
+        build_type_flags=("Debug")
+    else
+        build_type_flags=("Release" "Debug")
+    fi
+
+    echo ""
+    echo "###############################################"
+    echo "# Building Custom Configuration: $name"
+    echo "###############################################"
+    echo ""
+    for btype in "${build_type_flags[@]}"; do
+        for bmode in "${build_static_flags[@]}"; do
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$bmode" "$btype"
+        done
+    done
+fi
 
 rm -f "$CONAN_PROFILE_MUSL"
 
 echo ""
 echo "###############################################"
-echo "# All configurations built successfully!"
+echo "# Build script completed successfully!"
 echo "###############################################"

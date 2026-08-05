@@ -56,9 +56,14 @@ int arena_free(arena_struct_t *arena, void *address);
 // Malloc/Free fallback
 typedef enum { ok = 0, error = -1 } arena_status;
 
+typedef struct arena_fallback_node_s {
+  void *ptr;
+  struct arena_fallback_node_s *next;
+} arena_fallback_node_t;
+
 typedef struct {
-  // Empty or minimal structure for malloc/free mode
-  int dummy;
+  arena_fallback_node_t *head;
+  uv_mutex_t mutex;
 } arena_struct_t;
 
 arena_status arena_create(arena_struct_t *arena, const size_t capacity);

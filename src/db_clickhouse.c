@@ -57,21 +57,42 @@ static void init_cleanup_mutex(void) {
   uv_mutex_init(&cleanup_mutex);
 }
 
-#define MAX_THREADS 128
-static ch_conn_t **ch_conns_ptrs[MAX_THREADS] = {0};
+static ch_conn_t ***ch_conns_ptrs = NULL;
 static int ch_conns_count = 0;
+static int ch_conns_capacity = 0;
 
-static char **ch_queries_ptrs[MAX_THREADS] = {0};
+static char ***ch_queries_ptrs = NULL;
 static int ch_queries_count = 0;
+static int ch_queries_capacity = 0;
 
 void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
   uv_once(&cleanup_mutex_once, init_cleanup_mutex);
   uv_mutex_lock(&cleanup_mutex);
-  if (conn_ptr && ch_conns_count < MAX_THREADS) {
-    ch_conns_ptrs[ch_conns_count++] = conn_ptr;
+  if (conn_ptr) {
+    if (ch_conns_count == ch_conns_capacity) {
+      int new_cap = ch_conns_capacity == 0 ? 16 : ch_conns_capacity * 2;
+      ch_conn_t ***new_arr = realloc(ch_conns_ptrs, new_cap * sizeof(ch_conn_t**));
+      if (new_arr) {
+        ch_conns_ptrs = new_arr;
+        ch_conns_capacity = new_cap;
+      }
+    }
+    if (ch_conns_count < ch_conns_capacity) {
+      ch_conns_ptrs[ch_conns_count++] = conn_ptr;
+    }
   }
-  if (query_ptr && ch_queries_count < MAX_THREADS) {
-    ch_queries_ptrs[ch_queries_count++] = query_ptr;
+  if (query_ptr) {
+    if (ch_queries_count == ch_queries_capacity) {
+      int new_cap = ch_queries_capacity == 0 ? 16 : ch_queries_capacity * 2;
+      char ***new_arr = realloc(ch_queries_ptrs, new_cap * sizeof(char**));
+      if (new_arr) {
+        ch_queries_ptrs = new_arr;
+        ch_queries_capacity = new_cap;
+      }
+    }
+    if (ch_queries_count < ch_queries_capacity) {
+      ch_queries_ptrs[ch_queries_count++] = query_ptr;
+    }
   }
   uv_mutex_unlock(&cleanup_mutex);
 }
@@ -84,7 +105,10 @@ void ch_db_cleanup_all(void) {
       *ch_conns_ptrs[i] = NULL;
     }
   }
+  free(ch_conns_ptrs);
+  ch_conns_ptrs = NULL;
   ch_conns_count = 0;
+  ch_conns_capacity = 0;
 
   for (int i = 0; i < ch_queries_count; i++) {
     if (ch_queries_ptrs[i] && *ch_queries_ptrs[i]) {
@@ -92,7 +116,10 @@ void ch_db_cleanup_all(void) {
       *ch_queries_ptrs[i] = NULL;
     }
   }
+  free(ch_queries_ptrs);
+  ch_queries_ptrs = NULL;
   ch_queries_count = 0;
+  ch_queries_capacity = 0;
   uv_mutex_unlock(&cleanup_mutex);
 }
 
