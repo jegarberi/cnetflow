@@ -213,12 +213,38 @@ else
     if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
     if [ "$name" == "Custom" ]; then name="None"; fi
 
+    echo "Select Build Configurations (default is Both):"
+    read -p "Build Mode? [S]tatic / [D]ynamic / [B]oth: " opt_mode
+    read -p "Build Type? [R]elease / [D]ebug / [B]oth: " opt_type
+
+    build_static_flags=()
+    if [[ "$opt_mode" =~ ^[Ss]$ ]]; then
+        build_static_flags=("ON")
+    elif [[ "$opt_mode" =~ ^[Dd]$ ]]; then
+        build_static_flags=("OFF")
+    else
+        build_static_flags=("OFF" "ON")
+    fi
+
+    build_type_flags=()
+    if [[ "$opt_type" =~ ^[Rr]$ ]]; then
+        build_type_flags=("Release")
+    elif [[ "$opt_type" =~ ^[Dd]$ ]]; then
+        build_type_flags=("Debug")
+    else
+        build_type_flags=("Release" "Debug")
+    fi
+
     echo ""
     echo "###############################################"
     echo "# Building Custom Configuration: $name"
     echo "###############################################"
     echo ""
-    run_builds "$name" "$ar" "$log" "$rd" "$met"
+    for btype in "${build_type_flags[@]}"; do
+        for bmode in "${build_static_flags[@]}"; do
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$bmode" "$btype"
+        done
+    done
 fi
 
 rm -f "$CONAN_PROFILE_MUSL"
