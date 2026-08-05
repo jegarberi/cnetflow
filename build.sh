@@ -140,23 +140,53 @@ echo "# Testing all builds (Release/Debug, Dynamic/Static)"
 echo "###############################################"
 echo ""
 
-# 1. Redis and Metrics enabled
+# 1. No features enabled (Minimal base)
+run_builds "None" OFF OFF OFF OFF
+
+# 2. Only Metrics
+run_builds "Metrics" OFF OFF OFF ON
+
+# 3. Only Redis
+run_builds "Redis" OFF OFF ON OFF
+
+# 4. Redis + Metrics
 run_builds "Redis_Metrics" OFF OFF ON ON
 
-# 2. Logging, Redis, and Metrics enabled
+# 5. Only Logging
+run_builds "Logging" OFF ON OFF OFF
+
+# 6. Logging + Metrics
+run_builds "Logging_Metrics" OFF ON OFF ON
+
+# 7. Logging + Redis
+run_builds "Logging_Redis" OFF ON ON OFF
+
+# 8. Logging + Redis + Metrics
 run_builds "Logging_Redis_Metrics" OFF ON ON ON
 
-# 3. Arena, Redis, and Metrics enabled
+# 9. Only Arena
+run_builds "Arena" ON OFF OFF OFF
+
+# 10. Arena + Metrics
+run_builds "Arena_Metrics" ON OFF OFF ON
+
+# 11. Arena + Redis
+run_builds "Arena_Redis" ON OFF ON OFF
+
+# 12. Arena + Redis + Metrics
 run_builds "Arena_Redis_Metrics" ON OFF ON ON
 
-# 4. Arena, Logging, Redis, and Metrics enabled
-run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
+# 13. Arena + Logging
+run_builds "Arena_Logging" ON ON OFF OFF
 
-# 5. Arena, Logging, and Metrics enabled
+# 14. Arena + Logging + Metrics
 run_builds "Arena_Logging_Metrics" ON ON OFF ON
 
-# 6. Arena, Logging, and Redis enabled
+# 15. Arena + Logging + Redis
 run_builds "Arena_Logging_Redis" ON ON ON OFF
+
+# 16. All features enabled
+run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
 
 rm -f "$CONAN_PROFILE_MUSL"
 
