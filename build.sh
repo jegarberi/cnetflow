@@ -134,63 +134,96 @@ run_builds() {
     build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Debug"
 }
 
-echo ""
-echo "###############################################"
-echo "# Testing all builds (Release/Debug, Dynamic/Static)"
-echo "###############################################"
-echo ""
+if [ -t 0 ]; then
+    read -p "Do you want to build ALL 16 combinations? (y/N): " build_all
+else
+    build_all="y"
+fi
 
-# 1. No features enabled (Minimal base)
-run_builds "None" OFF OFF OFF OFF
+if [[ "$build_all" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "###############################################"
+    echo "# Testing all builds (Release/Debug, Dynamic/Static)"
+    echo "###############################################"
+    echo ""
 
-# 2. Only Metrics
-run_builds "Metrics" OFF OFF OFF ON
+    # 1. No features enabled (Minimal base)
+    run_builds "None" OFF OFF OFF OFF
 
-# 3. Only Redis
-run_builds "Redis" OFF OFF ON OFF
+    # 2. Only Metrics
+    run_builds "Metrics" OFF OFF OFF ON
 
-# 4. Redis + Metrics
-run_builds "Redis_Metrics" OFF OFF ON ON
+    # 3. Only Redis
+    run_builds "Redis" OFF OFF ON OFF
 
-# 5. Only Logging
-run_builds "Logging" OFF ON OFF OFF
+    # 4. Redis + Metrics
+    run_builds "Redis_Metrics" OFF OFF ON ON
 
-# 6. Logging + Metrics
-run_builds "Logging_Metrics" OFF ON OFF ON
+    # 5. Only Logging
+    run_builds "Logging" OFF ON OFF OFF
 
-# 7. Logging + Redis
-run_builds "Logging_Redis" OFF ON ON OFF
+    # 6. Logging + Metrics
+    run_builds "Logging_Metrics" OFF ON OFF ON
 
-# 8. Logging + Redis + Metrics
-run_builds "Logging_Redis_Metrics" OFF ON ON ON
+    # 7. Logging + Redis
+    run_builds "Logging_Redis" OFF ON ON OFF
 
-# 9. Only Arena
-run_builds "Arena" ON OFF OFF OFF
+    # 8. Logging + Redis + Metrics
+    run_builds "Logging_Redis_Metrics" OFF ON ON ON
 
-# 10. Arena + Metrics
-run_builds "Arena_Metrics" ON OFF OFF ON
+    # 9. Only Arena
+    run_builds "Arena" ON OFF OFF OFF
 
-# 11. Arena + Redis
-run_builds "Arena_Redis" ON OFF ON OFF
+    # 10. Arena + Metrics
+    run_builds "Arena_Metrics" ON OFF OFF ON
 
-# 12. Arena + Redis + Metrics
-run_builds "Arena_Redis_Metrics" ON OFF ON ON
+    # 11. Arena + Redis
+    run_builds "Arena_Redis" ON OFF ON OFF
 
-# 13. Arena + Logging
-run_builds "Arena_Logging" ON ON OFF OFF
+    # 12. Arena + Redis + Metrics
+    run_builds "Arena_Redis_Metrics" ON OFF ON ON
 
-# 14. Arena + Logging + Metrics
-run_builds "Arena_Logging_Metrics" ON ON OFF ON
+    # 13. Arena + Logging
+    run_builds "Arena_Logging" ON ON OFF OFF
 
-# 15. Arena + Logging + Redis
-run_builds "Arena_Logging_Redis" ON ON ON OFF
+    # 14. Arena + Logging + Metrics
+    run_builds "Arena_Logging_Metrics" ON ON OFF ON
 
-# 16. All features enabled
-run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
+    # 15. Arena + Logging + Redis
+    run_builds "Arena_Logging_Redis" ON ON ON OFF
+
+    # 16. All features enabled
+    run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
+else
+    echo "Select features to enable (default is YES for all):"
+    read -p "Enable Arena Allocator? [Y/n]: " opt_arena
+    read -p "Enable Logging? [Y/n]: " opt_logging
+    read -p "Enable Redis? [Y/n]: " opt_redis
+    read -p "Enable Metrics? [Y/n]: " opt_metrics
+
+    ar="ON"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; fi
+    log="ON"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; fi
+    rd="ON"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; fi
+    met="ON"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; fi
+
+    name="Custom"
+    if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
+    if [ "$log" == "ON" ]; then name="${name}_Logging"; fi
+    if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
+    if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
+    if [ "$name" == "Custom" ]; then name="None"; fi
+
+    echo ""
+    echo "###############################################"
+    echo "# Building Custom Configuration: $name"
+    echo "###############################################"
+    echo ""
+    run_builds "$name" "$ar" "$log" "$rd" "$met"
+fi
 
 rm -f "$CONAN_PROFILE_MUSL"
 
 echo ""
 echo "###############################################"
-echo "# All configurations built successfully!"
+echo "# Build script completed successfully!"
 echo "###############################################"
