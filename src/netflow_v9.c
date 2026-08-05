@@ -102,7 +102,12 @@ void *parse_v9(uv_work_t *req) {
   LOG_ERROR("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
   int8_t has_padding = 0;
   flowset_base = sizeof(netflow_v9_header_t);
+  uint32_t flowset_iters = 0;
   while (flowset_base + 4 <= total_packet_length) {
+      if (++flowset_iters > 1000) {
+          LOG_ERROR("%s %d %s: Too many flowsets (>1000), aborting\n", __FILE__, __LINE__, __func__);
+          break;
+      }
       flowset = (flowset_union_t *) (args->data + flowset_base);
       len = flowset->record.length;
       swap_endianness(&len, sizeof(len));
@@ -138,6 +143,24 @@ void *parse_v9(uv_work_t *req) {
         if (unlikely(template_id == 0)) {
           goto cleanup_template_and_unlock;
         }
+
+        if (unlikely(field_count > 127)) {
+          LOG_ERROR("%s %d %s: field_count > 127, aborting template\n", __FILE__, __LINE__, __func__);
+          goto cleanup_template_and_unlock;
+        }
+
+        char redis_key[255];
+        snprintf(redis_key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
+        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
+
+        if (field_count == 0) {
+          LOG_ERROR("%s %d %s: Template withdrawal for template_id %d\n", __FILE__, __LINE__, __func__, template_id);
+          uv_mutex_lock(&v9_parse_mutex);
+          hashmap_delete(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
+          uv_mutex_unlock(&v9_parse_mutex);
+          pos += 4;
+          continue;
+        }
         
         LOG_ERROR("%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
         LOG_ERROR("%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
@@ -163,9 +186,6 @@ void *parse_v9(uv_work_t *req) {
           }
         }
         
-        char redis_key[255];
-        snprintf(redis_key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
-        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
         LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, redis_key);
 
         // Prepare template data (Network Byte Order for hashmap)
@@ -183,7 +203,11 @@ void *parse_v9(uv_work_t *req) {
 
         // Store in Hashmap
         uv_mutex_lock(&v9_parse_mutex);
-        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
+        if (templates_nfv9_hashmap->size < 65536) {
+          hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
+        } else {
+          LOG_ERROR("%s %d %s: Hashmap size >= 65536, ignoring new template\n", __FILE__, __LINE__, __func__);
+        }
         uv_mutex_unlock(&v9_parse_mutex);
         LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
 
@@ -312,7 +336,7 @@ void *parse_v9(uv_work_t *req) {
             if (unlikely(pointer_offset + field_length > total_packet_length)) {
               LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n", __FILE__, __LINE__, __func__,
                         pointer_offset, field_length);
-              if (has_padding) {
+              if (has_padding && (flowset_length - pos < total_record_size)) {
                 pos = flowset_length; // Force outer while loop to terminate
                 break;
               }

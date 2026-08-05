@@ -55,6 +55,10 @@ void *parse_v5(uv_work_t *req) {
               args->len);
     goto unlock_mutex_parse_v5;
   }
+  if (args->len > expected_len) {
+    LOG_ERROR("%s %d %s Trailing garbage: expected %lu bytes, got %lu\n", __FILE__, __LINE__, __func__, expected_len,
+              args->len);
+  }
   swap_endianness((void *) &(netflow_packet_ptr->header.SysUptime), sizeof(netflow_packet_ptr->header.SysUptime));
   swap_endianness((void *) &(netflow_packet_ptr->header.unix_secs), sizeof(netflow_packet_ptr->header.unix_secs));
   swap_endianness((void *) &(netflow_packet_ptr->header.unix_nsecs), sizeof(netflow_packet_ptr->header.unix_nsecs));

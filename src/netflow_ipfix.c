@@ -103,8 +103,13 @@ void *parse_ipfix(uv_work_t *req) {
 
   // Process all sets in the IPFIX message
   flowset_base = sizeof(netflow_ipfix_header_t);
+  uint32_t flowset_iters = 0;
 
   while (flowset_base + 4 <= total_packet_length && flowset_base + 4 <= header->length) {
+    if (++flowset_iters > 1000) {
+      LOG_ERROR("%s %d %s: Too many sets (>1000), aborting\n", __FILE__, __LINE__, __func__);
+      break;
+    }
     flowset = (flowset_union_ipfix_t *) (args->data + flowset_base);
     len = flowset->record.length;
     swap_endianness(&len, sizeof(len));
@@ -139,10 +144,19 @@ void *parse_ipfix(uv_work_t *req) {
           break;
         }
 
+        if (unlikely(field_count > 127)) {
+          LOG_ERROR("%s %d %s: field_count > 127, aborting template\n", __FILE__, __LINE__, __func__);
+          break;
+        }
+
+        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
 
         // Template withdrawal (field_count = 0)
         if (field_count == 0) {
           LOG_ERROR("%s %d %s: Template withdrawal for ID: %d\n", __FILE__, __LINE__, __func__, template_id);
+          uv_mutex_lock(&ipfix_parse_mutex);
+          hashmap_delete(templates_ipfix_hashmap, &hkey, sizeof(uint64_t));
+          uv_mutex_unlock(&ipfix_parse_mutex);
           pos += 4;
           continue;
         }
@@ -185,7 +199,6 @@ void *parse_ipfix(uv_work_t *req) {
         // Store template in Redis
         char redis_key[255];
         snprintf(redis_key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
-        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
         LOG_ERROR("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, redis_key);
 
         uint8_t *template_record_start = args->data + flowset_base + pos;
@@ -204,7 +217,11 @@ void *parse_ipfix(uv_work_t *req) {
           memcpy(temp, (void *) template_record_start, template_size);
           // Store in Hashmap
           uv_mutex_lock(&ipfix_parse_mutex);
-          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, &hkey, sizeof(uint64_t), temp);
+          if (templates_ipfix_hashmap->size < 65536) {
+            hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, &hkey, sizeof(uint64_t), temp);
+          } else {
+            LOG_ERROR("%s %d %s: Hashmap size >= 65536, ignoring new IPFIX template\n", __FILE__, __LINE__, __func__);
+          }
           uv_mutex_unlock(&ipfix_parse_mutex);
           LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, redis_key);
 
@@ -272,6 +289,8 @@ void *parse_ipfix(uv_work_t *req) {
         for (uint16_t i = 0; i < field_count; i++) {
             uint16_t flen = (temp_ptr[2] << 8) | temp_ptr[3];
             if (flen == 65535) { // Variable length field (not supported yet, skip size logic if needed)
+               // IMPORTANT: If future variable-length parsing is implemented, pos MUST advance by 
+               // at least 1 byte per field to prevent an infinite while loop when total_record_size=0
                total_record_size = 0;
                break; 
             }
