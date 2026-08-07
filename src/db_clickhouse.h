@@ -23,6 +23,7 @@ typedef struct {
     char *password;
     bool connected;
     char userpwd[256];
+    char *params;
 } ch_conn_t;
 
 // Function declarations
@@ -37,7 +38,7 @@ typedef struct {
  * @return Pointer to ch_conn_t structure or NULL on failure
  */
 ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database,
-                      const char *user, const char *password);
+                      const char *user, const char *password, const char *params);
 
 /**
  * Connects to ClickHouse using environment variable CH_CONN_STRING

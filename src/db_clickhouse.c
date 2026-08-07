@@ -148,7 +148,7 @@ char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
   return buf;
 }
 
-ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, const char *user, const char *password) {
+ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, const char *user, const char *password, const char *params) {
   ch_conn_t *conn = (ch_conn_t *) calloc(1, sizeof(ch_conn_t));
   if (!conn) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate connection structure\n", __FILE__, __LINE__, __func__);
@@ -160,6 +160,7 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
   conn->database = strdup(database ? database : "default");
   conn->user = strdup(user ? user : "default");
   conn->password = strdup(password ? password : "");
+  conn->params = params ? strdup(params) : NULL;
 
   if (!conn->host || !conn->database || !conn->user || !conn->password) {
     CH_LOG_ERROR("%s %d %s: Failed to duplicate connection strings\n", __FILE__, __LINE__, __func__);
@@ -176,7 +177,11 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
 
   // Test connection with a simple query
   char test_url[512];
-  snprintf(test_url, sizeof(test_url), "http://%s:%u/?query=SELECT%%201", host, port);
+  if (conn->params && conn->params[0] != '\0') {
+    snprintf(test_url, sizeof(test_url), "http://%s:%u/?query=SELECT%%201&%s", host, port, conn->params);
+  } else {
+    snprintf(test_url, sizeof(test_url), "http://%s:%u/?query=SELECT%%201", host, port);
+  }
 
   curl_easy_setopt(conn->curl, CURLOPT_URL, test_url);
   curl_easy_setopt(conn->curl, CURLOPT_TIMEOUT, 5L);
@@ -226,6 +231,8 @@ error:
     free(conn->user);
   if (conn->password)
     free(conn->password);
+  if (conn->params)
+    free(conn->params);
   free(conn);
   return NULL;
 }
@@ -247,14 +254,21 @@ WEAK void ch_db_connect(ch_conn_t **conn) {
     EXIT_WITH_MSG(EXIT_FAILURE, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
   }
 
-  // Parse connection string: host:port:database:user:password
+  // Extract params first if present
   char *conn_str_copy = strdup(conn_string);
+  char *params_ptr = strchr(conn_str_copy, '?');
+  if (params_ptr) {
+    *params_ptr = '\0';
+    params_ptr++; // Points to params
+  }
+
+  // Parse connection string: host:port:database:user:password
   char *saveptr;
   char *host = strtok_r(conn_str_copy, ":", &saveptr);
   char *port_str = strtok_r(NULL, ":", &saveptr);
   char *database = strtok_r(NULL, ":", &saveptr);
   char *user = strtok_r(NULL, ":", &saveptr);
-  char *password = strtok_r(NULL, "?", &saveptr);
+  char *password = strtok_r(NULL, ":", &saveptr);
 
   if (!host || !port_str) {
     CH_LOG_ERROR("Invalid CH_CONN_STRING format\n");
@@ -263,7 +277,7 @@ WEAK void ch_db_connect(ch_conn_t **conn) {
   }
 
   uint16_t port = atoi(port_str);
-  *conn = ch_connect(host, port, database, user, password);
+  *conn = ch_connect(host, port, database, user, password, params_ptr);
   free(conn_str_copy);
 
   static THREAD_LOCAL bool registered = false;
@@ -293,6 +307,8 @@ void ch_disconnect(ch_conn_t *conn) {
     free(conn->user);
   if (conn->password)
     free(conn->password);
+  if (conn->params)
+    free(conn->params);
   free(conn);
 }
 
@@ -302,7 +318,11 @@ int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
   if (query_len == 0)
     return -1;
   char url[512];
-  snprintf(url, sizeof(url), "http://%s:%u/?database=%s", conn->host, conn->port, conn->database);
+  if (conn->params && conn->params[0] != '\0') {
+    snprintf(url, sizeof(url), "http://%s:%u/?database=%s&%s", conn->host, conn->port, conn->database, conn->params);
+  } else {
+    snprintf(url, sizeof(url), "http://%s:%u/?database=%s", conn->host, conn->port, conn->database);
+  }
 
   curl_easy_setopt(conn->curl, CURLOPT_URL, url);
   curl_easy_setopt(conn->curl, CURLOPT_POSTFIELDS, query);
