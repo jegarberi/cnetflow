@@ -32,6 +32,16 @@ void print_compile_options(void) {
     printf("  Metrics: OFF\n");
 #endif
 
+#ifdef ENABLE_MMSG
+#ifdef MMSG_BATCH_SIZE
+    printf("  MMSG: ON (Batch Size: %d)\n", MMSG_BATCH_SIZE);
+#else
+    printf("  MMSG: ON\n");
+#endif
+#else
+    printf("  MMSG: OFF\n");
+#endif
+
 #ifdef BUILD_STATIC
     printf("  Build type: STATIC\n");
 #else
