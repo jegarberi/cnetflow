@@ -232,6 +232,7 @@ void *parse_ipfix(uv_work_t *req) {
             LOG_ERROR("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, redis_key);
           }
 #endif
+          check_and_replay_unparsed_flows(args->exporter, template_id);
         } else {
           LOG_ERROR("%s %d %s: Failed to allocate memory for template copy\n", __FILE__, __LINE__, __func__);
           goto cleanup_ipfix_and_unlock;
@@ -266,6 +267,10 @@ void *parse_ipfix(uv_work_t *req) {
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
+        if (args->flags != 1) { // Not a replay
+            cache_unparsed_flow(args->exporter, template_id, 10, diff, args->data + flowset_base, flowset_length);
+        }
+        goto skip_ipfix_record_pass;
       } else {
         if (args->exporter == 1090654892) {
           LOG_ERROR("%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
@@ -301,6 +306,17 @@ void *parse_ipfix(uv_work_t *req) {
         if (unlikely(total_record_size == 0)) {
             LOG_ERROR("%s %d %s: Template %d has 0 record size\n", __FILE__, __LINE__, __func__, template_id);
             goto unlock_mutex_parse_ipfix;
+        }
+
+        size_t flowset_data_len = (flowset_length > 4) ? (flowset_length - 4) : 0;
+        size_t remainder = flowset_data_len % total_record_size;
+        if (unlikely(remainder != 0)) {
+            LOG_ERROR("%s %d %s: Flowset %d data length %lu not divisible by record size %lu — template mismatch, discarding\n",
+                      __FILE__, __LINE__, __func__, template_id, flowset_data_len, total_record_size);
+            if (args->flags != 1) { // Not a replay
+                cache_unparsed_flow(args->exporter, template_id, 10, diff, args->data + flowset_base, flowset_length);
+            }
+            goto skip_ipfix_record_pass;
         }
 
         while (pos + total_record_size <= flowset_length) {
@@ -635,7 +651,7 @@ void *parse_ipfix(uv_work_t *req) {
           // if (flows_to_insert.records[record_counter].prot == 1 &&
           // (flows_to_insert.records[record_counter].srcport > 0 ||
           // flows_to_insert.records[record_counter].dstport > 0)) {
-          //   EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+          //   // fprintf(stderr, "%s %d %s copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
           // }
           // if (sysUptimeMillis != 0 ) {
 
@@ -755,4 +771,38 @@ unlock_mutex_parse_ipfix:
   return NULL;
 }
 
+void process_ipfix_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length) {
+    size_t packet_len = sizeof(netflow_ipfix_header_t) + length;
+    uint8_t *packet = malloc(packet_len);
+    if (!packet) return;
 
+    netflow_ipfix_header_t *hdr = (netflow_ipfix_header_t *)packet;
+    memset(hdr, 0, sizeof(netflow_ipfix_header_t));
+    hdr->version = swap_endian_16(10);
+    hdr->length = swap_endian_16((uint16_t)packet_len);
+    
+    // We stored diff = now - ExportTime. We can approximate ExportTime by just setting it to 0,
+    // but the parser does `diff = now - ExportTime`. So `now = diff`, `ExportTime = 0`.
+    hdr->ExportTime = 0;
+
+    memcpy(packet + sizeof(netflow_ipfix_header_t), data, length);
+
+    parse_args_t args;
+    memset(&args, 0, sizeof(parse_args_t));
+    args.data = packet;
+    args.len = packet_len;
+    args.exporter = exporter;
+    args.now = diff; // so diff = now - 0 = diff
+    args.flags = 1; // Replay flag
+
+    uv_work_t req;
+    memset(&req, 0, sizeof(uv_work_t));
+    req.data = &args;
+
+    // Call the parser directly
+    extern void *parse_ipfix(uv_work_t *req);
+    (void)template_id; // unused, already parsed from header
+    parse_ipfix(&req);
+
+    free(packet);
+}

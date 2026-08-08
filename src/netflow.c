@@ -240,6 +240,108 @@ void *fix_endianness(void *buf, void *data, size_t len) {
   return buf;
 }
 
+
+
+#include <stdlib.h>
+#include "hashmap.h"
+#include "collector.h"
+#ifdef USE_REDIS
+extern void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+extern void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id);
+#endif
+
+static hashmap_t *unparsed_flows_hashmap = NULL;
+
+static uv_mutex_t unparsed_flows_mutex;
+extern arena_struct_t *arena_collector; // Use the main collector arena for the hashmap/dyn_array structures
+
+void init_unparsed_flows_cache(arena_struct_t *arena) {
+    unparsed_flows_hashmap = hashmap_create(arena, 1024);
+    uv_mutex_init(&unparsed_flows_mutex);
+}
+
+void cache_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
+#ifdef USE_REDIS
+    // If Redis is used, we store it there (implementation in redis_handler.c)
+    redis_store_unparsed_flow(exporter, template_id, version, diff, data, length);
+#else
+    uv_mutex_lock(&unparsed_flows_mutex);
+    if (current_unparsed_flows >= max_unparsed_flows) {
+        LOG_ERROR("Max unparsed flows reached (%lu). Dropping flow.\n", current_unparsed_flows);
+        uv_mutex_unlock(&unparsed_flows_mutex);
+        return;
+    }
+
+    uint64_t hkey = ((uint64_t)exporter << 32) | template_id;
+    dyn_array_t *arr = (dyn_array_t *) hashmap_get(unparsed_flows_hashmap, &hkey, sizeof(uint64_t));
+    
+    if (arr == NULL) {
+        arr = dyn_array_create(arena_collector, 4, sizeof(unparsed_flowset_t *));
+        hashmap_set(unparsed_flows_hashmap, arena_collector, &hkey, sizeof(uint64_t), arr);
+    }
+
+    unparsed_flowset_t *flow = malloc(sizeof(unparsed_flowset_t) + length);
+    if (flow) {
+        flow->exporter = exporter;
+        flow->template_id = template_id;
+        flow->version = version;
+        flow->diff = diff;
+        flow->length = length;
+        memcpy(flow->data, data, length);
+        
+        dyn_array_push(arr, &flow);
+        current_unparsed_flows++;
+    }
+
+    uv_mutex_unlock(&unparsed_flows_mutex);
+#endif
+}
+
+void check_and_replay_unparsed_flows(uint32_t exporter, uint16_t template_id) {
+#ifdef USE_REDIS
+    redis_replay_unparsed_flows(exporter, template_id);
+#else
+    uv_mutex_lock(&unparsed_flows_mutex);
+    uint64_t hkey = ((uint64_t)exporter << 32) | template_id;
+    dyn_array_t *arr = (dyn_array_t *) hashmap_get(unparsed_flows_hashmap, &hkey, sizeof(uint64_t));
+    
+    if (arr == NULL) {
+        uv_mutex_unlock(&unparsed_flows_mutex);
+        return;
+    }
+
+    // Remove the array from the hashmap so we don't process it concurrently
+    hashmap_delete(unparsed_flows_hashmap, &hkey, sizeof(uint64_t));
+    uv_mutex_unlock(&unparsed_flows_mutex);
+
+    // Now replay the flows
+    for (size_t i = 0; i < arr->len; i++) {
+        unparsed_flowset_t **flow_ptr = dyn_array_get(arr, i);
+        if (flow_ptr && *flow_ptr) {
+            unparsed_flowset_t *flow = *flow_ptr;
+            replay_single_flow(flow->exporter, flow->template_id, flow->version, flow->diff, flow->data, flow->length);
+            free(flow);
+            
+            uv_mutex_lock(&unparsed_flows_mutex);
+            current_unparsed_flows--;
+            uv_mutex_unlock(&unparsed_flows_mutex);
+        }
+    }
+    dyn_array_free(arr);
+#endif
+}
+
+extern void process_v9_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length);
+extern void process_ipfix_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length);
+
+void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
+    if (version == 9) {
+        process_v9_single_flowset(exporter, template_id, diff, data, length);
+    } else if (version == 10) {
+        process_ipfix_single_flowset(exporter, template_id, diff, data, length);
+    }
+}
+
 int is_ipv4_private(const uint32_t ip) {
   if ((ip >= 167772160 && ip <= 184549375) || // CLASS A PRIVATE
       (ip >= 2886729728 && ip <= 2887778303) || // CLASS B PRIVATE

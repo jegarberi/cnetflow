@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "arena.h"
 
 #if defined(__linux__)
 #include <endian.h>
@@ -130,6 +131,20 @@ typedef struct {
   netflow_v9_header_insert_t header;
   netflow_v9_record_insert_uint128_t records[60];
 } netflow_v9_uint128_flowset_t;
+
+typedef struct {
+  uint32_t exporter;
+  uint16_t template_id;
+  uint16_t version; // 9 or 10 (IPFIX)
+  uint32_t length;
+  uint32_t diff;
+  uint8_t data[]; // Flexible array member
+} unparsed_flowset_t;
+
+void cache_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+void init_unparsed_flows_cache(arena_struct_t *arena);
+void check_and_replay_unparsed_flows(uint32_t exporter, uint16_t template_id);
+void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
 
 typedef enum {
   NETFLOW_NO_ENDIAN = 0,

@@ -425,6 +425,12 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
 }
 #endif
 
+#ifdef MAX_UNPARSED_FLOWS
+size_t max_unparsed_flows = MAX_UNPARSED_FLOWS;
+#else
+size_t max_unparsed_flows = 1000;
+#endif
+
 /**
  * Initializes and starts the collector process, setting up signal handlers,
  * memory allocation, and UDP server for receiving data packets.
@@ -441,6 +447,15 @@ int8_t collector_start(collector_t *collector) {
   signal(SIGUSR1, signal_handler);
   signal(SIGUSR2, signal_handler);
   signal(SIGHUP, signal_handler);
+
+  const char *max_unparsed_env = getenv("CNETFLOW_MAX_UNPARSED_FLOWS");
+  if (max_unparsed_env) {
+      max_unparsed_flows = strtoul(max_unparsed_env, NULL, 10);
+      if (max_unparsed_flows == 0 && strcmp(max_unparsed_env, "0") != 0) {
+          max_unparsed_flows = 1000;
+      }
+  }
+
 
 #ifdef USE_REDIS
   // Initialize Redis
@@ -505,6 +520,7 @@ int8_t collector_start(collector_t *collector) {
   init_v9(arena_hashmap_nf9, 1000000);
   LOG_ERROR("%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
   init_ipfix(arena_hashmap_ipfix, 1000000);
+  init_unparsed_flows_cache(arena_collector);
 
   // Initialize global metrics
   metrics_init();

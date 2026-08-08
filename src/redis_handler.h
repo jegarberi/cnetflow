@@ -60,4 +60,14 @@ int redis_get_keys(const char *pattern, char ***keys, size_t *count);
  */
 void redis_free_keys(char **keys, size_t count);
 
+/**
+ * Store an unparsed flowset in Redis
+ */
+void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+
+/**
+ * Replay unparsed flowsets from Redis
+ */
+void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id);
+
 #endif // REDIS_HANDLER_H

@@ -49,8 +49,9 @@ build_config() {
     local metrics="$5"
     local mmsg="$6"
     local mmsg_size="$7"
-    local static_build="$8"
-    local build_type="$9"
+    local max_unp_size="$8"
+    local static_build="$9"
+    local build_type="${10}"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -108,6 +109,7 @@ build_config() {
               -DENABLE_METRICS="$metrics" \
               -DENABLE_MMSG="$mmsg" \
               -DMMSG_BATCH_SIZE="$mmsg_size" \
+              -DMAX_UNPARSED_FLOWS="$max_unp_size" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -133,11 +135,12 @@ run_builds() {
     local met="$5"
     local msg="${6:-ON}"
     local msg_size="${7:-40}"
+    local max_unp_size="${8:-1000}"
     
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "ON" "Debug"
 }
 
 if [ -t 0 ]; then
@@ -202,7 +205,7 @@ if [[ "$build_all" =~ ^[Yy]$ ]]; then
     run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
 else
     CONFIG_FILE="${PROJECT_ROOT}/.build_config"
-    DEF_AR="Y"; DEF_LOG="Y"; DEF_RD="Y"; DEF_MET="Y"; DEF_MSG="Y"; DEF_MSG_SIZE="40"
+    DEF_AR="Y"; DEF_LOG="Y"; DEF_RD="Y"; DEF_MET="Y"; DEF_MSG="Y"; DEF_MSG_SIZE="40"; DEF_MAX_UNP_SIZE="1000"
     DEF_MODE="B"; DEF_TYPE="B"
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
@@ -233,6 +236,12 @@ else
         if [[ "$opt_mmsg_size" =~ ^[0-9]+$ ]]; then msg_size="$opt_mmsg_size"; fi
     fi
     DEF_MSG_SIZE="$msg_size"
+
+    max_unp_size="$DEF_MAX_UNP_SIZE"
+    read -p "Max Unparsed Flows Cache Size (default $DEF_MAX_UNP_SIZE): " opt_max_unp_size
+    opt_max_unp_size=${opt_max_unp_size:-$DEF_MAX_UNP_SIZE}
+    if [[ "$opt_max_unp_size" =~ ^[0-9]+$ ]]; then max_unp_size="$opt_max_unp_size"; fi
+    DEF_MAX_UNP_SIZE="$max_unp_size"
 
     name="Custom"
     if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
@@ -279,6 +288,7 @@ DEF_RD="$DEF_RD"
 DEF_MET="$DEF_MET"
 DEF_MSG="$DEF_MSG"
 DEF_MSG_SIZE="$DEF_MSG_SIZE"
+DEF_MAX_UNP_SIZE="$DEF_MAX_UNP_SIZE"
 DEF_MODE="$DEF_MODE"
 DEF_TYPE="$DEF_TYPE"
 EOF
@@ -290,7 +300,7 @@ EOF
     echo ""
     for btype in "${build_type_flags[@]}"; do
         for bmode in "${build_static_flags[@]}"; do
-            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$bmode" "$btype"
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$bmode" "$btype"
         done
     done
 fi

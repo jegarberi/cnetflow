@@ -42,6 +42,12 @@ void print_compile_options(void) {
     printf("  MMSG: OFF\n");
 #endif
 
+#ifdef MAX_UNPARSED_FLOWS
+    printf("  Max Unparsed Flows Cache Size: %d\n", MAX_UNPARSED_FLOWS);
+#else
+    printf("  Max Unparsed Flows Cache Size: 1000 (default)\n");
+#endif
+
 #ifdef BUILD_STATIC
     printf("  Build type: STATIC\n");
 #else

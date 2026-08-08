@@ -257,10 +257,81 @@ int redis_get_keys(const char *pattern, char ***keys, size_t *count) {
 }
 
 void redis_free_keys(char **keys, size_t count) {
-  if (!keys)
-    return;
-  for (size_t i = 0; i < count; i++) {
-    free(keys[i]);
+  if (keys) {
+    for (size_t i = 0; i < count; i++) {
+      free(keys[i]);
+    }
+    free(keys);
   }
-  free(keys);
+}
+
+#include "collector.h"
+
+void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
+  redisContext *conn = get_redis_conn();
+  if (!conn) return;
+
+  char key[256];
+  snprintf(key, sizeof(key), "%s-%d-unparsed", ip_int_to_str(exporter), template_id);
+
+  // We need to store version, diff, and data. Since it's binary, we can store a header + data.
+  // 2 bytes version, 4 bytes length, 4 bytes diff, then data.
+  size_t payload_len = 2 + 4 + 4 + length;
+  uint8_t *payload = malloc(payload_len);
+  if (!payload) return;
+
+  uint16_t v = version;
+  uint32_t l = length;
+  uint32_t d = diff;
+  memcpy(payload, &v, 2);
+  memcpy(payload + 2, &l, 4);
+  memcpy(payload + 6, &d, 4);
+  memcpy(payload + 10, data, length);
+
+  redisReply *reply = redisCommand(conn, "RPUSH %s %b", key, payload, payload_len);
+  if (reply) {
+    freeReplyObject(reply);
+    reply = redisCommand(conn, "LTRIM %s -%zu -1", key, max_unparsed_flows);
+    if (reply) freeReplyObject(reply);
+  } else {
+    LOG_ERROR("Redis RPUSH failed for %s\n", key);
+  }
+  free(payload);
+}
+
+void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id) {
+  redisContext *conn = get_redis_conn();
+  if (!conn) return;
+
+  char key[256];
+  snprintf(key, sizeof(key), "%s-%d-unparsed", ip_int_to_str(exporter), template_id);
+
+  redisReply *reply = redisCommand(conn, "LRANGE %s 0 -1", key);
+  if (reply) {
+    if (reply->type == REDIS_REPLY_ARRAY) {
+      for (size_t i = 0; i < reply->elements; i++) {
+        redisReply *elem = reply->element[i];
+        if (elem->type == REDIS_REPLY_STRING && elem->len >= 10) {
+           uint16_t version;
+           uint32_t length;
+           uint32_t diff;
+           memcpy(&version, elem->str, 2);
+           memcpy(&length, elem->str + 2, 4);
+           memcpy(&diff, elem->str + 6, 4);
+           uint8_t *data = (uint8_t *)elem->str + 10;
+           
+           if (elem->len == 10 + length) {
+               // Replay this flow!
+               extern void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+               replay_single_flow(exporter, template_id, version, diff, data, length);
+           }
+        }
+      }
+    }
+    freeReplyObject(reply);
+    
+    // Clean up key
+    reply = redisCommand(conn, "DEL %s", key);
+    if (reply) freeReplyObject(reply);
+  }
 }

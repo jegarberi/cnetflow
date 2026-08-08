@@ -106,6 +106,11 @@ if (ENABLE_MMSG)
     endif()
 endif()
 
+if (MAX_UNPARSED_FLOWS)
+    add_compile_definitions(MAX_UNPARSED_FLOWS=${MAX_UNPARSED_FLOWS})
+endif()
+
+
 if (COMPAT_CENTOS6)
     add_compile_definitions(COMPAT_CENTOS6=1)
     message(STATUS "CentOS 6 compatibility shim enabled.")

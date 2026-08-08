@@ -302,6 +302,9 @@ void *parse_v9(uv_work_t *req) {
         if (unlikely(remainder != 0 && !(flowset_length % 4 == 0 && remainder < 4))) {
             LOG_ERROR("%s %d %s: Flowset %d data length %lu not divisible by record size %lu — template mismatch, discarding\n",
                       __FILE__, __LINE__, __func__, template_id, flowset_data_len, total_record_size);
+            if (args->flags != 1) { // Not a replay
+                cache_unparsed_flow(args->exporter, template_id, 9, diff, args->data + flowset_base, flowset_length);
+            }
             goto skip_v9_record_pass;
         }
 
@@ -771,4 +774,40 @@ void copy_v9_to_flow(const netflow_v9_flowset_t * restrict in, netflow_v9_uint12
     }
   }
   // fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
+}
+
+void process_v9_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length) {
+    size_t packet_len = sizeof(netflow_v9_header_t) + length;
+    uint8_t *packet = malloc(packet_len);
+    if (!packet) return;
+
+    netflow_v9_header_t *hdr = (netflow_v9_header_t *)packet;
+    memset(hdr, 0, sizeof(netflow_v9_header_t));
+    hdr->version = swap_endian_16(9);
+    hdr->count = swap_endian_16(1); // 1 flowset
+    
+    // We stored diff = unix_secs - (SysUptime / 1000). 
+    // We can just set unix_secs = diff, and SysUptime = 0.
+    hdr->unix_secs = swap_endian_32(diff);
+    hdr->SysUptime = 0;
+
+    memcpy(packet + sizeof(netflow_v9_header_t), data, length);
+
+    parse_args_t args;
+    memset(&args, 0, sizeof(parse_args_t));
+    args.data = packet;
+    args.len = packet_len;
+    args.exporter = exporter;
+    args.flags = 1; // Flag to indicate this is a replay (prevents infinite recursion)
+
+    uv_work_t req;
+    memset(&req, 0, sizeof(uv_work_t));
+    req.data = &args;
+
+    // Call the parser directly
+    extern void *parse_v9(uv_work_t *req);
+    (void)template_id; // unused, we already have it in the cache but the parser parses it from data
+    parse_v9(&req);
+
+    free(packet);
 }
