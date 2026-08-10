@@ -11,6 +11,9 @@ RUN apt install -y --no-install-recommends libuv1-dev \
     libhiredis-dev \
     cmake \
     build-essential \
+    flex \
+    bison \
+    m4 \
     && rm -rf /var/lib/apt/lists/*
 
 FROM dependencies AS compile

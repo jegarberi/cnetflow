@@ -26,6 +26,15 @@ endif()
 
 # --- DEPENDENCIES (CONAN) ---
 find_package(libuv REQUIRED)
+if(TARGET libuv::uv_a AND NOT TARGET libuv::libuv)
+    add_library(libuv::libuv ALIAS libuv::uv_a)
+elseif(TARGET libuv::uv AND NOT TARGET libuv::libuv)
+    add_library(libuv::libuv ALIAS libuv::uv)
+elseif(TARGET uv AND NOT TARGET libuv::libuv)
+    add_library(libuv::libuv ALIAS uv)
+elseif(TARGET uv_a AND NOT TARGET libuv::libuv)
+    add_library(libuv::libuv ALIAS uv_a)
+endif()
 find_package(hiredis REQUIRED)
 find_package(CURL REQUIRED)
 
@@ -141,7 +150,7 @@ else()
     add_library(collector ${INTERNAL_LIBRARY_TYPE} src/collector.c)
 endif()
 add_library(arena ${INTERNAL_LIBRARY_TYPE} src/arena.c)
-target_link_libraries(arena PUBLIC libuv::uv_a)
+target_link_libraries(arena PUBLIC libuv::libuv)
 add_library(dyn_array ${INTERNAL_LIBRARY_TYPE} src/dyn_array.c)
 target_link_libraries(dyn_array arena)
 
@@ -164,7 +173,7 @@ add_library(hashmap ${INTERNAL_LIBRARY_TYPE} src/hashmap.c)
 target_link_libraries(hashmap arena)
 if (USE_REDIS)
     add_library(redis_handler ${INTERNAL_LIBRARY_TYPE} src/redis_handler.c)
-    target_link_libraries(redis_handler PUBLIC hiredis::hiredis libuv::uv_a)
+    target_link_libraries(redis_handler PUBLIC hiredis::hiredis libuv::libuv)
     target_link_libraries(netflow_ipfix redis_handler)
 endif()
 
@@ -184,8 +193,8 @@ endif()
 target_link_libraries(netflow_v9 arena hashmap netflow netflow_v5 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} ${REDIS_LIB})
 target_link_libraries(netflow_v5 ${DB_LINK_LIBRARIES})
 target_link_libraries(netflow_ipfix ${DB_LINK_LIBRARIES})
-target_link_libraries(collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${REDIS_LIB} ${PCAP_LIBRARY})
-target_link_libraries(cnetflow collector libuv::uv_a arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${PCAP_LIBRARY})
+target_link_libraries(collector libuv::libuv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${REDIS_LIB} ${PCAP_LIBRARY})
+target_link_libraries(cnetflow collector libuv::libuv arena hashmap netflow netflow_ipfix netflow_v5 netflow_v9 ${DB_LIBRARY} ${DB_LINK_LIBRARIES} dyn_array ${PCAP_LIBRARY})
 
 if (BUILD_STATIC)
     target_link_options(cnetflow PRIVATE -static)
@@ -283,7 +292,7 @@ if (CRITERION_FOUND AND NOT BUILD_STATIC)
             collector
             ${DB_LIBRARY}
             ${DB_LINK_LIBRARIES}
-            libuv::uv_a
+            libuv::libuv
             ${CRITERION_LDFLAGS}
     )
     # Aggregate test (all suites)

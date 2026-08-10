@@ -181,6 +181,7 @@ void signal_handler(const int signal) {
           uv_close((uv_handle_t *) udp_server_global, NULL);
         }
       }
+      uv_stop(loop_udp);
       break;
     default:
       break;
@@ -632,9 +633,8 @@ int8_t collector_start(collector_t *collector) {
   uv_run(loop_udp, UV_RUN_DEFAULT);
 
   // Wait for all pending work requests to finish before cleanup
-  LOG_INFO("Waiting for %d active requests to finish (max 10s)...\n", active_requests);
-  uint64_t wait_start = uv_hrtime();
-  while (active_requests > 0 && (uv_hrtime() - wait_start) < 10ULL * 1000 * 1000 * 1000) {
+  LOG_INFO("Waiting for %d active requests to finish...\n", active_requests);
+  while (active_requests > 0) {
     uv_run(loop_udp, UV_RUN_ONCE);
   }
   if (active_requests > 0) {

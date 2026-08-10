@@ -65,6 +65,38 @@ static char ***ch_queries_ptrs = NULL;
 static int ch_queries_count = 0;
 static int ch_queries_capacity = 0;
 
+typedef struct {
+  ch_conn_t **conn;
+  char **query;
+  int *offset;
+  size_t *inserted;
+} ch_flush_ctx_t;
+
+static ch_flush_ctx_t *ch_flush_ctxs = NULL;
+static int ch_flush_ctx_count = 0;
+static int ch_flush_ctx_capacity = 0;
+
+void register_ch_flush_ctx(ch_conn_t **conn, char **query, int *offset, size_t *inserted) {
+  uv_once(&cleanup_mutex_once, init_cleanup_mutex);
+  uv_mutex_lock(&cleanup_mutex);
+  if (ch_flush_ctx_count == ch_flush_ctx_capacity) {
+    int new_cap = ch_flush_ctx_capacity == 0 ? 16 : ch_flush_ctx_capacity * 2;
+    ch_flush_ctx_t *new_arr = realloc(ch_flush_ctxs, new_cap * sizeof(ch_flush_ctx_t));
+    if (new_arr) {
+      ch_flush_ctxs = new_arr;
+      ch_flush_ctx_capacity = new_cap;
+    }
+  }
+  if (ch_flush_ctx_count < ch_flush_ctx_capacity) {
+    ch_flush_ctxs[ch_flush_ctx_count].conn = conn;
+    ch_flush_ctxs[ch_flush_ctx_count].query = query;
+    ch_flush_ctxs[ch_flush_ctx_count].offset = offset;
+    ch_flush_ctxs[ch_flush_ctx_count].inserted = inserted;
+    ch_flush_ctx_count++;
+  }
+  uv_mutex_unlock(&cleanup_mutex);
+}
+
 void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
   uv_once(&cleanup_mutex_once, init_cleanup_mutex);
   uv_mutex_lock(&cleanup_mutex);
@@ -99,6 +131,22 @@ void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
 
 void ch_db_cleanup_all(void) {
   uv_mutex_lock(&cleanup_mutex);
+
+  for (int i = 0; i < ch_flush_ctx_count; i++) {
+    if (ch_flush_ctxs[i].inserted && *ch_flush_ctxs[i].inserted > 0 &&
+        ch_flush_ctxs[i].conn && *ch_flush_ctxs[i].conn && (*ch_flush_ctxs[i].conn)->connected &&
+        ch_flush_ctxs[i].query && *ch_flush_ctxs[i].query &&
+        ch_flush_ctxs[i].offset && *ch_flush_ctxs[i].offset > 0) {
+      ch_execute(*ch_flush_ctxs[i].conn, *ch_flush_ctxs[i].query, *ch_flush_ctxs[i].offset);
+      *ch_flush_ctxs[i].inserted = 0;
+      *ch_flush_ctxs[i].offset = 0;
+    }
+  }
+  free(ch_flush_ctxs);
+  ch_flush_ctxs = NULL;
+  ch_flush_ctx_count = 0;
+  ch_flush_ctx_capacity = 0;
+
   for (int i = 0; i < ch_conns_count; i++) {
     if (ch_conns_ptrs[i] && *ch_conns_ptrs[i]) {
       ch_disconnect(*ch_conns_ptrs[i]);
@@ -595,6 +643,7 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
     static THREAD_LOCAL bool query_registered = false;
     if (!query_registered) {
       register_ch_cleanup(NULL, &query);
+      register_ch_flush_ctx(&conn, &query, &offset, &inserted);
       query_registered = true;
     }
   }

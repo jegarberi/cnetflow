@@ -86,6 +86,7 @@ build_config() {
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
     if [ "$static_build" == "ON" ]; then
+        export ac_cv_prog_lex_yytext_pointer=yes
         if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing \
             -pr:h "$CONAN_PROFILE_MUSL" -pr:b default \
             -s build_type="$build_type" \
@@ -95,6 +96,7 @@ build_config() {
             return 1
         fi
     else
+        export ac_cv_prog_lex_yytext_pointer=yes
         if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']"; then
             echo "ERROR: Conan install failed for: $config_name ($build_type)"
             return 1
@@ -143,7 +145,9 @@ run_builds() {
     build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "ON" "Debug"
 }
 
-if [ -t 0 ]; then
+if [ -n "$NON_INTERACTIVE" ]; then
+    build_all="n"
+elif [ -t 0 ]; then
     read -p "Do you want to build ALL 16 combinations? (y/N): " build_all
 else
     build_all="y"
@@ -211,8 +215,9 @@ else
         source "$CONFIG_FILE"
     fi
 
-    echo "Select features to enable (press Enter to use defaults):"
-    read -p "Enable Arena Allocator? [$DEF_AR/n]: " opt_arena
+    if [ -z "$NON_INTERACTIVE" ]; then
+        echo "Select features to enable (press Enter to use defaults):"
+        read -p "Enable Arena Allocator? [$DEF_AR/n]: " opt_arena
     opt_arena=${opt_arena:-$DEF_AR}
     read -p "Enable Logging? [$DEF_LOG/n]: " opt_logging
     opt_logging=${opt_logging:-$DEF_LOG}
@@ -292,6 +297,59 @@ DEF_MAX_UNP_SIZE="$DEF_MAX_UNP_SIZE"
 DEF_MODE="$DEF_MODE"
 DEF_TYPE="$DEF_TYPE"
 EOF
+
+        echo ""
+        read -p "Build static binary using Docker? (Bypasses local toolchain issues) [y/N]: " opt_docker
+        if [[ "$opt_docker" =~ ^[Yy]$ ]]; then
+            echo "Building Docker image..."
+            docker build -t cnetflow-static-builder -f "${PROJECT_ROOT}/Dockerfile.static" "${PROJECT_ROOT}"
+            echo "Running build inside Docker container..."
+            docker run --rm -v "$PROJECT_ROOT":/app -e IN_DOCKER=1 -e NON_INTERACTIVE=1 cnetflow-static-builder
+            echo "Docker build completed. Binaries are available in cmake-build-* directories."
+            exit 0
+        fi
+
+        echo ""
+        read -p "Build RPM for RHEL7/CentOS7 using Docker? [y/N]: " opt_rhel7
+        if [[ "$opt_rhel7" =~ ^[Yy]$ ]]; then
+            echo "Building RHEL7 Docker image (this will compile the code and create the RPM)..."
+            docker build -f "${PROJECT_ROOT}/Dockerfile.rhel7" -t cnetflow-rhel7-builder "${PROJECT_ROOT}"
+            echo "Extracting RPM..."
+            docker create --name temp-rhel7-builder cnetflow-rhel7-builder
+            mkdir -p "${PROJECT_ROOT}/cmake-build-rhel7"
+            docker cp temp-rhel7-builder:/build/build/ "${PROJECT_ROOT}/cmake-build-rhel7/" || echo "Warning: failed to copy RPM. Check Dockerfile.rhel7."
+            docker rm temp-rhel7-builder
+            echo "Docker RHEL7 build completed. RPMs are available in cmake-build-rhel7/build/"
+            exit 0
+        fi
+    else
+        # Non-interactive mode, compute variables from DEF_ values
+        ar="ON"; if [[ "$DEF_AR" == "n" ]]; then ar="OFF"; fi
+        log="ON"; if [[ "$DEF_LOG" == "n" ]]; then log="OFF"; fi
+        rd="ON"; if [[ "$DEF_RD" == "n" ]]; then rd="OFF"; fi
+        met="ON"; if [[ "$DEF_MET" == "n" ]]; then met="OFF"; fi
+        msg="ON"; if [[ "$DEF_MSG" == "n" ]]; then msg="OFF"; fi
+        msg_size="$DEF_MSG_SIZE"
+        max_unp_size="$DEF_MAX_UNP_SIZE"
+
+        build_static_flags=()
+        if [[ "$DEF_MODE" == "S" ]]; then build_static_flags=("ON");
+        elif [[ "$DEF_MODE" == "D" ]]; then build_static_flags=("OFF");
+        else build_static_flags=("OFF" "ON"); fi
+
+        build_type_flags=()
+        if [[ "$DEF_TYPE" == "R" ]]; then build_type_flags=("Release");
+        elif [[ "$DEF_TYPE" == "D" ]]; then build_type_flags=("Debug");
+        else build_type_flags=("Release" "Debug"); fi
+
+        name="Custom"
+        if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
+        if [ "$log" == "ON" ]; then name="${name}_Logging"; fi
+        if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
+        if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
+        if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
+        if [ "$name" == "Custom" ]; then name="None"; fi
+    fi
 
     echo ""
     echo "###############################################"
