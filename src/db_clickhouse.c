@@ -687,31 +687,63 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
     // Note: ch_ip_uint128_to_string uses a ring of 4 buffers, so we can call it again for dstaddr safely
     char *dstaddr = ch_ip_uint128_to_string(flows->records[i].dstaddr, flows->records[i].ip_version);
 
-    char value_str[1024];
-    int written =
-        snprintf(value_str, sizeof(value_str),
-                 "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
-                 exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
-                 flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
-                 (unsigned long long) flows->records[i].dPkts, (unsigned long long) flows->records[i].dOctets,
-                 flows->records[i].First, flows->records[i].Last,
-                 flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
-                 flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
+    uint32_t start_time = flows->records[i].First;
+    uint32_t total_dur = dur;
+    uint64_t total_pkts = flows->records[i].dPkts;
+    uint64_t total_octets = flows->records[i].dOctets;
 
-    if (unlikely(offset + written + 1 >= query_size)) {
-      size_t new_query_size = query_size * 2;
-      char *new_query = realloc(query, new_query_size);
-      if (!new_query) {
-        CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
-        return -1;
+    int num_splits = (total_dur > 300) ? ((total_dur + 299) / 300) : 1;
+    uint32_t remaining_dur = total_dur;
+    uint64_t remaining_pkts = total_pkts;
+    uint64_t remaining_octets = total_octets;
+    uint32_t current_start = start_time;
+
+    while (remaining_dur > 0 || num_splits == 1) {
+      uint32_t current_dur = (remaining_dur > 300) ? 300 : remaining_dur;
+
+      uint64_t current_pkts = (total_dur > 0) ? ((total_pkts * current_dur) / total_dur) : total_pkts;
+      uint64_t current_octets = (total_dur > 0) ? ((total_octets * current_dur) / total_dur) : total_octets;
+
+      if (current_dur == remaining_dur) {
+        current_pkts = remaining_pkts;
+        current_octets = remaining_octets;
       }
-      query = new_query;
-      query_size = (int) new_query_size;
-    }
 
-    memcpy(query + offset, value_str, written);
-    offset += written;
-    inserted++;
+      uint32_t current_last = current_start + current_dur;
+
+      char value_str[1024];
+      int written =
+          snprintf(value_str, sizeof(value_str),
+                   "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+                   exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
+                   flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
+                   (unsigned long long) current_pkts, (unsigned long long) current_octets,
+                   current_start, current_last,
+                   flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
+                   flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
+
+      if (unlikely(offset + written + 1 >= query_size)) {
+        size_t new_query_size = query_size * 2;
+        char *new_query = realloc(query, new_query_size);
+        if (!new_query) {
+          CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
+          return -1;
+        }
+        query = new_query;
+        query_size = (int) new_query_size;
+      }
+
+      memcpy(query + offset, value_str, written);
+      offset += written;
+      inserted++;
+
+      if (num_splits == 1) break;
+
+      remaining_dur -= current_dur;
+      remaining_pkts -= current_pkts;
+      remaining_octets -= current_octets;
+      current_start += current_dur;
+    }
   }
 
   if (inserted > 0 && (inserted >= (size_t) g_max_flows || (now - last) > (uint32_t) g_max_diff)) {
