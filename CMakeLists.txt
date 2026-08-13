@@ -38,6 +38,14 @@ endif()
 find_package(hiredis REQUIRED)
 find_package(CURL REQUIRED)
 
+option(EMBED_MMDB "Embed MaxMind DBs into binary" OFF)
+set(MMDB_DIR "" CACHE STRING "Path to MMDB directory")
+
+if(EMBED_MMDB)
+    find_package(maxminddb REQUIRED)
+    add_compile_definitions(EMBED_MMDB=1)
+    message(STATUS "Building with Embedded MMDB support")
+endif()
 find_package(libpcap)
 if(libpcap_FOUND)
     set(PCAP_LIBRARY libpcap::libpcap)
@@ -182,6 +190,39 @@ add_library(db_clickhouse ${INTERNAL_LIBRARY_TYPE} src/db_clickhouse.c)
 target_link_libraries(db_clickhouse CURL::libcurl arena)
 set(DB_LIBRARY db_clickhouse)
 set(DB_LINK_LIBRARIES CURL::libcurl)
+
+if(EMBED_MMDB)
+    set(MMDB_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/mmdb_to_c.py")
+    set(CITY_DB_MMDB "${MMDB_DIR}/GeoLite2-City.mmdb")
+    set(ASN_DB_MMDB "${MMDB_DIR}/GeoLite2-ASN.mmdb")
+    
+    set(CITY_DB_C "${CMAKE_CURRENT_BINARY_DIR}/city_db.c")
+    set(CITY_DB_H "${CMAKE_CURRENT_BINARY_DIR}/city_db.h")
+    set(ASN_DB_C "${CMAKE_CURRENT_BINARY_DIR}/asn_db.c")
+    set(ASN_DB_H "${CMAKE_CURRENT_BINARY_DIR}/asn_db.h")
+
+    add_custom_command(
+        OUTPUT ${CITY_DB_C} ${CITY_DB_H}
+        COMMAND ${CMAKE_COMMAND} -E env python3 ${MMDB_SCRIPT} ${CITY_DB_MMDB} city_db ${CITY_DB_H} ${CITY_DB_C}
+        DEPENDS ${CITY_DB_MMDB} ${MMDB_SCRIPT}
+        COMMENT "Generating C array from GeoLite2-City.mmdb"
+    )
+
+    add_custom_command(
+        OUTPUT ${ASN_DB_C} ${ASN_DB_H}
+        COMMAND ${CMAKE_COMMAND} -E env python3 ${MMDB_SCRIPT} ${ASN_DB_MMDB} asn_db ${ASN_DB_H} ${ASN_DB_C}
+        DEPENDS ${ASN_DB_MMDB} ${MMDB_SCRIPT}
+        COMMENT "Generating C array from GeoLite2-ASN.mmdb"
+    )
+
+    add_library(embedded_mmdb ${INTERNAL_LIBRARY_TYPE} ${CITY_DB_C} ${ASN_DB_C})
+    target_include_directories(embedded_mmdb PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    
+    # Also add the binary dir to db_clickhouse includes so it can find the headers
+    target_include_directories(db_clickhouse PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    
+    list(APPEND DB_LINK_LIBRARIES maxminddb::maxminddb embedded_mmdb)
+endif()
 
 # Link the libraries
 if (USE_REDIS)

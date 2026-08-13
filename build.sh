@@ -50,8 +50,10 @@ build_config() {
     local mmsg="$6"
     local mmsg_size="$7"
     local max_unp_size="$8"
-    local static_build="$9"
-    local build_type="${10}"
+    local mmdb="$9"
+    local mmdb_dir="${10}"
+    local static_build="${11}"
+    local build_type="${12}"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -112,6 +114,8 @@ build_config() {
               -DENABLE_MMSG="$mmsg" \
               -DMMSG_BATCH_SIZE="$mmsg_size" \
               -DMAX_UNPARSED_FLOWS="$max_unp_size" \
+              -DEMBED_MMDB="$mmdb" \
+              -DMMDB_DIR="$mmdb_dir" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -138,11 +142,13 @@ run_builds() {
     local msg="${6:-ON}"
     local msg_size="${7:-40}"
     local max_unp_size="${8:-1000}"
+    local mmdb="${9:-OFF}"
+    local mmdb_dir="${10:-}"
     
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "ON" "Debug"
 }
 
 if [ -n "$NON_INTERACTIVE" ]; then
@@ -209,7 +215,7 @@ if [[ "$build_all" =~ ^[Yy]$ ]]; then
     run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
 else
     CONFIG_FILE="${PROJECT_ROOT}/.build_config"
-    DEF_AR="Y"; DEF_LOG="Y"; DEF_RD="Y"; DEF_MET="Y"; DEF_MSG="Y"; DEF_MSG_SIZE="40"; DEF_MAX_UNP_SIZE="1000"
+    DEF_AR="Y"; DEF_LOG="Y"; DEF_RD="Y"; DEF_MET="Y"; DEF_MSG="Y"; DEF_MSG_SIZE="40"; DEF_MAX_UNP_SIZE="1000"; DEF_MMDB="N"; DEF_MMDB_DIR=""
     DEF_MODE="B"; DEF_TYPE="B"
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
@@ -227,12 +233,35 @@ else
     opt_metrics=${opt_metrics:-$DEF_MET}
     read -p "Enable MMSG? [$DEF_MSG/n]: " opt_mmsg
     opt_mmsg=${opt_mmsg:-$DEF_MSG}
+    read -p "Enable Embedding MMDB (City/ASN)? [$DEF_MMDB/n]: " opt_mmdb
+    opt_mmdb=${opt_mmdb:-$DEF_MMDB}
 
     ar="ON"; DEF_AR="Y"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; DEF_AR="n"; fi
     log="ON"; DEF_LOG="Y"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; DEF_LOG="n"; fi
     rd="ON"; DEF_RD="Y"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; DEF_RD="n"; fi
     met="ON"; DEF_MET="Y"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; DEF_MET="n"; fi
     msg="ON"; DEF_MSG="Y"; if [[ "$opt_mmsg" =~ ^[Nn]$ ]]; then msg="OFF"; DEF_MSG="n"; fi
+    mmdb="ON"; DEF_MMDB="Y"; if [[ "$opt_mmdb" =~ ^[Nn]$ ]]; then mmdb="OFF"; DEF_MMDB="n"; fi
+
+    mmdb_dir="$DEF_MMDB_DIR"
+    if [ "$mmdb" == "ON" ]; then
+        read -p "MMDB Directory Path [$DEF_MMDB_DIR]: " opt_mmdb_dir
+        opt_mmdb_dir=${opt_mmdb_dir:-$DEF_MMDB_DIR}
+        mmdb_dir="$opt_mmdb_dir"
+        DEF_MMDB_DIR="$mmdb_dir"
+        
+        # Check if files exist
+        if [ ! -f "$mmdb_dir/GeoLite2-City.mmdb" ] || [ ! -f "$mmdb_dir/GeoLite2-ASN.mmdb" ]; then
+            echo "ERROR: GeoLite2-City.mmdb or GeoLite2-ASN.mmdb not found in $mmdb_dir"
+            echo "Please download them and place them in the specified directory."
+            exit 1
+        fi
+        
+        # Make path absolute if it isn't
+        if [[ "$mmdb_dir" != /* ]]; then
+            mmdb_dir="$PROJECT_ROOT/$mmdb_dir"
+        fi
+    fi
 
     msg_size="$DEF_MSG_SIZE"
     if [ "$msg" == "ON" ]; then
@@ -254,6 +283,7 @@ else
     if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
     if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
     if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
+    if [ "$mmdb" == "ON" ]; then name="${name}_MMDB"; fi
     if [ "$name" == "Custom" ]; then name="None"; fi
 
     echo "Select Build Configurations (press Enter to use defaults):"
@@ -294,6 +324,8 @@ DEF_MET="$DEF_MET"
 DEF_MSG="$DEF_MSG"
 DEF_MSG_SIZE="$DEF_MSG_SIZE"
 DEF_MAX_UNP_SIZE="$DEF_MAX_UNP_SIZE"
+DEF_MMDB="$DEF_MMDB"
+DEF_MMDB_DIR="$DEF_MMDB_DIR"
 DEF_MODE="$DEF_MODE"
 DEF_TYPE="$DEF_TYPE"
 EOF
@@ -329,8 +361,10 @@ EOF
         rd="ON"; if [[ "$DEF_RD" == "n" ]]; then rd="OFF"; fi
         met="ON"; if [[ "$DEF_MET" == "n" ]]; then met="OFF"; fi
         msg="ON"; if [[ "$DEF_MSG" == "n" ]]; then msg="OFF"; fi
+        mmdb="ON"; if [[ "$DEF_MMDB" == "n" ]]; then mmdb="OFF"; fi
         msg_size="$DEF_MSG_SIZE"
         max_unp_size="$DEF_MAX_UNP_SIZE"
+        mmdb_dir="$DEF_MMDB_DIR"
 
         build_static_flags=()
         if [[ "$DEF_MODE" == "S" ]]; then build_static_flags=("ON");
@@ -348,6 +382,7 @@ EOF
         if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
         if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
         if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
+        if [ "$mmdb" == "ON" ]; then name="${name}_MMDB"; fi
         if [ "$name" == "Custom" ]; then name="None"; fi
     fi
 
@@ -358,7 +393,7 @@ EOF
     echo ""
     for btype in "${build_type_flags[@]}"; do
         for bmode in "${build_static_flags[@]}"; do
-            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$bmode" "$btype"
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "$bmode" "$btype"
         done
     done
 fi

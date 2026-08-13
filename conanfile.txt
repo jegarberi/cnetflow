@@ -3,6 +3,7 @@ libuv/1.48.0
 hiredis/1.2.0
 libcurl/8.6.0
 libpcap/[>=1.10.4 <2]
+libmaxminddb/[>=1.7.0]
 
 [generators]
 CMakeDeps
