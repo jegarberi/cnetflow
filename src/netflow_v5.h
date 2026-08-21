@@ -10,8 +10,18 @@
 #include "collector.h"
 #include "netflow.h"
 
+/**
+ * @brief TODO: Document parse_v5
+ *
+ * @return TODO
+ */
 void *parse_v5(uv_work_t *);
 
+/**
+ * @brief TODO: Document copy_v5_to_flow
+ *
+ * @return TODO
+ */
 void copy_v5_to_flow(const netflow_v5_flowset_t * restrict, netflow_v9_uint128_flowset_t * restrict);
 
 #endif // NETFLOW_V5_H

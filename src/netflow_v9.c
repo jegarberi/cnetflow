@@ -22,6 +22,13 @@ uv_mutex_t v9_parse_mutex;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
 
+/**
+ * @brief TODO: Document init_v9
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @return TODO
+ */
 void init_v9(arena_struct_t *arena, const size_t cap) {
   LOG_ERROR("%s %d %s: Initializing v9 (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
@@ -60,6 +67,12 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 
 
 
+/**
+ * @brief TODO: Document parse_v9
+ *
+ * @param req TODO
+ * @return TODO
+ */
 void *parse_v9(uv_work_t *req) {
   uint16_t *template_hashmap = NULL;
   parse_args_t *args = (parse_args_t *) req->data;
@@ -696,6 +709,15 @@ cleanup_template_and_unlock:
 
 
 
+/**
+ * @brief TODO: Document copy_v9_to_flow
+ *
+ * @param in TODO
+ * @param out TODO
+ * @param is_ipv6 TODO
+ * @param dump TODO
+ * @return TODO
+ */
 void copy_v9_to_flow(const netflow_v9_flowset_t * restrict in, netflow_v9_uint128_flowset_t * restrict out, int is_ipv6, uint8_t *dump) {
   // fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
@@ -776,6 +798,16 @@ void copy_v9_to_flow(const netflow_v9_flowset_t * restrict in, netflow_v9_uint12
   // fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
 }
 
+/**
+ * @brief TODO: Document process_v9_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 void process_v9_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length) {
     size_t packet_len = sizeof(netflow_v9_header_t) + length;
     uint8_t *packet = malloc(packet_len);

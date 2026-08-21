@@ -133,8 +133,26 @@ typedef struct {
 } netflow_v9_header_t;
 
 
+/**
+ * @brief TODO: Document init_v9
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @return TODO
+ */
 void init_v9(arena_struct_t *arena, const size_t cap);
+/**
+ * @brief TODO: Document parse_v9
+ *
+ * @param req TODO
+ * @return TODO
+ */
 void *parse_v9(uv_work_t *req);
+/**
+ * @brief TODO: Document copy_v9_to_flow
+ *
+ * @return TODO
+ */
 void copy_v9_to_flow(const netflow_v9_flowset_t * restrict, netflow_v9_uint128_flowset_t * restrict, int, uint8_t*);
 
 #endif // NETFLOW_V9_H

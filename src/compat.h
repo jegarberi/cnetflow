@@ -19,6 +19,14 @@
 #endif
 
 #if defined(COMPAT_CENTOS6) || !defined(__GLIBC__) || !__GLIBC_PREREQ(2, 38)
+/**
+ * @brief TODO: Document strlcpy
+ *
+ * @param dst TODO
+ * @param src TODO
+ * @param dsize TODO
+ * @return TODO
+ */
 size_t strlcpy(char *dst, const char *src, size_t dsize);
 #endif
 

@@ -1,0 +1,7 @@
+<map id="netflow_v5_flowset_t" name="netflow_v5_flowset_t">
+<area shape="rect" id="Node000001" title=" " alt="" coords="94,106,252,134"/>
+<area shape="rect" id="Node000002" href="$structnetflow__v5__header__t.html" title=" " alt="" coords="5,5,162,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="106,42,163,105,158,106,104,47"/>
+<area shape="rect" id="Node000003" href="$structnetflow__v5__record__t.html" title=" " alt="" coords="186,5,338,33"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="243,43,186,107,183,103,238,45"/>
+</map>

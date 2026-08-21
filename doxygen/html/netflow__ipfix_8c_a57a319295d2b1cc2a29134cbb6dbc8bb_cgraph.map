@@ -1,0 +1,19 @@
+<map id="init_ipfix" name="init_ipfix">
+<area shape="rect" id="Node000001" title="TODO: Document init_ipfix." alt="" coords="5,112,83,140"/>
+<area shape="rect" id="Node000002" href="$arena_8c.html#a08c2d2a7ddf1adacc8e2d92f14382595" title="TODO: Document arena_alloc." alt="" coords="338,34,434,61"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="49,111,79,64,102,39,129,20,155,10,183,5,238,4,291,13,338,27,333,29,290,18,237,10,183,10,157,15,132,25,105,43,83,67,54,113"/>
+<area shape="rect" id="Node000003" href="$hashmap_8c.html#a40800e2582751941b5596610a87a0b35" title="TODO: Document hashmap_create." alt="" coords="140,34,269,61"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="65,110,129,72,147,66,143,69,132,77,68,114"/>
+<area shape="rect" id="Node000004" href="$hashmap_8c.html#a14a59db0876d2f1a0b674b1c7e1cb9cb" title="TODO: Document hashmap_set." alt="" coords="150,86,258,113"/>
+<area shape="poly" id="edge4_Node000001_Node000004" title=" " alt="" coords="82,118,137,109,133,113,84,122"/>
+<area shape="rect" id="Node000006" href="$redis__handler_8c.html#a6466e0692d2816939e277c5f82e9f682" title="TODO: Document redis_free_keys." alt="" coords="143,138,266,165"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="82,130,129,138,125,141,84,135"/>
+<area shape="rect" id="Node000007" href="$redis__handler_8c.html#a09040a6f876dbe0f7ca69f97c70ca09d" title="TODO: Document redis_get_keys." alt="" coords="145,190,264,217"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="67,138,132,175,149,183,143,184,129,179,67,143"/>
+<area shape="rect" id="Node000008" href="$redis__handler_8c.html#a8a04b19836d98f28f1a64d6511f63a7c" title="TODO: Document redis_get_template." alt="" coords="131,242,278,269"/>
+<area shape="poly" id="edge9_Node000001_Node000008" title=" " alt="" coords="55,138,86,182,108,206,132,227,142,235,137,234,129,231,104,210,82,186,53,143"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="269,45,324,47,320,49,270,50"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="254,83,325,64,320,67,256,88"/>
+<area shape="rect" id="Node000005" href="$hashmap_8c.html#adee1e753d058df3f5bccf4d96886b49b" title="TODO: Document hashmap_hash." alt="" coords="326,86,445,113"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="258,97,313,99,308,101,259,102"/>
+</map>

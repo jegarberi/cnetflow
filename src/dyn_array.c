@@ -9,6 +9,14 @@
 #include "arena.h"
 #include "log.h"
 
+/**
+ * @brief TODO: Document dyn_array_create
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @param elem_size TODO
+ * @return TODO
+ */
 dyn_array_t *dyn_array_create(arena_struct_t *arena, size_t cap, size_t elem_size) {
   if (0 == cap) {
     cap = 16;
@@ -40,6 +48,13 @@ dyn_array_t *dyn_array_create(arena_struct_t *arena, size_t cap, size_t elem_siz
   return arr;
 }
 
+/**
+ * @brief TODO: Document dyn_array_push
+ *
+ * @param arr TODO
+ * @param data TODO
+ * @return TODO
+ */
 int dyn_array_push(dyn_array_t *arr, void *data) {
   if (arr == NULL || data == NULL)
     return -1;
@@ -70,6 +85,13 @@ int dyn_array_push(dyn_array_t *arr, void *data) {
   return 0;
 }
 
+/**
+ * @brief TODO: Document dyn_array_pop
+ *
+ * @param arr TODO
+ * @param dst TODO
+ * @return TODO
+ */
 void *dyn_array_pop(dyn_array_t *arr, void *dst) {
   if (arr == NULL || arr->len == 0)
     return NULL;
@@ -85,11 +107,24 @@ void *dyn_array_pop(dyn_array_t *arr, void *dst) {
   return (void *) src;
 }
 
+/**
+ * @brief TODO: Document dyn_array_get
+ *
+ * @param arr TODO
+ * @param index TODO
+ * @return TODO
+ */
 void *dyn_array_get(dyn_array_t *arr, size_t index) {
   if (arr == NULL || index >= arr->len)
     return NULL;
   return (char *) arr->data + (index * arr->elem_size);
 }
+/**
+ * @brief TODO: Document dyn_array_free
+ *
+ * @param arr TODO
+ * @return TODO
+ */
 void dyn_array_free(dyn_array_t *arr) {
   if (arr == NULL)
     return;

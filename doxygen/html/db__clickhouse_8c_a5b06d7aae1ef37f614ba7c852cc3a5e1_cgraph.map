@@ -1,0 +1,5 @@
+<map id="ch_create_flows_table" name="ch_create_flows_table">
+<area shape="rect" id="Node000001" title="TODO: Document ch_create_flows_table." alt="" coords="5,5,171,33"/>
+<area shape="rect" id="Node000002" href="$db__clickhouse_8c.html#af7633e5b3c65933843d10b02e873f839" title="TODO: Document ch_execute." alt="" coords="219,5,313,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="171,17,206,19,201,19,171,22"/>
+</map>

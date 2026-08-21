@@ -13,10 +13,21 @@ static redisContext **tracked_redis_conns = NULL;
 static size_t tracked_redis_count = 0;
 static size_t tracked_redis_capacity = 0;
 
+/**
+ * @brief TODO: Document init_redis_tracker
+ *
+ * @return TODO
+ */
 static void init_redis_tracker(void) {
   uv_mutex_init(&redis_tracker_mutex);
 }
 
+/**
+ * @brief TODO: Document track_redis_conn
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 static void track_redis_conn(redisContext *conn) {
   if (!conn) return;
   uv_once(&redis_tracker_once, init_redis_tracker);
@@ -35,6 +46,12 @@ static void track_redis_conn(redisContext *conn) {
   uv_mutex_unlock(&redis_tracker_mutex);
 }
 
+/**
+ * @brief TODO: Document untrack_redis_conn
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 static void untrack_redis_conn(redisContext *conn) {
   if (!conn) return;
   uv_once(&redis_tracker_once, init_redis_tracker);
@@ -53,6 +70,15 @@ static int g_redis_port = 6379;
 static char g_redis_user[128] = {0};
 static char g_redis_password[128] = {0};
 
+/**
+ * @brief TODO: Document init_redis
+ *
+ * @param hostname TODO
+ * @param port TODO
+ * @param user TODO
+ * @param password TODO
+ * @return TODO
+ */
 int init_redis(const char *hostname, int port, const char *user, const char *password) {
   // Store configuration for lazy connection by threads
   if (hostname) {
@@ -75,6 +101,11 @@ int init_redis(const char *hostname, int port, const char *user, const char *pas
   return 0;
 }
 
+/**
+ * @brief TODO: Document connect_thread_local_redis
+ *
+ * @return TODO
+ */
 static int connect_thread_local_redis(void) {
   if (redis_conn != NULL) {
     untrack_redis_conn(redis_conn);
@@ -139,6 +170,11 @@ static int connect_thread_local_redis(void) {
   return 0;
 }
 
+/**
+ * @brief TODO: Document get_redis_conn
+ *
+ * @return TODO
+ */
 redisContext *get_redis_conn(void) {
   if (!redis_conn) {
     if (connect_thread_local_redis() != 0) {
@@ -148,6 +184,11 @@ redisContext *get_redis_conn(void) {
   return redis_conn;
 }
 
+/**
+ * @brief TODO: Document close_redis
+ *
+ * @return TODO
+ */
 void close_redis(void) {
   uv_once(&redis_tracker_once, init_redis_tracker);
   uv_mutex_lock(&redis_tracker_mutex);
@@ -168,6 +209,14 @@ void close_redis(void) {
   redis_conn = NULL;
 }
 
+/**
+ * @brief TODO: Document redis_get_template
+ *
+ * @param key TODO
+ * @param key_len TODO
+ * @param out_len TODO
+ * @return TODO
+ */
 void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
   if (!redis_conn) {
     if (connect_thread_local_redis() != 0) {
@@ -199,6 +248,15 @@ void *redis_get_template(const char *key, size_t key_len, size_t *out_len) {
   return result;
 }
 
+/**
+ * @brief TODO: Document redis_set_template
+ *
+ * @param key TODO
+ * @param key_len TODO
+ * @param data TODO
+ * @param len TODO
+ * @return TODO
+ */
 int redis_set_template(const char *key, size_t key_len, void *data, size_t len) {
   if (!redis_conn) {
     if (connect_thread_local_redis() != 0) {
@@ -228,6 +286,14 @@ int redis_set_template(const char *key, size_t key_len, void *data, size_t len) 
   return ret;
 }
 
+/**
+ * @brief TODO: Document redis_get_keys
+ *
+ * @param pattern TODO
+ * @param keys TODO
+ * @param count TODO
+ * @return TODO
+ */
 int redis_get_keys(const char *pattern, char ***keys, size_t *count) {
   if (!redis_conn) {
     if (connect_thread_local_redis() != 0) {
@@ -256,6 +322,13 @@ int redis_get_keys(const char *pattern, char ***keys, size_t *count) {
   return 0;
 }
 
+/**
+ * @brief TODO: Document redis_free_keys
+ *
+ * @param keys TODO
+ * @param count TODO
+ * @return TODO
+ */
 void redis_free_keys(char **keys, size_t count) {
   if (keys) {
     for (size_t i = 0; i < count; i++) {
@@ -267,6 +340,17 @@ void redis_free_keys(char **keys, size_t count) {
 
 #include "collector.h"
 
+/**
+ * @brief TODO: Document redis_store_unparsed_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
   redisContext *conn = get_redis_conn();
   if (!conn) return;
@@ -299,6 +383,13 @@ void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t
   free(payload);
 }
 
+/**
+ * @brief TODO: Document redis_replay_unparsed_flows
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @return TODO
+ */
 void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id) {
   redisContext *conn = get_redis_conn();
   if (!conn) return;

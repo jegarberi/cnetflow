@@ -128,7 +128,25 @@ typedef struct {
 } netflow_ipfix_header_t;
 
 
+/**
+ * @brief TODO: Document init_ipfix
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @return TODO
+ */
 void init_ipfix(arena_struct_t *arena, const size_t cap);
+/**
+ * @brief TODO: Document parse_ipfix
+ *
+ * @param req TODO
+ * @return TODO
+ */
 void *parse_ipfix(uv_work_t *req);
+/**
+ * @brief TODO: Document copy_ipfix_to_flow
+ *
+ * @return TODO
+ */
 void copy_ipfix_to_flow(const netflow_v9_flowset_t * restrict, netflow_v9_uint128_flowset_t * restrict, int);
 #endif // NETFLOW_IPFIX_H

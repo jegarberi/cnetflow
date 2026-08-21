@@ -4,6 +4,11 @@
 #include "log.h"
 #include <string.h>
 
+/**
+ * @brief TODO: Document print_compile_options
+ *
+ * @return TODO
+ */
 void print_compile_options(void) {
     printf("cnetflow compile options:\n");
     printf("  Database: ClickHouse\n");

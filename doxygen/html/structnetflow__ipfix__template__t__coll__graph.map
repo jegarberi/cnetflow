@@ -1,0 +1,5 @@
+<map id="netflow_ipfix_template_t" name="netflow_ipfix_template_t">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,123,188,151"/>
+<area shape="rect" id="Node000002" href="$structnetflow__ipfix__template__fields__t.html" title=" " alt="" coords="11,5,182,50"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="99,64,99,123,94,122,94,67"/>
+</map>

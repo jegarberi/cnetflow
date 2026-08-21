@@ -1,57 +1,53 @@
-FROM docker.io/library/debian:trixie-slim AS dependencies
-LABEL authors="jon"
+FROM ubuntu:24.04 AS builder
 
-# Combine RUN commands to reduce layers and use --no-install-recommends to minimize image size
-RUN apt update && apt install -y --no-install-recommends \
-    postgresql-common
-RUN yes | /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
-RUN apt install -y --no-install-recommends libuv1-dev \
-    libpq-dev \
-    libsnmp-dev \
-    libhiredis-dev \
-    cmake \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    cmake \
+    python3 \
+    python3-pip \
+    pkg-config \
     flex \
     bison \
     m4 \
     && rm -rf /var/lib/apt/lists/*
 
-FROM dependencies AS compile
-WORKDIR /tmp/cnetflow
-# Use COPY instead of ADD when you don't need ADD's extra features
+# Install Conan
+RUN pip3 install conan==2.5.0 --break-system-packages
+
+WORKDIR /app
+RUN conan profile detect --force
+
+# CACHE LAYER: Copy ONLY conanfile.txt and install dependencies
+COPY conanfile.txt .
+RUN conan install . --build=missing -s build_type=Release -c "tools.build:cflags=['-std=gnu11']" -o "*:shared=False"
+
+# BUILD LAYER: Copy the rest of the source
 COPY . .
-RUN cmake -B build -DCMAKE_BUILD_TYPE=Release
-RUN cmake --build build --config Release
-RUN ctest -C Release --test-dir build
+# Now build the project using the Conan toolchain
+RUN cmake -B build/Release -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DBUILD_STATIC=ON
+RUN cmake --build build/Release --config Release -j$(nproc)
 
-# Use minimal runtime image to reduce final image size
-FROM debian:trixie-slim AS runtime
+# RUNTIME LAYER
+FROM ubuntu:24.04 AS runtime
 
-# Install only runtime dependencies
-RUN apt update && apt install -y --no-install-recommends \
-    postgresql-common
-RUN yes | /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
-RUN apt update && apt install -y --no-install-recommends \
-    libuv1 \
-    libpq5 \
-    libsnmp40 \
-    libhiredis* \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install minimum runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
 RUN groupadd -r cnetflow && useradd -r -g cnetflow cnetflow
-
-# Create application directory
 RUN mkdir -p /app && chown cnetflow:cnetflow /app
 WORKDIR /app
 
-# Copy only necessary files from compile stage
-COPY --from=compile --chown=cnetflow:cnetflow /tmp/cnetflow/build/*.so ./
-COPY --from=compile --chown=cnetflow:cnetflow /tmp/cnetflow/build/cnetflow ./
+# Copy statically linked binary
+COPY --from=builder /app/build/Release/cnetflow ./cnetflow
+RUN chmod +x ./cnetflow
 
-# Switch to non-root user
 USER cnetflow
-
-# Use EXEC form for better signal handling
 CMD ["./cnetflow"]
 

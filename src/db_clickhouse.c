@@ -31,6 +31,15 @@ typedef struct {
   size_t size;
 } curl_response_t;
 
+/**
+ * @brief TODO: Document ch_curl_write_callback
+ *
+ * @param contents TODO
+ * @param size TODO
+ * @param nmemb TODO
+ * @param userp TODO
+ * @return TODO
+ */
 static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
   size_t realsize = size * nmemb;
   curl_response_t *mem = (curl_response_t *) userp;
@@ -53,6 +62,11 @@ static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, 
 static uv_mutex_t cleanup_mutex;
 static uv_once_t cleanup_mutex_once = UV_ONCE_INIT;
 
+/**
+ * @brief TODO: Document init_cleanup_mutex
+ *
+ * @return TODO
+ */
 static void init_cleanup_mutex(void) {
   uv_mutex_init(&cleanup_mutex);
 }
@@ -76,6 +90,15 @@ static ch_flush_ctx_t *ch_flush_ctxs = NULL;
 static int ch_flush_ctx_count = 0;
 static int ch_flush_ctx_capacity = 0;
 
+/**
+ * @brief TODO: Document register_ch_flush_ctx
+ *
+ * @param conn TODO
+ * @param query TODO
+ * @param offset TODO
+ * @param inserted TODO
+ * @return TODO
+ */
 void register_ch_flush_ctx(ch_conn_t **conn, char **query, int *offset, size_t *inserted) {
   uv_once(&cleanup_mutex_once, init_cleanup_mutex);
   uv_mutex_lock(&cleanup_mutex);
@@ -97,6 +120,13 @@ void register_ch_flush_ctx(ch_conn_t **conn, char **query, int *offset, size_t *
   uv_mutex_unlock(&cleanup_mutex);
 }
 
+/**
+ * @brief TODO: Document register_ch_cleanup
+ *
+ * @param conn_ptr TODO
+ * @param query_ptr TODO
+ * @return TODO
+ */
 void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
   uv_once(&cleanup_mutex_once, init_cleanup_mutex);
   uv_mutex_lock(&cleanup_mutex);
@@ -129,6 +159,11 @@ void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
   uv_mutex_unlock(&cleanup_mutex);
 }
 
+/**
+ * @brief TODO: Document ch_db_cleanup_all
+ *
+ * @return TODO
+ */
 void ch_db_cleanup_all(void) {
   uv_mutex_lock(&cleanup_mutex);
 
@@ -171,6 +206,13 @@ void ch_db_cleanup_all(void) {
   uv_mutex_unlock(&cleanup_mutex);
 }
 
+/**
+ * @brief TODO: Document ch_ip_uint128_to_string
+ *
+ * @param value TODO
+ * @param ip_version TODO
+ * @return TODO
+ */
 char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
   static THREAD_LOCAL char ret_string[4][INET6_ADDRSTRLEN];
   static THREAD_LOCAL int buffer_idx = 0;
@@ -196,6 +238,17 @@ char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
   return buf;
 }
 
+/**
+ * @brief TODO: Document ch_connect
+ *
+ * @param host TODO
+ * @param port TODO
+ * @param database TODO
+ * @param user TODO
+ * @param password TODO
+ * @param params TODO
+ * @return TODO
+ */
 ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, const char *user, const char *password, const char *params) {
   ch_conn_t *conn = (ch_conn_t *) calloc(1, sizeof(ch_conn_t));
   if (!conn) {
@@ -285,6 +338,12 @@ error:
   return NULL;
 }
 
+/**
+ * @brief TODO: Document ch_db_connect
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 WEAK void ch_db_connect(ch_conn_t **conn) {
   if (*conn != NULL) {
     if ((*conn)->connected) {
@@ -340,6 +399,12 @@ WEAK void ch_db_connect(ch_conn_t **conn) {
   }
 }
 
+/**
+ * @brief TODO: Document ch_disconnect
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 void ch_disconnect(ch_conn_t *conn) {
   if (!conn)
     return;
@@ -360,6 +425,14 @@ void ch_disconnect(ch_conn_t *conn) {
   free(conn);
 }
 
+/**
+ * @brief TODO: Document ch_execute
+ *
+ * @param conn TODO
+ * @param query TODO
+ * @param query_len TODO
+ * @return TODO
+ */
 int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
   if (!conn || !conn->curl)
     return -1;
@@ -413,6 +486,12 @@ int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
   return 0;
 }
 
+/**
+ * @brief TODO: Document ch_create_flows_table
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 int ch_create_flows_table(ch_conn_t *conn) {
   const char *create_table_query = "CREATE TABLE IF NOT EXISTS flows ("
                                    "    inserted_at DateTime DEFAULT now(),"
@@ -446,6 +525,15 @@ int ch_create_flows_table(ch_conn_t *conn) {
 }
 
 
+/**
+ * @brief TODO: Document ch_insert_template
+ *
+ * @param exporter TODO
+ * @param template_key TODO
+ * @param dump TODO
+ * @param dump_size TODO
+ * @return TODO
+ */
 WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
 
@@ -521,6 +609,15 @@ WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t
   return 0;
 }
 
+/**
+ * @brief TODO: Document ch_insert_dump
+ *
+ * @param exporter TODO
+ * @param template_key TODO
+ * @param dump TODO
+ * @param dump_size TODO
+ * @return TODO
+ */
 WEAK int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
 
@@ -599,6 +696,13 @@ WEAK int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *du
 extern int g_max_flows;
 extern int g_max_diff;
 
+/**
+ * @brief TODO: Document ch_insert_flows
+ *
+ * @param exporter TODO
+ * @param flows TODO
+ * @return TODO
+ */
 WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
   static THREAD_LOCAL char *query = NULL;
@@ -764,6 +868,13 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
 }
 
 
+/**
+ * @brief TODO: Document ch_insert_flows2
+ *
+ * @param exporter TODO
+ * @param flows TODO
+ * @return TODO
+ */
 int ch_insert_flows2(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   return ch_insert_flows(exporter, flows);
 }

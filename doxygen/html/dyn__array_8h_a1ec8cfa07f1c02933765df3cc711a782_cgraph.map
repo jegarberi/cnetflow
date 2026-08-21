@@ -1,0 +1,7 @@
+<map id="dyn_array_push" name="dyn_array_push">
+<area shape="rect" id="Node000001" title="TODO: Document dyn_array_push." alt="" coords="5,32,130,60"/>
+<area shape="rect" id="Node000002" href="$arena_8c.html#a08c2d2a7ddf1adacc8e2d92f14382595" title="TODO: Document arena_alloc." alt="" coords="178,5,274,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="129,33,165,29,159,31,131,38"/>
+<area shape="rect" id="Node000003" href="$arena_8c.html#a8ba2d594dfb73e9d0c41e27d8b806b8d" title="TODO: Document arena_free." alt="" coords="180,57,272,85"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="130,53,167,61,162,62,130,58"/>
+</map>

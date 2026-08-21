@@ -37,6 +37,10 @@ RUN wget https://github.com/conan-io/conan/releases/download/2.31.1/conan-2.31.1
 # Set working directory
 WORKDIR /build
 
+# Cache dependencies first
+COPY conanfile.txt .
+RUN scl enable devtoolset-7 rh-git227 rh-python38 "bash -lc 'set -ex && export CC=/opt/rh/devtoolset-7/root/usr/bin/gcc && export CXX=/opt/rh/devtoolset-7/root/usr/bin/g++ && export LEX=/usr/bin/flex && export YACC=\"/usr/bin/bison -y\" && export M4=/usr/bin/m4 && export ac_cv_prog_lex_yytext_pointer=yes && conan profile detect --force && conan install . --build=* --build=!gnu-config* -s build_type=Release -c \"tools.build:cflags=[\\\"-std=gnu11\\\"]\"'"
+
 # Copy source code
 COPY . .
 
@@ -44,8 +48,7 @@ COPY . .
 ARG PKG_VERSION=1.0.0
 
 # Create build directory and configure with SCL GCC, Git, and Python 3.8
-# Use devtoolset-7 which provides GCC 7.3.1 with C11 support
-RUN scl enable devtoolset-7 rh-git227 rh-python38 "bash -lc 'set -ex && export CC=/opt/rh/devtoolset-7/root/usr/bin/gcc && export CXX=/opt/rh/devtoolset-7/root/usr/bin/g++ && export LEX=/usr/bin/flex && export YACC=\"/usr/bin/bison -y\" && export M4=/usr/bin/m4 && export ac_cv_prog_lex_yytext_pointer=yes && conan profile detect --force && conan install . --build=* --build=!gnu-config* -s build_type=Release -c \"tools.build:cflags=[\\\"-std=gnu11\\\"]\" && mkdir -p build && cd build && cmake3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../build/Release/generators/conan_toolchain.cmake -DBUILD_FOR_RHEL7=ON -DCPACK_PACKAGE_VERSION=${PKG_VERSION} .. && cmake3 --build . && cpack3 -G RPM'"
+RUN scl enable devtoolset-7 rh-git227 rh-python38 "bash -lc 'set -ex && export CC=/opt/rh/devtoolset-7/root/usr/bin/gcc && export CXX=/opt/rh/devtoolset-7/root/usr/bin/g++ && export LEX=/usr/bin/flex && export YACC=\"/usr/bin/bison -y\" && export M4=/usr/bin/m4 && export ac_cv_prog_lex_yytext_pointer=yes && mkdir -p build && cd build && cmake3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../build/Release/generators/conan_toolchain.cmake -DBUILD_FOR_RHEL7=ON -DCPACK_PACKAGE_VERSION=${PKG_VERSION} .. && cmake3 --build . && cpack3 -G RPM'"
 
 # The RPM will be in /build/build/
 # To extract it, run:

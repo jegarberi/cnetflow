@@ -21,6 +21,13 @@ uv_mutex_t ipfix_parse_mutex;
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;
 
+/**
+ * @brief TODO: Document init_ipfix
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @return TODO
+ */
 void init_ipfix(arena_struct_t *arena, const size_t cap) {
   LOG_ERROR("%s %d %s: Initializing IPFIX (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_ipfix_hashmap = hashmap_create(arena, cap);
@@ -59,6 +66,12 @@ void init_ipfix(arena_struct_t *arena, const size_t cap) {
 #endif
 }
 
+/**
+ * @brief TODO: Document parse_ipfix
+ *
+ * @param req TODO
+ * @return TODO
+ */
 void *parse_ipfix(uv_work_t *req) {
 
   uint16_t *template_hashmap = NULL;
@@ -771,6 +784,16 @@ unlock_mutex_parse_ipfix:
   return NULL;
 }
 
+/**
+ * @brief TODO: Document process_ipfix_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 void process_ipfix_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length) {
     size_t packet_len = sizeof(netflow_ipfix_header_t) + length;
     uint8_t *packet = malloc(packet_len);

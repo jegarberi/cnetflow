@@ -125,6 +125,12 @@ uint64_t swap_endian_64(uint64_t value) {
          ((value & 0x000000000000FF00ULL) << 40) | ((value & 0x00000000000000FFULL) << 56);
 }
 */
+/**
+ * @brief TODO: Document swap_endian_128
+ *
+ * @param value TODO
+ * @return TODO
+ */
 uint128_t swap_endian_128(const uint128_t value) {
 #if defined(_MSC_VER)
   uint128_t result;
@@ -246,7 +252,25 @@ void *fix_endianness(void *buf, void *data, size_t len) {
 #include "hashmap.h"
 #include "collector.h"
 #ifdef USE_REDIS
+/**
+ * @brief TODO: Document redis_store_unparsed_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 extern void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+/**
+ * @brief TODO: Document redis_replay_unparsed_flows
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @return TODO
+ */
 extern void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id);
 #endif
 
@@ -255,11 +279,28 @@ static hashmap_t *unparsed_flows_hashmap = NULL;
 static uv_mutex_t unparsed_flows_mutex;
 extern arena_struct_t *arena_collector; // Use the main collector arena for the hashmap/dyn_array structures
 
+/**
+ * @brief TODO: Document init_unparsed_flows_cache
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 void init_unparsed_flows_cache(arena_struct_t *arena) {
     unparsed_flows_hashmap = hashmap_create(arena, 1024);
     uv_mutex_init(&unparsed_flows_mutex);
 }
 
+/**
+ * @brief TODO: Document cache_unparsed_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 void cache_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
 #ifdef USE_REDIS
     // If Redis is used, we store it there (implementation in redis_handler.c)
@@ -297,6 +338,13 @@ void cache_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t versi
 #endif
 }
 
+/**
+ * @brief TODO: Document check_and_replay_unparsed_flows
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @return TODO
+ */
 void check_and_replay_unparsed_flows(uint32_t exporter, uint16_t template_id) {
 #ifdef USE_REDIS
     redis_replay_unparsed_flows(exporter, template_id);
@@ -331,9 +379,40 @@ void check_and_replay_unparsed_flows(uint32_t exporter, uint16_t template_id) {
 #endif
 }
 
+/**
+ * @brief TODO: Document process_v9_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 extern void process_v9_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length);
+/**
+ * @brief TODO: Document process_ipfix_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 extern void process_ipfix_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length);
 
+/**
+ * @brief TODO: Document replay_single_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
 void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
     if (version == 9) {
         process_v9_single_flowset(exporter, template_id, diff, data, length);
@@ -342,6 +421,12 @@ void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t versio
     }
 }
 
+/**
+ * @brief TODO: Document is_ipv4_private
+ *
+ * @param ip TODO
+ * @return TODO
+ */
 int is_ipv4_private(const uint32_t ip) {
   if ((ip >= 167772160 && ip <= 184549375) || // CLASS A PRIVATE
       (ip >= 2886729728 && ip <= 2887778303) || // CLASS B PRIVATE
@@ -352,6 +437,12 @@ int is_ipv4_private(const uint32_t ip) {
   return 0;
 }
 
+/**
+ * @brief TODO: Document swap_src_dst_ipfix_ipv4
+ *
+ * @param record TODO
+ * @return TODO
+ */
 void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record) {
 
   /*
@@ -401,6 +492,12 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record) {
 }
 
 
+/**
+ * @brief TODO: Document swap_src_dst_v9_ipv4
+ *
+ * @param record TODO
+ * @return TODO
+ */
 void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record) {
 
   /*
@@ -449,6 +546,12 @@ void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record) {
   }
 }
 
+/**
+ * @brief TODO: Document swap_src_dst_v5_ipv4
+ *
+ * @param record TODO
+ * @return TODO
+ */
 void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
 
   /*
@@ -498,6 +601,14 @@ void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
   }
 }
 
+/**
+ * @brief TODO: Document printf_v5
+ *
+ * @param file TODO
+ * @param netflow_packet TODO
+ * @param i TODO
+ * @return TODO
+ */
 void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
@@ -514,6 +625,17 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, netflow_packet->records[i].prot);
 }
+/**
+ * @brief TODO: Document printf_v9
+ *
+ * @param file TODO
+ * @param netflow_packet TODO
+ * @param i TODO
+ * @param frame_number TODO
+ * @param template_id TODO
+ * @param flowset_id TODO
+ * @return TODO
+ */
 void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i, uint32_t frame_number, uint16_t template_id, uint16_t flowset_id) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
@@ -551,6 +673,13 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
             netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
   }
 }
+/**
+ * @brief TODO: Document printf_v10
+ *
+ * @param file TODO
+ * @param record TODO
+ * @return TODO
+ */
 void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};

@@ -1,0 +1,13 @@
+<map id="ch_insert_template" name="ch_insert_template">
+<area shape="rect" id="Node000001" title="TODO: Document ch_insert_template." alt="" coords="5,84,152,112"/>
+<area shape="rect" id="Node000002" href="$db__clickhouse_8c.html#adee94baeafd118e4ec3c9e58b2748ca3" title="TODO: Document ch_db_connect." alt="" coords="200,57,317,85"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="151,84,187,81,182,83,152,90"/>
+<area shape="rect" id="Node000006" href="$db__clickhouse_8c.html#af7633e5b3c65933843d10b02e873f839" title="TODO: Document ch_execute." alt="" coords="211,109,306,137"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="152,105,199,114,193,115,152,111"/>
+<area shape="rect" id="Node000003" href="$db__clickhouse_8c.html#a00ea51d3cdfadf0942810cfdcf2be166" title="TODO: Document ch_connect." alt="" coords="394,5,488,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="309,54,376,37,382,36,310,59"/>
+<area shape="rect" id="Node000004" href="$db__clickhouse_8c.html#a5fedbb98782bf8ade1496a97af7ab89f" title="TODO: Document ch_disconnect." alt="" coords="384,57,497,85"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="317,69,371,71,366,71,318,74"/>
+<area shape="rect" id="Node000005" href="$db__clickhouse_8c.html#a814f180b7ffaacd75b14eef22853dca4" title="TODO: Document register_ch_cleanup." alt="" coords="365,109,516,137"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="310,83,378,105,372,105,309,88"/>
+</map>

@@ -107,6 +107,8 @@ option(ENABLE_LOGGING "Enable logging" ON)
 option(USE_ARENA "Use arena allocator" ON)
 option(ENABLE_METRICS "Enable metrics" ON)
 option(ENABLE_MMSG "Enable recvmmsg batching" ON)
+set(MMSG_BATCH_SIZE "" CACHE STRING "Batch size for recvmmsg")
+set(MAX_UNPARSED_FLOWS "" CACHE STRING "Max unparsed flows cache size")
 
 if (ENABLE_LOGGING)
     add_compile_definitions(ENABLE_LOGGING=1)

@@ -32,6 +32,11 @@
 #include "netflow_v5.h"
 #include "netflow_v9.h"
 
+/**
+ * @brief TODO: Document ch_db_cleanup_all
+ *
+ * @return TODO
+ */
 extern void ch_db_cleanup_all(void);
 
 #define _MAX_ALLOWED_RAM 12.0
@@ -67,6 +72,11 @@ int g_max_flows = 10000;
 int g_max_diff = 5;
 char *g_ch_conn_string = NULL;
 
+/**
+ * @brief TODO: Document print_rss_max_usage
+ *
+ * @return TODO
+ */
 void print_rss_max_usage() {
 #ifndef _WIN32
   struct rusage usage;
@@ -79,6 +89,12 @@ void print_rss_max_usage() {
 #endif
 }
 
+/**
+ * @brief TODO: Document check_backlog_cb
+ *
+ * @param handle TODO
+ * @return TODO
+ */
 void check_backlog_cb(uv_timer_t *handle) {
   (void) handle;
   static int last_backlog = 0;
@@ -107,6 +123,12 @@ void check_backlog_cb(uv_timer_t *handle) {
   last_processed_msgs = total_processed_msgs;
 }
 
+/**
+ * @brief TODO: Document collector_inc_received_flows
+ *
+ * @param count TODO
+ * @return TODO
+ */
 void collector_inc_received_flows(uint64_t count) { __sync_fetch_and_add(&total_received_flows, count); }
 
 /**
@@ -166,6 +188,12 @@ char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen) {
   return s;
 }
 
+/**
+ * @brief TODO: Document signal_handler
+ *
+ * @param signal TODO
+ * @return TODO
+ */
 void signal_handler(const int signal) {
   LOG_ERROR("signal handler called with signal %d\n", signal);
   fprintf(stderr, "%s %d %s signal handler called with signal %d\n", __FILE__, __LINE__, __func__, signal);
@@ -210,6 +238,12 @@ int8_t collector_default(collector_t *col_conf) {
   return 0;
 }
 
+/**
+ * @brief TODO: Document collector_setup
+ *
+ * @param collector TODO
+ * @return TODO
+ */
 int8_t collector_setup(collector_t *collector) {
   (void) collector;
   LOG_DEBUG("%s %d %s %p\n", __FILE__, __LINE__, __func__, (void *) collector->alloc);
@@ -304,6 +338,13 @@ typedef struct {
     char text[256];
 } pcap_line_t;
 
+/**
+ * @brief TODO: Document compare_pcap_lines
+ *
+ * @param a TODO
+ * @param b TODO
+ * @return TODO
+ */
 int compare_pcap_lines(const void *a, const void *b) {
     pcap_line_t *la = (pcap_line_t *)a;
     pcap_line_t *lb = (pcap_line_t *)b;
@@ -312,6 +353,13 @@ int compare_pcap_lines(const void *a, const void *b) {
     return strcmp(la->text, lb->text);
 }
 
+/**
+ * @brief TODO: Document parse_pcap_file
+ *
+ * @param collector TODO
+ * @param filename TODO
+ * @return TODO
+ */
 int parse_pcap_file(collector_t *collector, const char *filename) {
   LOG_INFO("Pass 1: Parsing templates from pcap file %s...\n", filename);
   char errbuf[PCAP_ERRBUF_SIZE];
@@ -418,6 +466,13 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
   return 0;
 }
 #else
+/**
+ * @brief TODO: Document parse_pcap_file
+ *
+ * @param collector TODO
+ * @param filename TODO
+ * @return TODO
+ */
 int parse_pcap_file(collector_t *collector, const char *filename) {
   (void) collector;
   (void) filename;
@@ -694,6 +749,13 @@ error_no_arena:
   return -1;
 }
 
+/**
+ * @brief TODO: Document after_work_cb
+ *
+ * @param req TODO
+ * @param status TODO
+ * @return TODO
+ */
 void after_work_cb(uv_work_t *req, int status) {
   (void) status;
   if (req == NULL) {

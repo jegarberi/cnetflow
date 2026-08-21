@@ -1,0 +1,9 @@
+<map id="ch_db_connect" name="ch_db_connect">
+<area shape="rect" id="Node000001" title="TODO: Document ch_db_connect." alt="" coords="200,57,317,85"/>
+<area shape="rect" id="Node000002" href="$db__clickhouse_8c.html#a8a15c97cc10b426108d18c4810ea3501" title="TODO: Document ch_insert_dump." alt="" coords="16,5,141,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="191,54,129,36,129,31,196,51"/>
+<area shape="rect" id="Node000003" href="$db__clickhouse_8c.html#a0bf90917c6a952e5dac4c9aea43221a0" title="TODO: Document ch_insert_flows." alt="" coords="18,57,139,85"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="182,72,140,74,139,69,187,70"/>
+<area shape="rect" id="Node000004" href="$db__clickhouse_8c.html#a426a027f3092e882358cbe0009401ad9" title="TODO: Document ch_insert_template." alt="" coords="5,109,152,137"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="196,89,130,111,128,106,191,90"/>
+</map>

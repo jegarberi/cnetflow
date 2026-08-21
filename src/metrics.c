@@ -87,6 +87,12 @@ static uv_loop_t metrics_loop;
 static uv_async_t metrics_async;
 static uv_sem_t metrics_ready_sem;
 
+/**
+ * @brief TODO: Document push_update
+ *
+ * @param update TODO
+ * @return TODO
+ */
 static void push_update(metric_update_t *update) {
   uv_mutex_lock(&ring_mutex);
   size_t next_head = (ring_head + 1) % METRICS_RING_SIZE;
@@ -99,6 +105,11 @@ static void push_update(metric_update_t *update) {
 }
 
 #ifdef USE_REDIS
+/**
+ * @brief TODO: Document redis_sync_counters
+ *
+ * @return TODO
+ */
 static void redis_sync_counters(void) {
   redisContext *c = get_redis_conn();
   if (!c) return;
@@ -149,6 +160,11 @@ static void redis_sync_counters(void) {
   }
 }
 
+/**
+ * @brief TODO: Document load_from_redis
+ *
+ * @return TODO
+ */
 static void load_from_redis(void) {
   redisContext *c = get_redis_conn();
   if (!c) return;
@@ -212,6 +228,12 @@ static void load_from_redis(void) {
 }
 #endif
 
+/**
+ * @brief TODO: Document process_track_exporter
+ *
+ * @param exporter_ip TODO
+ * @return TODO
+ */
 static void process_track_exporter(uint32_t exporter_ip) {
   for (size_t i = 0; i < exporters_count; i++) {
     if (exporters_array[i] == exporter_ip) return;
@@ -235,6 +257,13 @@ static void process_track_exporter(uint32_t exporter_ip) {
 #endif
 }
 
+/**
+ * @brief TODO: Document process_track_interface
+ *
+ * @param exporter_ip TODO
+ * @param interface_id TODO
+ * @return TODO
+ */
 static void process_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
   uint64_t combined_key = ((uint64_t) exporter_ip << 32) | interface_id;
   for (size_t i = 0; i < interfaces_count; i++) {
@@ -259,6 +288,12 @@ static void process_track_interface(uint32_t exporter_ip, uint16_t interface_id)
 #endif
 }
 
+/**
+ * @brief TODO: Document process_update
+ *
+ * @param update TODO
+ * @return TODO
+ */
 static void process_update(metric_update_t *update) {
   switch (update->type) {
     case METRIC_PACKET_RECEIVED:
@@ -327,6 +362,12 @@ static void process_update(metric_update_t *update) {
   }
 }
 
+/**
+ * @brief TODO: Document on_metrics_async
+ *
+ * @param handle TODO
+ * @return TODO
+ */
 static void on_metrics_async(uv_async_t *handle) {
   (void)handle;
   while (1) {
@@ -344,6 +385,12 @@ static void on_metrics_async(uv_async_t *handle) {
   }
 }
 
+/**
+ * @brief TODO: Document on_metrics_timer
+ *
+ * @param handle TODO
+ * @return TODO
+ */
 static void on_metrics_timer(uv_timer_t *handle) {
   (void)handle;
   uv_mutex_lock(&g_metrics.mutex);
@@ -361,6 +408,12 @@ static void on_metrics_timer(uv_timer_t *handle) {
 #endif
 }
 
+/**
+ * @brief TODO: Document metrics_worker_thread
+ *
+ * @param arg TODO
+ * @return TODO
+ */
 static void metrics_worker_thread(void *arg) {
   (void)arg;
   uv_loop_init(&metrics_loop);
@@ -374,6 +427,11 @@ static void metrics_worker_thread(void *arg) {
   uv_run(&metrics_loop, UV_RUN_DEFAULT);
 }
 
+/**
+ * @brief TODO: Document metrics_init
+ *
+ * @return TODO
+ */
 void metrics_init(void) {
   memset(&g_metrics, 0, sizeof(g_metrics));
   uv_mutex_init(&g_metrics.mutex);
@@ -385,6 +443,13 @@ void metrics_init(void) {
   uv_sem_destroy(&metrics_ready_sem);
 }
 
+/**
+ * @brief TODO: Document on_metrics_write
+ *
+ * @param req TODO
+ * @param status TODO
+ * @return TODO
+ */
 static void on_metrics_write(uv_write_t *req, int status) {
   if (status) {
     LOG_ERROR("Metrics write error %s\n", uv_strerror(status));
@@ -395,6 +460,13 @@ static void on_metrics_write(uv_write_t *req, int status) {
 }
 
 
+/**
+ * @brief TODO: Document on_metrics_connection
+ *
+ * @param server TODO
+ * @param status TODO
+ * @return TODO
+ */
 static void on_metrics_connection(uv_stream_t *server, int status) {
   if (status < 0) {
     LOG_ERROR("Metrics new connection error %s\n", uv_strerror(status));
@@ -465,6 +537,12 @@ static void on_metrics_connection(uv_stream_t *server, int status) {
   }
 }
 
+/**
+ * @brief TODO: Document metrics_tcp_start
+ *
+ * @param port TODO
+ * @return TODO
+ */
 void metrics_tcp_start(int port) {
   uv_thread_t self = uv_thread_self();
   if (!uv_thread_equal(&self, &metrics_thread)) {
@@ -497,6 +575,11 @@ void metrics_tcp_start(int port) {
   LOG_INFO("Metrics TCP API listening on 0.0.0.0:%d\n", port);
 }
 
+/**
+ * @brief TODO: Document metrics_timer_start
+ *
+ * @return TODO
+ */
 void metrics_timer_start(void) {
   uv_thread_t self = uv_thread_self();
   if (!uv_thread_equal(&self, &metrics_thread)) {
@@ -510,81 +593,166 @@ void metrics_timer_start(void) {
   uv_timer_start(timer, on_metrics_timer, 1000, 1000);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_packets
+ *
+ * @return TODO
+ */
 void metrics_inc_packets(void) {
   metric_update_t update = { .type = METRIC_PACKET_RECEIVED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v5_parsed
+ *
+ * @return TODO
+ */
 void metrics_inc_v5_parsed(void) {
   metric_update_t update = { .type = METRIC_V5_PARSED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v5_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_v5_dropped(void) {
   metric_update_t update = { .type = METRIC_V5_DROPPED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v9_templates_received
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_templates_received(void) {
   metric_update_t update = { .type = METRIC_V9_TEMPLATE_RECEIVED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v9_templates_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_templates_dropped(void) {
   metric_update_t update = { .type = METRIC_V9_TEMPLATE_DROPPED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v9_records_received
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_records_received(void) {
   metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED, .value = 1 };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v9_records_received_batch
+ *
+ * @param count TODO
+ * @return TODO
+ */
 void metrics_inc_v9_records_received_batch(uint64_t count) {
   metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED, .value = count };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_v9_records_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_records_dropped(void) {
   metric_update_t update = { .type = METRIC_V9_RECORD_DROPPED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_ipfix_templates_received
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_templates_received(void) {
   metric_update_t update = { .type = METRIC_IPFIX_TEMPLATE_RECEIVED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_ipfix_templates_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_templates_dropped(void) {
   metric_update_t update = { .type = METRIC_IPFIX_TEMPLATE_DROPPED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_ipfix_records_received
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_records_received(void) {
   metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED, .value = 1 };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_ipfix_records_received_batch
+ *
+ * @param count TODO
+ * @return TODO
+ */
 void metrics_inc_ipfix_records_received_batch(uint64_t count) {
   metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED, .value = count };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_ipfix_records_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_records_dropped(void) {
   metric_update_t update = { .type = METRIC_IPFIX_RECORD_DROPPED };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_bytes
+ *
+ * @param bytes TODO
+ * @return TODO
+ */
 void metrics_inc_bytes(uint64_t bytes) {
   metric_update_t update = { .type = METRIC_ADD_BYTES, .value = bytes };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_inc_flowsets
+ *
+ * @param flowsets TODO
+ * @return TODO
+ */
 void metrics_inc_flowsets(uint64_t flowsets) {
   metric_update_t update = { .type = METRIC_ADD_FLOWSETS, .value = flowsets };
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_track_exporter
+ *
+ * @param exporter_ip TODO
+ * @return TODO
+ */
 void metrics_track_exporter(uint32_t exporter_ip) {
   static THREAD_LOCAL uint32_t last_exporter = 0;
   if (unlikely(exporter_ip == last_exporter)) return;
@@ -594,6 +762,13 @@ void metrics_track_exporter(uint32_t exporter_ip) {
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_track_interface
+ *
+ * @param exporter_ip TODO
+ * @param interface_id TODO
+ * @return TODO
+ */
 void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
   static THREAD_LOCAL uint64_t last_combined = 0;
   uint64_t combined = ((uint64_t) exporter_ip << 32) | interface_id;
@@ -604,6 +779,11 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
   push_update(&update);
 }
 
+/**
+ * @brief TODO: Document metrics_cleanup
+ *
+ * @return TODO
+ */
 void metrics_cleanup(void) {
   if (exporters_array) {
     free(exporters_array);

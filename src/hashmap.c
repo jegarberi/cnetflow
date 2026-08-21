@@ -339,6 +339,12 @@ hashmap_delete_error:
   return -1;
 }
 
+/**
+ * @brief TODO: Document hashmap_destroy
+ *
+ * @param hashmap TODO
+ * @return TODO
+ */
 void hashmap_destroy(hashmap_t *hashmap) {
   if (hashmap == NULL) return;
   uv_rwlock_destroy(hashmap->rwlock);

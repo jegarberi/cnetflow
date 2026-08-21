@@ -4,7 +4,8 @@
         "conan": {}
     },
     "include": [
-        "cmake-build-Custom_Redis-Release_static/build/Release/generators/CMakePresets.json",
-        "build/Release/generators/CMakePresets.json"
+        "build/Release/generators/CMakePresets.json",
+        "cmake-build-Custom_Redis_MMDB-Release_static/build/Release/generators/CMakePresets.json",
+        "cmake-build-Custom_Redis-Release_static/build/Release/generators/CMakePresets.json"
     ]
 }

@@ -1,0 +1,7 @@
+<map id="src/netflow_ipfix.h" name="src/netflow_ipfix.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="64,5,204,33"/>
+<area shape="rect" id="Node000002" href="$collector_8c.html" title=" " alt="" coords="5,81,116,109"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="113,44,75,83,72,79,107,45"/>
+<area shape="rect" id="Node000003" href="$netflow__ipfix_8c.html" title=" " alt="" coords="139,81,278,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="159,42,198,81,193,80,157,47"/>
+</map>

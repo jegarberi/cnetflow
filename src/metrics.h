@@ -71,18 +71,80 @@ void metrics_timer_start(void);
  * @brief Asynchronous increment functions (Shoot and Forget)
  */
 void metrics_inc_packets(void);
+/**
+ * @brief TODO: Document metrics_inc_v5_parsed
+ *
+ * @return TODO
+ */
 void metrics_inc_v5_parsed(void);
+/**
+ * @brief TODO: Document metrics_inc_v5_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_v5_dropped(void);
+/**
+ * @brief TODO: Document metrics_inc_v9_templates_received
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_templates_received(void);
+/**
+ * @brief TODO: Document metrics_inc_v9_templates_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_templates_dropped(void);
+/**
+ * @brief TODO: Document metrics_inc_v9_records_received
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_records_received(void);
+/**
+ * @brief TODO: Document metrics_inc_v9_records_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_v9_records_dropped(void);
+/**
+ * @brief TODO: Document metrics_inc_ipfix_templates_received
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_templates_received(void);
+/**
+ * @brief TODO: Document metrics_inc_ipfix_templates_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_templates_dropped(void);
+/**
+ * @brief TODO: Document metrics_inc_ipfix_records_received
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_records_received(void);
+/**
+ * @brief TODO: Document metrics_inc_ipfix_records_dropped
+ *
+ * @return TODO
+ */
 void metrics_inc_ipfix_records_dropped(void);
 
+/**
+ * @brief TODO: Document metrics_inc_v9_records_received_batch
+ *
+ * @param count TODO
+ * @return TODO
+ */
 void metrics_inc_v9_records_received_batch(uint64_t count);
+/**
+ * @brief TODO: Document metrics_inc_ipfix_records_received_batch
+ *
+ * @param count TODO
+ * @return TODO
+ */
 void metrics_inc_ipfix_records_received_batch(uint64_t count);
 
 /**

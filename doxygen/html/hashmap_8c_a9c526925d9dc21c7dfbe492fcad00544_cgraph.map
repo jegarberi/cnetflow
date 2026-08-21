@@ -1,0 +1,7 @@
+<map id="hashmap_delete" name="hashmap_delete">
+<area shape="rect" id="Node000001" title="TODO: Document hashmap_delete." alt="" coords="5,32,135,60"/>
+<area shape="rect" id="Node000002" href="$arena_8c.html#a8ba2d594dfb73e9d0c41e27d8b806b8d" title="TODO: Document arena_free." alt="" coords="197,5,288,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="134,33,184,28,178,29,136,38"/>
+<area shape="rect" id="Node000003" href="$hashmap_8c.html#adee1e753d058df3f5bccf4d96886b49b" title="TODO: Document hashmap_hash." alt="" coords="183,57,302,85"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="135,53,170,60,164,60,135,58"/>
+</map>
