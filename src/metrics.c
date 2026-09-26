@@ -36,6 +36,11 @@ static uint64_t redis_ipfix_templates_dropped_delta = 0;
 static uint64_t redis_ipfix_records_delta = 0;
 static uint64_t redis_ipfix_records_dropped_delta = 0;
 
+#define METRIC_ATOMIC_ADD(counter, amount) \
+  __atomic_fetch_add(&(counter), (uint64_t) (amount), __ATOMIC_RELAXED)
+#define METRIC_ATOMIC_LOAD(counter) __atomic_load_n(&(counter), __ATOMIC_RELAXED)
+#define METRIC_ATOMIC_TAKE(counter) __atomic_exchange_n(&(counter), 0, __ATOMIC_RELAXED)
+
 static uint32_t *exporters_array = NULL;
 static size_t exporters_count = 0;
 static size_t exporters_capacity = 0;
@@ -86,6 +91,7 @@ static uv_thread_t metrics_thread;
 static uv_loop_t metrics_loop;
 static uv_async_t metrics_async;
 static uv_sem_t metrics_ready_sem;
+static int metrics_initialized = 0;
 
 /**
  * @brief TODO: Document push_update
@@ -94,6 +100,11 @@ static uv_sem_t metrics_ready_sem;
  * @return TODO
  */
 static void push_update(metric_update_t *update) {
+  /* Parsers are also used directly by unit tests and offline tools.  Counter
+   * updates remain safe before metrics_init(), but the async handle does not. */
+  if (unlikely(!__atomic_load_n(&metrics_initialized, __ATOMIC_ACQUIRE))) {
+    return;
+  }
   uv_mutex_lock(&ring_mutex);
   size_t next_head = (ring_head + 1) % METRICS_RING_SIZE;
   if (next_head != ring_tail) {
@@ -114,49 +125,49 @@ static void redis_sync_counters(void) {
   redisContext *c = get_redis_conn();
   if (!c) return;
 
-  if (redis_packets_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:packets_received %llu", (unsigned long long) redis_packets_delta);
-    redis_packets_delta = 0;
+  uint64_t delta = METRIC_ATOMIC_TAKE(redis_packets_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:packets_received %llu", (unsigned long long) delta);
   }
-  if (redis_v5_parsed_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:v5:parsed %llu", (unsigned long long) redis_v5_parsed_delta);
-    redis_v5_parsed_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_v5_parsed_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:v5:parsed %llu", (unsigned long long) delta);
   }
-  if (redis_v5_dropped_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:v5:dropped %llu", (unsigned long long) redis_v5_dropped_delta);
-    redis_v5_dropped_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_v5_dropped_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:v5:dropped %llu", (unsigned long long) delta);
   }
-  if (redis_v9_templates_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:v9:templates_received %llu", (unsigned long long) redis_v9_templates_delta);
-    redis_v9_templates_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_v9_templates_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:v9:templates_received %llu", (unsigned long long) delta);
   }
-  if (redis_v9_templates_dropped_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:v9:templates_dropped %llu", (unsigned long long) redis_v9_templates_dropped_delta);
-    redis_v9_templates_dropped_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_v9_templates_dropped_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:v9:templates_dropped %llu", (unsigned long long) delta);
   }
-  if (redis_v9_records_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:v9:records_received %llu", (unsigned long long) redis_v9_records_delta);
-    redis_v9_records_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_v9_records_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:v9:records_received %llu", (unsigned long long) delta);
   }
-  if (redis_v9_records_dropped_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:v9:records_dropped %llu", (unsigned long long) redis_v9_records_dropped_delta);
-    redis_v9_records_dropped_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_v9_records_dropped_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:v9:records_dropped %llu", (unsigned long long) delta);
   }
-  if (redis_ipfix_templates_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:templates_received %llu", (unsigned long long) redis_ipfix_templates_delta);
-    redis_ipfix_templates_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_ipfix_templates_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:templates_received %llu", (unsigned long long) delta);
   }
-  if (redis_ipfix_templates_dropped_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:templates_dropped %llu", (unsigned long long) redis_ipfix_templates_dropped_delta);
-    redis_ipfix_templates_dropped_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_ipfix_templates_dropped_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:templates_dropped %llu", (unsigned long long) delta);
   }
-  if (redis_ipfix_records_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:records_received %llu", (unsigned long long) redis_ipfix_records_delta);
-    redis_ipfix_records_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_ipfix_records_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:records_received %llu", (unsigned long long) delta);
   }
-  if (redis_ipfix_records_dropped_delta > 0) {
-    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:records_dropped %llu", (unsigned long long) redis_ipfix_records_dropped_delta);
-    redis_ipfix_records_dropped_delta = 0;
+  delta = METRIC_ATOMIC_TAKE(redis_ipfix_records_dropped_delta);
+  if (delta > 0) {
+    redisCommand(c, "INCRBY cnetflow:metrics:ipfix:records_dropped %llu", (unsigned long long) delta);
   }
 }
 
@@ -394,13 +405,16 @@ static void on_metrics_async(uv_async_t *handle) {
 static void on_metrics_timer(uv_timer_t *handle) {
   (void)handle;
   uv_mutex_lock(&g_metrics.mutex);
-  g_metrics.bytes_per_sec = total_bytes_accum - last_bytes;
-  g_metrics.pkts_per_sec = total_pkts_accum - last_pkts;
-  g_metrics.flowsets_per_sec = total_flowsets_accum - last_flowsets;
+  const uint64_t current_bytes = METRIC_ATOMIC_LOAD(total_bytes_accum);
+  const uint64_t current_pkts = METRIC_ATOMIC_LOAD(total_pkts_accum);
+  const uint64_t current_flowsets = METRIC_ATOMIC_LOAD(total_flowsets_accum);
+  g_metrics.bytes_per_sec = current_bytes - last_bytes;
+  g_metrics.pkts_per_sec = current_pkts - last_pkts;
+  g_metrics.flowsets_per_sec = current_flowsets - last_flowsets;
 
-  last_bytes = total_bytes_accum;
-  last_pkts = total_pkts_accum;
-  last_flowsets = total_flowsets_accum;
+  last_bytes = current_bytes;
+  last_pkts = current_pkts;
+  last_flowsets = current_flowsets;
   uv_mutex_unlock(&g_metrics.mutex);
 
 #ifdef USE_REDIS
@@ -418,11 +432,15 @@ static void metrics_worker_thread(void *arg) {
   (void)arg;
   uv_loop_init(&metrics_loop);
   uv_async_init(&metrics_loop, &metrics_async, on_metrics_async);
-  uv_sem_post(&metrics_ready_sem);
 
 #ifdef USE_REDIS
   load_from_redis();
 #endif
+
+  /* Do not let producers update counters until the persisted baseline has
+   * been loaded, otherwise a late Redis assignment can overwrite increments. */
+  __atomic_store_n(&metrics_initialized, 1, __ATOMIC_RELEASE);
+  uv_sem_post(&metrics_ready_sem);
 
   uv_run(&metrics_loop, UV_RUN_DEFAULT);
 }
@@ -507,10 +525,12 @@ static void on_metrics_connection(uv_stream_t *server, int status) {
              "  \"pkts_per_sec\": %lu,\n"
              "  \"flowsets_per_sec\": %lu\n"
              "}\n",
-             g_metrics.packets_received, g_metrics.netflow_v5_parsed, g_metrics.netflow_v5_dropped,
-             g_metrics.v9_templates_received, g_metrics.v9_templates_dropped, g_metrics.v9_records_received,
-             g_metrics.v9_records_dropped, g_metrics.ipfix_templates_received, g_metrics.ipfix_templates_dropped,
-             g_metrics.ipfix_records_received, g_metrics.ipfix_records_dropped, g_metrics.collectors_detected,
+             METRIC_ATOMIC_LOAD(g_metrics.packets_received), METRIC_ATOMIC_LOAD(g_metrics.netflow_v5_parsed),
+             METRIC_ATOMIC_LOAD(g_metrics.netflow_v5_dropped), METRIC_ATOMIC_LOAD(g_metrics.v9_templates_received),
+             METRIC_ATOMIC_LOAD(g_metrics.v9_templates_dropped), METRIC_ATOMIC_LOAD(g_metrics.v9_records_received),
+             METRIC_ATOMIC_LOAD(g_metrics.v9_records_dropped), METRIC_ATOMIC_LOAD(g_metrics.ipfix_templates_received),
+             METRIC_ATOMIC_LOAD(g_metrics.ipfix_templates_dropped), METRIC_ATOMIC_LOAD(g_metrics.ipfix_records_received),
+             METRIC_ATOMIC_LOAD(g_metrics.ipfix_records_dropped), g_metrics.collectors_detected,
              g_metrics.interfaces_detected, g_metrics.bytes_per_sec, g_metrics.pkts_per_sec,
              g_metrics.flowsets_per_sec);
     uv_mutex_unlock(&g_metrics.mutex);
@@ -599,8 +619,8 @@ void metrics_timer_start(void) {
  * @return TODO
  */
 void metrics_inc_packets(void) {
-  metric_update_t update = { .type = METRIC_PACKET_RECEIVED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.packets_received, 1);
+  METRIC_ATOMIC_ADD(redis_packets_delta, 1);
 }
 
 /**
@@ -609,8 +629,8 @@ void metrics_inc_packets(void) {
  * @return TODO
  */
 void metrics_inc_v5_parsed(void) {
-  metric_update_t update = { .type = METRIC_V5_PARSED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.netflow_v5_parsed, 1);
+  METRIC_ATOMIC_ADD(redis_v5_parsed_delta, 1);
 }
 
 /**
@@ -619,8 +639,8 @@ void metrics_inc_v5_parsed(void) {
  * @return TODO
  */
 void metrics_inc_v5_dropped(void) {
-  metric_update_t update = { .type = METRIC_V5_DROPPED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.netflow_v5_dropped, 1);
+  METRIC_ATOMIC_ADD(redis_v5_dropped_delta, 1);
 }
 
 /**
@@ -629,8 +649,8 @@ void metrics_inc_v5_dropped(void) {
  * @return TODO
  */
 void metrics_inc_v9_templates_received(void) {
-  metric_update_t update = { .type = METRIC_V9_TEMPLATE_RECEIVED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.v9_templates_received, 1);
+  METRIC_ATOMIC_ADD(redis_v9_templates_delta, 1);
 }
 
 /**
@@ -639,8 +659,8 @@ void metrics_inc_v9_templates_received(void) {
  * @return TODO
  */
 void metrics_inc_v9_templates_dropped(void) {
-  metric_update_t update = { .type = METRIC_V9_TEMPLATE_DROPPED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.v9_templates_dropped, 1);
+  METRIC_ATOMIC_ADD(redis_v9_templates_dropped_delta, 1);
 }
 
 /**
@@ -649,8 +669,7 @@ void metrics_inc_v9_templates_dropped(void) {
  * @return TODO
  */
 void metrics_inc_v9_records_received(void) {
-  metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED, .value = 1 };
-  push_update(&update);
+  metrics_inc_v9_records_received_batch(1);
 }
 
 /**
@@ -660,8 +679,8 @@ void metrics_inc_v9_records_received(void) {
  * @return TODO
  */
 void metrics_inc_v9_records_received_batch(uint64_t count) {
-  metric_update_t update = { .type = METRIC_V9_RECORD_RECEIVED, .value = count };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.v9_records_received, count);
+  METRIC_ATOMIC_ADD(redis_v9_records_delta, count);
 }
 
 /**
@@ -670,8 +689,8 @@ void metrics_inc_v9_records_received_batch(uint64_t count) {
  * @return TODO
  */
 void metrics_inc_v9_records_dropped(void) {
-  metric_update_t update = { .type = METRIC_V9_RECORD_DROPPED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.v9_records_dropped, 1);
+  METRIC_ATOMIC_ADD(redis_v9_records_dropped_delta, 1);
 }
 
 /**
@@ -680,8 +699,8 @@ void metrics_inc_v9_records_dropped(void) {
  * @return TODO
  */
 void metrics_inc_ipfix_templates_received(void) {
-  metric_update_t update = { .type = METRIC_IPFIX_TEMPLATE_RECEIVED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.ipfix_templates_received, 1);
+  METRIC_ATOMIC_ADD(redis_ipfix_templates_delta, 1);
 }
 
 /**
@@ -690,8 +709,8 @@ void metrics_inc_ipfix_templates_received(void) {
  * @return TODO
  */
 void metrics_inc_ipfix_templates_dropped(void) {
-  metric_update_t update = { .type = METRIC_IPFIX_TEMPLATE_DROPPED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.ipfix_templates_dropped, 1);
+  METRIC_ATOMIC_ADD(redis_ipfix_templates_dropped_delta, 1);
 }
 
 /**
@@ -700,8 +719,7 @@ void metrics_inc_ipfix_templates_dropped(void) {
  * @return TODO
  */
 void metrics_inc_ipfix_records_received(void) {
-  metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED, .value = 1 };
-  push_update(&update);
+  metrics_inc_ipfix_records_received_batch(1);
 }
 
 /**
@@ -711,8 +729,8 @@ void metrics_inc_ipfix_records_received(void) {
  * @return TODO
  */
 void metrics_inc_ipfix_records_received_batch(uint64_t count) {
-  metric_update_t update = { .type = METRIC_IPFIX_RECORD_RECEIVED, .value = count };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.ipfix_records_received, count);
+  METRIC_ATOMIC_ADD(redis_ipfix_records_delta, count);
 }
 
 /**
@@ -721,8 +739,8 @@ void metrics_inc_ipfix_records_received_batch(uint64_t count) {
  * @return TODO
  */
 void metrics_inc_ipfix_records_dropped(void) {
-  metric_update_t update = { .type = METRIC_IPFIX_RECORD_DROPPED };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(g_metrics.ipfix_records_dropped, 1);
+  METRIC_ATOMIC_ADD(redis_ipfix_records_dropped_delta, 1);
 }
 
 /**
@@ -732,8 +750,8 @@ void metrics_inc_ipfix_records_dropped(void) {
  * @return TODO
  */
 void metrics_inc_bytes(uint64_t bytes) {
-  metric_update_t update = { .type = METRIC_ADD_BYTES, .value = bytes };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(total_bytes_accum, bytes);
+  METRIC_ATOMIC_ADD(total_pkts_accum, 1);
 }
 
 /**
@@ -743,8 +761,7 @@ void metrics_inc_bytes(uint64_t bytes) {
  * @return TODO
  */
 void metrics_inc_flowsets(uint64_t flowsets) {
-  metric_update_t update = { .type = METRIC_ADD_FLOWSETS, .value = flowsets };
-  push_update(&update);
+  METRIC_ATOMIC_ADD(total_flowsets_accum, flowsets);
 }
 
 /**
@@ -754,9 +771,10 @@ void metrics_inc_flowsets(uint64_t flowsets) {
  * @return TODO
  */
 void metrics_track_exporter(uint32_t exporter_ip) {
-  static THREAD_LOCAL uint32_t last_exporter = 0;
-  if (unlikely(exporter_ip == last_exporter)) return;
-  last_exporter = exporter_ip;
+  static THREAD_LOCAL uint32_t recent_exporters[64];
+  const size_t slot = (exporter_ip ^ (exporter_ip >> 16)) & 63U;
+  if (unlikely(exporter_ip == recent_exporters[slot])) return;
+  recent_exporters[slot] = exporter_ip;
 
   metric_update_t update = { .type = METRIC_TRACK_EXPORTER, .ip = exporter_ip };
   push_update(&update);
@@ -770,10 +788,11 @@ void metrics_track_exporter(uint32_t exporter_ip) {
  * @return TODO
  */
 void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
-  static THREAD_LOCAL uint64_t last_combined = 0;
+  static THREAD_LOCAL uint64_t recent_interfaces[256];
   uint64_t combined = ((uint64_t) exporter_ip << 32) | interface_id;
-  if (unlikely(combined == last_combined)) return;
-  last_combined = combined;
+  const size_t slot = (size_t) ((combined ^ (combined >> 32) ^ (combined >> 16)) & 255U);
+  if (unlikely(combined == recent_interfaces[slot])) return;
+  recent_interfaces[slot] = combined;
 
   metric_update_t update = { .type = METRIC_TRACK_INTERFACE, .ip = exporter_ip, .id = interface_id };
   push_update(&update);
@@ -785,6 +804,7 @@ void metrics_track_interface(uint32_t exporter_ip, uint16_t interface_id) {
  * @return TODO
  */
 void metrics_cleanup(void) {
+  __atomic_store_n(&metrics_initialized, 0, __ATOMIC_RELEASE);
   if (exporters_array) {
     free(exporters_array);
     exporters_array = NULL;

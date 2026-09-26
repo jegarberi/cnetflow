@@ -46,15 +46,8 @@ hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count) {
   }
 
   uv_rwlock_init(hashmap->rwlock);
-  bucket_t *buckets = (bucket_t *) hashmap->buckets;
-  for (size_t i = 0; i < bucket_count; i++) {
-    buckets[i].occupied = 0;
-    buckets[i].deleted = 0;
-    buckets[i].key = NULL;
-    buckets[i].value = NULL;
-  }
-
-
+  /* arena_alloc() returns zeroed storage, so another full bucket pass is
+   * redundant and expensive for the large template maps. */
   return hashmap;
 }
 
@@ -93,7 +86,11 @@ size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len) {
     }
   }
 
-  // Ensure hash is within bucket range
+  // The production tables use power-of-two capacities, so avoid an integer
+  // division on every template lookup. Keep modulo for arbitrary test/users.
+  if ((hashmap->bucket_count & (hashmap->bucket_count - 1U)) == 0U) {
+    return hash & (hashmap->bucket_count - 1U);
+  }
   return hash % hashmap->bucket_count;
 }
 
@@ -191,7 +188,7 @@ int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key
   buckets[index].occupied = 1;
   buckets[index].deleted = 0;
 
-  hashmap->size++;
+  __atomic_add_fetch(&hashmap->size, 1U, __ATOMIC_RELAXED);
 
 
 hashmap_set_success:
@@ -322,7 +319,7 @@ int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len) {
       buckets[index].key = NULL;
       buckets[index].value = NULL;
 #endif
-      hashmap->size--;
+      __atomic_sub_fetch(&hashmap->size, 1U, __ATOMIC_RELAXED);
       goto hashmap_delete_success;
     }
 

@@ -147,7 +147,7 @@ void init_v9(arena_struct_t *arena, const size_t cap);
  * @param req TODO
  * @return TODO
  */
-void *parse_v9(uv_work_t *req);
+void parse_v9(uv_work_t *req);
 /**
  * @brief TODO: Document copy_v9_to_flow
  *

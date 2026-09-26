@@ -21,13 +21,13 @@
 #define WEAK __attribute__((weak))
 #endif
 
-// Debug logging macros - controlled by ENABLE_LOGGING (selectable via CMake)
+// Errors remain visible in production; verbose per-packet diagnostics are
+// controlled by ENABLE_LOGGING (selectable via CMake).
+#define LOG_ERROR(...) fprintf(stderr, __VA_ARGS__)
 #if defined(ENABLE_LOGGING)
-    #define LOG_ERROR(...) fprintf(stderr, __VA_ARGS__)
     #define LOG_INFO(...)  fprintf(stderr, __VA_ARGS__)
     #define LOG_DEBUG(...) fprintf(stderr, __VA_ARGS__)
 #else
-    #define LOG_ERROR(...) do {} while(0)
     #define LOG_INFO(...)  do {} while(0)
     #define LOG_DEBUG(...) do {} while(0)
 #endif

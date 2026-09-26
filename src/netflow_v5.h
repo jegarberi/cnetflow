@@ -15,7 +15,7 @@
  *
  * @return TODO
  */
-void *parse_v5(uv_work_t *);
+void parse_v5(uv_work_t *);
 
 /**
  * @brief TODO: Document copy_v5_to_flow

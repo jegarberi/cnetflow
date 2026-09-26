@@ -27,7 +27,7 @@ extern arena_struct_t *arena_collector;
 
 // Response buffer for CURL
 typedef struct {
-  char *data;
+  char data[4096];
   size_t size;
 } curl_response_t;
 
@@ -44,17 +44,15 @@ static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, 
   size_t realsize = size * nmemb;
   curl_response_t *mem = (curl_response_t *) userp;
 
-  char *ptr = realloc(mem->data, mem->size + realsize + 1);
-  if (!ptr) {
-    CH_LOG_ERROR("Not enough memory for CURL response\n");
-    return 0;
+  size_t available = sizeof(mem->data) - mem->size - 1;
+  size_t to_copy = realsize < available ? realsize : available;
+  if (to_copy > 0) {
+    memcpy(mem->data + mem->size, contents, to_copy);
+    mem->size += to_copy;
+    mem->data[mem->size] = '\0';
   }
-
-  mem->data = ptr;
-  memcpy(&(mem->data[mem->size]), contents, realsize);
-  mem->size += realsize;
-  mem->data[mem->size] = 0;
-
+  /* Returning the complete input length tells libcurl the response was
+   * consumed even when the diagnostic buffer has been truncated. */
   return realsize;
 }
 
@@ -300,10 +298,6 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
 
   CURLcode res = curl_easy_perform(conn->curl);
 
-  if (response.data) {
-    free(response.data);
-  }
-
   if (res != CURLE_OK) {
     CH_LOG_ERROR("%s %d %s: ClickHouse connection test failed: %s\n", __FILE__, __LINE__, __func__,
                  curl_easy_strerror(res));
@@ -465,8 +459,6 @@ int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
 
   if (res != CURLE_OK) {
     CH_LOG_ERROR("%s %d %s: Query failed: %s\n", __FILE__, __LINE__, __func__, curl_easy_strerror(res));
-    if (response.data)
-      free(response.data);
     return -1;
   }
 
@@ -475,14 +467,9 @@ int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
 
   if (http_code != 200) {
     CH_LOG_ERROR("%s %d %s: Query failed with HTTP %ld: %s\n", __FILE__, __LINE__, __func__, http_code,
-                 response.data ? response.data : "no response");
-    if (response.data)
-      free(response.data);
+                 response.size ? response.data : "no response");
     return -1;
   }
-
-  if (response.data)
-    free(response.data);
   return 0;
 }
 
@@ -525,171 +512,92 @@ int ch_create_flows_table(ch_conn_t *conn) {
 }
 
 
-/**
- * @brief TODO: Document ch_insert_template
- *
- * @param exporter TODO
- * @param template_key TODO
- * @param dump TODO
- * @param dump_size TODO
- * @return TODO
- */
-WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
-  static THREAD_LOCAL ch_conn_t *conn = NULL;
-
-  ch_db_connect(&conn);
-  if (!conn || !conn->connected) {
+static int ch_insert_binary_record(ch_conn_t **conn, uint32_t exporter, const char *table,
+                                   const char *key_column, const char *data_column, const char *template_key,
+                                   const uint8_t *dump, size_t dump_size) {
+  ch_db_connect(conn);
+  if (!*conn || !(*conn)->connected) {
     CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
     return -1;
   }
 
-  // Convert exporter IP to string format
   swap_endianness(&exporter, sizeof(exporter));
   char exporter_str[INET_ADDRSTRLEN];
-  struct in_addr addr;
-  addr.s_addr = htonl(exporter);
+  struct in_addr addr = {.s_addr = htonl(exporter)};
   if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
     snprintf(exporter_str, sizeof(exporter_str), "unknown");
   }
 
-  // Build dump string safely: {aa,bb,...}
-  size_t needed_dump_len = 2 + (dump_size ? (dump_size * 2 + (dump_size - 1)) : 0) + 1; // {} + hex+commas + NUL
-  // Put a soft cap to avoid excessive memory usage
-  if (needed_dump_len > (size_t) (1 << 20)) { // >1MB string for a single row is suspicious
+  const size_t encoded_len = 2 + (dump_size ? dump_size * 3 - 1 : 0) + 1;
+  if (encoded_len > (size_t) (1 << 20)) {
     CH_LOG_ERROR("%s %d %s: dump too large (%zu bytes), refusing to build query\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
+                 encoded_len);
     return -1;
   }
-  char *str_dump = (char *) malloc(needed_dump_len);
-  if (!str_dump) {
+
+  char *encoded = malloc(encoded_len);
+  if (!encoded) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate dump string buffer (%zu bytes)\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
+                 encoded_len);
     return -1;
   }
-  char *p = str_dump;
-  *p++ = '{';
+
+  char *cursor = encoded;
+  *cursor++ = '{';
   for (size_t i = 0; i < dump_size; i++) {
-    int n = snprintf(p, 3, "%02x", dump[i]);
-    p += n;
+    cursor += snprintf(cursor, 3, "%02x", dump[i]);
     if (i + 1 < dump_size) {
-      *p++ = ',';
+      *cursor++ = ',';
     }
   }
-  *p++ = '}';
-  *p = '\0';
+  *cursor++ = '}';
+  *cursor = '\0';
 
-  const char *prefix = "INSERT INTO templates (exporter,template_key,template) VALUES ";
-  size_t query_cap = strlen(prefix) + strlen(exporter_str) + strlen(template_key) + strlen(str_dump) + 32;
-  char *query = (char *) malloc(query_cap);
-  if (!query) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_cap);
-    free(str_dump);
+  const char *format = "INSERT INTO %s (exporter,%s,%s) VALUES ('%s','%s','%s')";
+  const int required = snprintf(NULL, 0, format, table, key_column, data_column, exporter_str, template_key, encoded);
+  if (required < 0) {
+    free(encoded);
     return -1;
   }
-  int written = snprintf(query, query_cap, "%s('%s','%s','%s')", prefix, exporter_str, template_key, str_dump);
-  if (written < 0 || (size_t) written >= query_cap) {
-    CH_LOG_ERROR("%s %d %s: snprintf truncated while building query\n", __FILE__, __LINE__, __func__);
-    free(str_dump);
+
+  const size_t query_size = (size_t) required + 1;
+  char *query = malloc(query_size);
+  if (!query) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_size);
+    free(encoded);
+    return -1;
+  }
+
+  const int written = snprintf(query, query_size, format, table, key_column, data_column, exporter_str, template_key,
+                               encoded);
+  if (written != required) {
+    CH_LOG_ERROR("%s %d %s: snprintf failed while building query\n", __FILE__, __LINE__, __func__);
+    free(encoded);
     free(query);
     return -1;
   }
 
-  int result = ch_execute(conn, query, (size_t) written);
+  const int result = ch_execute(*conn, query, (size_t) written);
   CH_LOG_INFO("%s\n", query);
-
-  free(str_dump);
+  free(encoded);
   free(query);
 
   if (result < 0) {
-    CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
+    CH_LOG_ERROR("%s %d %s: Failed to insert record into %s\n", __FILE__, __LINE__, __func__, table);
     return -1;
   }
-
-  CH_LOG_INFO("%s %d %s: Successfully inserted dump for template %s\n", __FILE__, __LINE__, __func__, template_key);
   return 0;
 }
 
-/**
- * @brief TODO: Document ch_insert_dump
- *
- * @param exporter TODO
- * @param template_key TODO
- * @param dump TODO
- * @param dump_size TODO
- * @return TODO
- */
+WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
+  static THREAD_LOCAL ch_conn_t *conn = NULL;
+  return ch_insert_binary_record(&conn, exporter, "templates", "template_key", "template", template_key, dump,
+                                 dump_size);
+}
+
 WEAK int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
-
-  ch_db_connect(&conn);
-  if (!conn || !conn->connected) {
-    CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
-    return -1;
-  }
-
-  // Convert exporter IP to string format
-  swap_endianness(&exporter, sizeof(exporter));
-  char exporter_str[INET_ADDRSTRLEN];
-  struct in_addr addr;
-  addr.s_addr = htonl(exporter);
-  if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
-    snprintf(exporter_str, sizeof(exporter_str), "unknown");
-  }
-
-  // Build dump string safely: {aa,bb,...}
-  size_t needed_dump_len = 2 + (dump_size ? (dump_size * 2 + (dump_size - 1)) : 0) + 1; // {} + hex+commas + NUL
-  if (needed_dump_len > (size_t) (1 << 20)) {
-    CH_LOG_ERROR("%s %d %s: dump too large (%zu bytes), refusing to build query\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
-    return -1;
-  }
-  char *str_dump = (char *) malloc(needed_dump_len);
-  if (!str_dump) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate dump string buffer (%zu bytes)\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
-    return -1;
-  }
-  char *p = str_dump;
-  *p++ = '{';
-  for (size_t i = 0; i < dump_size; i++) {
-    int n = snprintf(p, 3, "%02x", dump[i]);
-    p += n;
-    if (i + 1 < dump_size) {
-      *p++ = ',';
-    }
-  }
-  *p++ = '}';
-  *p = '\0';
-
-  const char *prefix = "INSERT INTO dumps (exporter,template,dump) VALUES ";
-  size_t query_cap = strlen(prefix) + strlen(exporter_str) + strlen(template_key) + strlen(str_dump) + 32;
-  char *query = (char *) malloc(query_cap);
-  if (!query) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_cap);
-    free(str_dump);
-    return -1;
-  }
-  int written = snprintf(query, query_cap, "%s('%s','%s','%s')", prefix, exporter_str, template_key, str_dump);
-  if (written < 0 || (size_t) written >= query_cap) {
-    CH_LOG_ERROR("%s %d %s: snprintf truncated while building query\n", __FILE__, __LINE__, __func__);
-    free(str_dump);
-    free(query);
-    return -1;
-  }
-
-  int result = ch_execute(conn, query, (size_t) written);
-  CH_LOG_INFO("%s\n", query);
-
-  free(str_dump);
-  free(query);
-
-  if (result < 0) {
-    CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
-    return -1;
-  }
-
-  CH_LOG_INFO("%s %d %s: Successfully inserted dump for dump %s\n", __FILE__, __LINE__, __func__, template_key);
-  return 0;
+  return ch_insert_binary_record(&conn, exporter, "dumps", "template", "dump", template_key, dump, dump_size);
 }
 
 
@@ -815,19 +723,15 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
 
       uint32_t current_last = current_start + current_dur;
 
-      char value_str[1024];
-      int written =
-          snprintf(value_str, sizeof(value_str),
-                   "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
-                   exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
-                   flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
-                   (unsigned long long) current_pkts, (unsigned long long) current_octets,
-                   current_start, current_last,
-                   flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
-                   flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
-
-      if (unlikely(offset + written + 1 >= query_size)) {
-        size_t new_query_size = query_size * 2;
+      /* Format directly into the reusable batch.  A row is well below 512
+       * bytes, including two IPv6 strings, so reserve that much up front and
+       * avoid a temporary 1 KiB stack buffer plus memcpy for every row. */
+      const size_t row_reserve = 512;
+      if (unlikely((size_t) query_size - (size_t) offset < row_reserve)) {
+        size_t new_query_size = (size_t) query_size * 2;
+        while (new_query_size - (size_t) offset < row_reserve) {
+          new_query_size *= 2;
+        }
         char *new_query = realloc(query, new_query_size);
         if (!new_query) {
           CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
@@ -837,7 +741,21 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
         query_size = (int) new_query_size;
       }
 
-      memcpy(query + offset, value_str, written);
+      int written =
+          snprintf(query + offset, (size_t) query_size - (size_t) offset,
+                   "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+                   exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
+                   flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
+                   (unsigned long long) current_pkts, (unsigned long long) current_octets,
+                   current_start, current_last,
+                   flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
+                   flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
+
+      if (unlikely(written < 0 || (size_t) written >= (size_t) query_size - (size_t) offset)) {
+        CH_LOG_ERROR("%s %d %s: Failed to format flow row\n", __FILE__, __LINE__, __func__);
+        return -1;
+      }
+
       offset += written;
       inserted++;
 

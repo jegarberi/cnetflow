@@ -23,10 +23,8 @@ extern arena_struct_t *arena_collector;
  * @param args_data   A pointer to a `parse_args_t` structure containing NetFlow
  *                    v5 data to be parsed and processed. Must include a valid
  *                    data buffer and mutex for synchronization.
- * @return            A pointer to result or data processed (depends on the
- *                    function usage; typically NULL if no return object is needed).
  */
-void *parse_v5(uv_work_t *req) {
+void parse_v5(uv_work_t *req) {
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
   netflow_v5_flowset_t *netflow_packet_ptr;
@@ -146,7 +144,6 @@ void *parse_v5(uv_work_t *req) {
   // insert_v5(args->exporter, netflow_packet_ptr);
 
   netflow_v9_uint128_flowset_t flows_to_insert = {0};
-  memset(&flows_to_insert, 0, sizeof(flows_to_insert));
   copy_v5_to_flow(netflow_packet_ptr, &flows_to_insert);
   uint32_t exporter_host = args->exporter;
   swap_endianness((void *) &exporter_host, sizeof(exporter_host));
@@ -168,7 +165,6 @@ unlock_mutex_parse_v5:
   args->processed_flows = netflow_packet_ptr->header.count;
   args->status = collector_data_status_done;
 
-  return NULL;
 }
 
 

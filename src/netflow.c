@@ -275,6 +275,9 @@ extern void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id)
 #endif
 
 static hashmap_t *unparsed_flows_hashmap = NULL;
+#ifndef USE_REDIS
+static size_t current_unparsed_flows = 0;
+#endif
 
 static uv_mutex_t unparsed_flows_mutex;
 extern arena_struct_t *arena_collector; // Use the main collector arena for the hashmap/dyn_array structures
@@ -575,7 +578,7 @@ void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
     LOG_ERROR("%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
             __func__, record->dstport > record->srcport);
     */
-    LOG_ERROR("%lu %s %d %s: swapping flow_v5 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+    LOG_DEBUG("%lu %s %d %s: swapping flow_v5 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
 
     const uint16_t tmp_port = record->dstport;
     record->dstport = record->srcport;
@@ -597,7 +600,7 @@ void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
 
 
   } else {
-    LOG_ERROR("%s %d %s: NOT swapping flow_v5 src and dst\n", __FILE__, __LINE__, __func__);
+    LOG_DEBUG("%s %d %s: NOT swapping flow_v5 src and dst\n", __FILE__, __LINE__, __func__);
   }
 }
 
@@ -615,13 +618,13 @@ void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
 
   char *tmp;
   tmp = ip_int_to_str(netflow_packet->records[i].srcaddr);
-  strncpy(ip_src_str, tmp, strlen(tmp));
+  snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
   uint16_t tmp_src_port = netflow_packet->records[i].srcport;
   uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
-  strncpy(ip_dst_str, tmp, strlen(tmp));
+  snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, netflow_packet->records[i].prot);
 }
@@ -646,9 +649,9 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
   uint32_t srcaddr = netflow_packet->records[i].srcaddr;
   uint32_t dstaddr = netflow_packet->records[i].dstaddr;
   tmp = ip_int_to_str(htonl(srcaddr));
-  strncpy(ip_src_str, tmp, strlen(tmp));
+  snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
   tmp = ip_int_to_str(htonl(dstaddr));
-  strncpy(ip_dst_str, tmp, strlen(tmp));
+  snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
 
   if (pcap_output_lines != NULL) {
     if (is_pcap_pass_2) {
@@ -688,7 +691,7 @@ void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   uint32_t net_srcaddr = record->srcaddr;
   swap_endianness(&net_srcaddr, sizeof(net_srcaddr));
   tmp = ip_int_to_str(net_srcaddr);
-  strncpy(ip_src_str, tmp, strlen(tmp));
+  snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
   
   uint16_t tmp_src_port = record->srcport;
   uint16_t tmp_dst_port = record->dstport;
@@ -696,7 +699,7 @@ void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   uint32_t net_dstaddr = record->dstaddr;
   swap_endianness(&net_dstaddr, sizeof(net_dstaddr));
   tmp = ip_int_to_str(net_dstaddr);
-  strncpy(ip_dst_str, tmp, strlen(tmp));
+  snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
   
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, record->prot);

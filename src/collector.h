@@ -6,6 +6,7 @@
 #define COLLECTOR_H
 #include <uv.h>
 #include "arena.h"
+#include "netflow.h"
 
 typedef enum {
   collector_data_status_init = 0,
@@ -27,13 +28,13 @@ typedef struct {
 } parse_args_t;
 
 typedef struct {
-  int (*detect_version)(void *);
-  void *(*parse_v5)(uv_work_t *req);
-  void(*(*parse_v9)(uv_work_t *req));
-  void(*(*parse_ipfix)(uv_work_t *req));
-  void(*(*alloc)(arena_struct_t *arena, size_t bytes));
-  void(*(*realloc)(void *) );
-  void(*(*free)(void *) );
+  NETFLOW_VERSION (*detect_version)(void *);
+  uv_work_cb parse_v5;
+  uv_work_cb parse_v9;
+  uv_work_cb parse_ipfix;
+  void *(*alloc)(arena_struct_t *arena, size_t bytes);
+  void *(*realloc)(void *ptr, size_t bytes);
+  void (*free)(void *ptr);
   char *pcap_file;
 } collector_t;
 /**
@@ -100,7 +101,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
  *
  * @return TODO
  */
-void print_rss_max_usage(void);
+void print_rss_max_usage(uv_timer_t *handle);
 /**
  * @brief TODO: Document after_work_cb
  *

@@ -142,7 +142,7 @@ void init_ipfix(arena_struct_t *arena, const size_t cap);
  * @param req TODO
  * @return TODO
  */
-void *parse_ipfix(uv_work_t *req);
+void parse_ipfix(uv_work_t *req);
 /**
  * @brief TODO: Document copy_ipfix_to_flow
  *

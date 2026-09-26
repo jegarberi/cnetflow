@@ -11,6 +11,7 @@
 // ... (existing includes)
 
 #include <assert.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -61,23 +62,30 @@ uv_udp_t *udp_server_global = NULL;
 
 // uv_thread_t threads[7];
 size_t thread_counter;
-_Atomic static volatile int active_requests = 0;
+static _Atomic int active_requests = 0;
 static volatile uint64_t total_processed_flows = 0;
 static volatile uint64_t total_received_flows = 0;
 static volatile uint64_t total_received_msgs = 0;
 static volatile uint64_t total_processed_msgs = 0;
 
+/* Both protocol parsers cap live templates at 65,536 entries.  A 2x-sized
+ * table keeps linear-probing load below 50% without allocating one million
+ * buckets for each protocol. */
+#define TEMPLATE_HASH_BUCKETS ((size_t) 1U << 17)
+
 // Global configuration cache
 int g_max_flows = 10000;
 int g_max_diff = 5;
 char *g_ch_conn_string = NULL;
+static int g_max_pending_requests = 65536;
 
 /**
  * @brief TODO: Document print_rss_max_usage
  *
  * @return TODO
  */
-void print_rss_max_usage() {
+void print_rss_max_usage(uv_timer_t *handle) {
+  (void) handle;
 #ifndef _WIN32
   struct rusage usage;
   getrusage(RUSAGE_SELF, &usage);
@@ -229,9 +237,9 @@ int8_t collector_default(collector_t *col_conf) {
 
   collector_config = col_conf;
   collector_config->alloc = arena_alloc;
-  collector_config->free = (void *) free;
-  collector_config->realloc = (void *) realloc;
-  collector_config->detect_version = (void *) detect_version;
+  collector_config->free = free;
+  collector_config->realloc = realloc;
+  collector_config->detect_version = detect_version;
   collector_config->parse_v5 = parse_v5;
   collector_config->parse_v9 = parse_v9;
   collector_config->parse_ipfix = parse_ipfix;
@@ -308,6 +316,14 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
             arena_offset_debug);
   // memset(buffer[buffer_index].base, 0, suggested_size);
 }
+
+// These are also used by the protocol-formatting path when pcap support is
+// disabled, in which case the output array remains NULL.
+uint32_t global_pcap_frame_number = 0;
+int is_pcap_pass_2 = 0;
+uv_mutex_t pcap_output_mutex;
+dyn_array_t *pcap_output_lines = NULL;
+
 #ifdef HAVE_PCAP
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
@@ -327,11 +343,6 @@ void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 #define DLT_NULL 0
 #endif
 #include "dyn_array.h"
-
-uint32_t global_pcap_frame_number = 0;
-int is_pcap_pass_2 = 0;
-uv_mutex_t pcap_output_mutex;
-dyn_array_t *pcap_output_lines = NULL;
 
 typedef struct {
     uint32_t frame_number;
@@ -416,7 +427,7 @@ int parse_pcap_file(collector_t *collector, const char *filename) {
         continue;
 
       int payload_len = udp_len - 8;
-      if (header->caplen < offset + ip_len + 8 + payload_len)
+      if ((size_t) header->caplen < (size_t) offset + (size_t) ip_len + 8U + (size_t) payload_len)
         continue;
 
       const u_char *payload = data + offset + ip_len + 8;
@@ -512,6 +523,14 @@ int8_t collector_start(collector_t *collector) {
       }
   }
 
+  const char *max_pending_env = getenv("CNETFLOW_MAX_PENDING_REQUESTS");
+  if (max_pending_env) {
+    unsigned long configured = strtoul(max_pending_env, NULL, 10);
+    if (configured > 0 && configured <= INT_MAX) {
+      g_max_pending_requests = (int) configured;
+    }
+  }
+
 
 #ifdef USE_REDIS
   // Initialize Redis
@@ -547,7 +566,6 @@ int8_t collector_start(collector_t *collector) {
   arena_hashmap_nf9 = malloc(sizeof(arena_struct_t));
   arena_hashmap_ipfix = malloc(sizeof(arena_struct_t));
 
-#ifdef USE_ARENA_ALLOCATOR
   arena_status err = arena_create(arena_collector, (size_t) 1 * 1024 * 1024 * 1024);
   if (err != ok) {
     LOG_ERROR("arena_create failed: %d\n", err);
@@ -571,11 +589,10 @@ int8_t collector_start(collector_t *collector) {
     LOG_ERROR("arena_create failed: %d\n", err);
     goto error_no_arena;
   }
-#endif
-  LOG_ERROR("%s %d %s init_v9(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
-  init_v9(arena_hashmap_nf9, 1000000);
-  LOG_ERROR("%s %d %s init_ipfix(arena_collector, 1000000);\n", __FILE__, __LINE__, __func__);
-  init_ipfix(arena_hashmap_ipfix, 1000000);
+  LOG_DEBUG("%s %d %s init_v9(arena_collector, %zu);\n", __FILE__, __LINE__, __func__, TEMPLATE_HASH_BUCKETS);
+  init_v9(arena_hashmap_nf9, TEMPLATE_HASH_BUCKETS);
+  LOG_DEBUG("%s %d %s init_ipfix(arena_collector, %zu);\n", __FILE__, __LINE__, __func__, TEMPLATE_HASH_BUCKETS);
+  init_ipfix(arena_hashmap_ipfix, TEMPLATE_HASH_BUCKETS);
   init_unparsed_flows_cache(arena_collector);
 
   // Initialize global metrics
@@ -592,7 +609,7 @@ int8_t collector_start(collector_t *collector) {
   if (ch_conn_str)
     g_ch_conn_string = strdup(ch_conn_str);
 
-  LOG_ERROR("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s collector_init...\n", __FILE__, __LINE__, __func__);
   loop_timer_rss = uv_default_loop();
   loop_timer_snmp = uv_default_loop();
   loop_udp = uv_default_loop();
@@ -609,7 +626,7 @@ int8_t collector_start(collector_t *collector) {
   // uv_timer_init(loop_timer_snmp, &timer_req_snmp);
   // uv_timer_start(&timer_req_snmp, snmp_test, 30000, 30000);
   uv_timer_init(loop_timer_rss, &timer_req_rss);
-  uv_timer_start(&timer_req_rss, (void *) print_rss_max_usage, 1000, 1000);
+  uv_timer_start(&timer_req_rss, print_rss_max_usage, 1000, 1000);
   uv_timer_init(loop_udp, &timer_backlog);
   uv_timer_start(&timer_backlog, check_backlog_cb, 60000, 60000);
   LOG_DEBUG("%s %d %s uv_udp_t *udp_server = collector_config->alloc(arena_collector, sizeof(uv_udp_t));\n", __FILE__,
@@ -679,7 +696,7 @@ int8_t collector_start(collector_t *collector) {
     goto error_destroy_arena;
   }
 
-  const int listen = uv_udp_recv_start(udp_server, (uv_alloc_cb) alloc_cb, udp_handle);
+  const int listen = uv_udp_recv_start(udp_server, alloc_cb, udp_handle);
   if (listen < 0) {
     LOG_ERROR("listen failed: %s\n", uv_strerror(listen));
     goto error_destroy_arena;
@@ -731,8 +748,8 @@ ok:
 
   metrics_cleanup();
 
-  LOG_ERROR("%s %d %s", __FILE__, __LINE__, __func__);
-  LOG_ERROR("exit collector_thread\n");
+  LOG_DEBUG("%s %d %s", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("exit collector_thread\n");
   return 0;
 
 error_destroy_arena:
@@ -810,6 +827,7 @@ void after_work_cb(uv_work_t *req, int status) {
 #endif
 
 void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
+  (void) handle;
   LOG_DEBUG("%s %d %s got udp packet! handle: %p flags: %d bytes: %ld\n", __FILE__, __LINE__, __func__, (void *) handle,
             flags, nread);
 
@@ -883,8 +901,21 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
       goto udp_handle_free_and_return;
   }
 
+  /* libuv's work queue is otherwise unbounded.  Once database latency makes
+   * workers fall behind, continuing to allocate packet copies only converts
+   * transient overload into multi-GiB growth and eventual process failure. */
+  if (unlikely(__atomic_load_n(&active_requests, __ATOMIC_RELAXED) >= g_max_pending_requests)) {
+    static uint64_t dropped_for_backpressure = 0;
+    dropped_for_backpressure++;
+    if ((dropped_for_backpressure & 0xffffU) == 1U) {
+      LOG_ERROR("Worker backlog reached %d; dropping packets (dropped=%llu)\n", g_max_pending_requests,
+                (unsigned long long) dropped_for_backpressure);
+    }
+    goto udp_handle_free_and_return;
+  }
+
   parse_args_t *func_args = NULL;
-  LOG_ERROR("%s %d %s func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));\n", __FILE__,
+  LOG_DEBUG("%s %d %s func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));\n", __FILE__,
             __LINE__, __func__);
 
   func_args = collector_config->alloc(arena_collector, sizeof(parse_args_t));
@@ -899,7 +930,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->status = collector_data_status_init;
   func_args->frame_number = global_pcap_frame_number;
 
-  LOG_ERROR("%s %d %s work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));\n", __FILE__, __LINE__,
+  LOG_DEBUG("%s %d %s work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));\n", __FILE__, __LINE__,
             __func__);
   uv_work_t *work_req = collector_config->alloc(arena_collector, sizeof(uv_work_t));
   if (work_req == NULL) {
@@ -943,20 +974,17 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   func_args->now = (uint32_t) time(NULL);
   func_args->flags = flags;
   work_req->data = (parse_args_t *) func_args;
-  LOG_ERROR("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, (int)data_counter,
+  LOG_DEBUG("%s %d %s [%d] work_req addr: %p   work_req->data addr: %p\n", __FILE__, __LINE__, __func__, (int)data_counter,
             work_req, buf->base);
   switch (nf_version) {
     case NETFLOW_V5:
-      work_cb = (void *) collector_config->parse_v5;
-      // work_cb = NULL;
+      work_cb = collector_config->parse_v5;
       break;
     case NETFLOW_V9:
-      work_cb = (void *) collector_config->parse_v9;
-      // work_cb = NULL;
+      work_cb = collector_config->parse_v9;
       break;
     case NETFLOW_IPFIX:
-      work_cb = (void *) collector_config->parse_ipfix;
-      // work_cb = NULL;
+      work_cb = collector_config->parse_ipfix;
       break;
     default:
       LOG_ERROR("unsupported nf version %d\n", nf_version);
@@ -967,7 +995,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   if (work_cb) {
 
     active_requests++;
-    int rc = uv_queue_work(loop_pool, work_req, work_cb, (uv_after_work_cb) after_work_cb);
+    int rc = uv_queue_work(loop_pool, work_req, work_cb, after_work_cb);
     if (rc != 0) {
       LOG_ERROR("uv_queue_work failed: %s\n", uv_strerror(rc));
       active_requests--;

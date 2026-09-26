@@ -38,7 +38,7 @@
  * @return TODO
  */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
-  LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s \n", __FILE__, __LINE__, __func__);
   arena->base_address = malloc(capacity);
   if (arena->base_address == NULL) {
     return error;
@@ -54,7 +54,12 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   arena->free_list = NULL;
   arena->recycle = 0;
   arena->end = (size_t) arena->base_address + arena->size;
-  memset(arena->base_address, 0, arena->size);
+  /*
+   * Do not touch the complete reservation here.  The collector reserves
+   * several GiB across its arenas and arena_alloc() already zeroes every
+   * block before returning it.  Eagerly clearing the reservation turns all
+   * of those lazy virtual pages into resident memory during startup.
+   */
   uv_mutex_init(&arena->mutex);
   return ok;
 }
@@ -215,7 +220,7 @@ int arena_clean(arena_struct_t *arena) {
   arena->first_chunk = NULL;
   arena->last_chunk = NULL;
   arena->free_list = NULL;
-  memset(arena->base_address, 0, arena->size);
+  /* Allocations are cleared on reuse by arena_alloc(). */
   uv_mutex_unlock(&arena->mutex);
   return 0;
 }
@@ -305,6 +310,8 @@ int arena_destroy(arena_struct_t *arena) {
  * @return TODO
  */
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
+  (void) arena;
+  (void) bytes_to_add;
   LOG_ERROR("%s %d %s arena_realloc not supported due to internal pointers\n", __FILE__, __LINE__, __func__);
   return -1;
 }

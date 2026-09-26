@@ -101,8 +101,8 @@ Test(arena, realloc_grows) {
 #ifdef USE_ARENA_ALLOCATOR
   cr_assert_eq(arena_create(arena_test, 1024), ok);
   size_t old_size = arena_test->size;
-  (void)arena_realloc(arena_test, 1024);
-  cr_assert(old_size < arena_test->size);
+  cr_assert_eq(arena_realloc(arena_test, 1024), -1);
+  cr_assert_eq(old_size, arena_test->size);
 #else
   (void)arena_realloc(arena_test, 1024);
 #endif
