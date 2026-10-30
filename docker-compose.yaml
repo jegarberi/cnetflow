@@ -11,6 +11,15 @@ services:
       - UV_THREADPOOL_SIZE
       - CH_CONN_STRING
       - TZ
+  web:
+    build:
+      context: ../cnetflow-web
+    image: cnetflow-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080/tcp"
+    environment:
+      - CH_CONN_STRING
   softflowd:
     image: kagurazakanyaa/softflowd
     command: [ "softflowd",  "-v","9","-i", "any" ,"-D", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
