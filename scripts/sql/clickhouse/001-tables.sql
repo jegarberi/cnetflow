@@ -212,7 +212,7 @@ CREATE TABLE IF NOT EXISTS netflow.dumps
             index_granularity = 8192,
             storage_policy = 'default';
 
-create table netflow.flows
+CREATE TABLE IF NOT EXISTS netflow.flows
 (
     inserted_at DateTime default now(),
     exporter    String,
@@ -244,7 +244,7 @@ create table netflow.flows
 
 
 
-create table ips
+CREATE TABLE IF NOT EXISTS ips
 
 (
     nombre String,
@@ -256,7 +256,7 @@ create table ips
      ORDER BY (ip, nodo);
 
 
-create table netflow.ports
+CREATE TABLE IF NOT EXISTS netflow.ports
 (
     number      UInt16,
     protocol    UInt16,
@@ -268,7 +268,7 @@ create table netflow.ports
 
 
 
-create table netflow.protocols
+CREATE TABLE IF NOT EXISTS netflow.protocols
 (
     id          UInt256,
     name        String,
@@ -278,7 +278,7 @@ create table netflow.protocols
 
 
 
-create table netflow.services
+CREATE TABLE IF NOT EXISTS netflow.services
 (
     addr     IPv4,
     port     UInt16,
