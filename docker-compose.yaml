@@ -19,12 +19,24 @@ services:
       test: ["CMD-SHELL", "clickhouse client --host \"$$(hostname)\" --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" -q 'SELECT 1'"]
       interval: 5s
       retries: 30
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 30
   cnetflow:
     build:
       context: .
     image: cnetflow
     depends_on:
       clickhouse:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     #restart: no
     restart: unless-stopped
@@ -34,6 +46,12 @@ services:
       - UV_THREADPOOL_SIZE
       - CH_CONN_STRING
       - TZ
+      - CNETFLOW_BIND_IP=0.0.0.0
+      - CNETFLOW_BIND_PORT=2055
+      - CNETFLOW_MAX_FLOWS
+      - CNETFLOW_MAX_DIFF
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
   web:
     build:
       context: ../cnetflow-web
@@ -68,3 +86,4 @@ services:
 
 volumes:
   clickhouse-data:
+  redis-data:
