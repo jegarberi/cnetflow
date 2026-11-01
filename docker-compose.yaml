@@ -64,6 +64,9 @@ services:
       - "${WEB_PORT:-8080}:8080/tcp"
     environment:
       - CH_CONN_STRING
+      - LOCAL_NETS
+    volumes:
+      - ${MMDB_DIR:-./mmdb}:/mmdb:ro
   softflowd:
     image: kagurazakanyaa/softflowd
     command: [ "softflowd",  "-v","9","-i", "any" ,"-D", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
