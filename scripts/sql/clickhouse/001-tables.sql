@@ -51,7 +51,10 @@ CREATE TABLE IF NOT EXISTS flows
     ip_version  UInt8,
 
     -- Flow hash for deduplication (optional)
-    flow_hash   String DEFAULT ''
+    flow_hash   String DEFAULT '',
+    -- Parsed IPv4 (0 for IPv6), computed on insert; lets the web UI classify direction with integer compares
+    src_ip4     UInt32 MATERIALIZED toUInt32(toIPv4OrZero(srcaddr)),
+    dst_ip4     UInt32 MATERIALIZED toUInt32(toIPv4OrZero(dstaddr))
 )
 ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(inserted_at)
@@ -234,7 +237,10 @@ CREATE TABLE IF NOT EXISTS netflow.flows
     src_mask    UInt8,
     dst_mask    UInt8,
     ip_version  UInt8,
-    flow_hash   String   default ''
+    flow_hash   String   default '',
+    -- Parsed IPv4 (0 for IPv6), computed on insert; lets the web UI classify direction with integer compares
+    src_ip4     UInt32 MATERIALIZED toUInt32(toIPv4OrZero(srcaddr)),
+    dst_ip4     UInt32 MATERIALIZED toUInt32(toIPv4OrZero(dstaddr))
 )
     engine = MergeTree PARTITION BY toYYYYMMDD(first)
         ORDER BY (exporter, first, srcaddr, dstaddr, srcport, dstport, protocol)
