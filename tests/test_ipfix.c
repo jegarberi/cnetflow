@@ -201,21 +201,3 @@ static uint32_t ipv4(const char *dotted) {
   return ntohl(a.s_addr);
 }
 
-Test(ipfix, swap_src_dst_ipfix_logic) {
-  netflow_v9_record_insert_uint128_t r = {0};
-  r.srcaddr = ipv4("8.8.4.4"); // public
-  r.dstaddr = ipv4("10.0.0.2"); // private
-  r.srcport = htons(12345);
-  r.dstport = htons(22);
-  r.input = htons(5);
-  r.output = htons(6);
-
-  swap_src_dst_ipfix_ipv4(&r);
-  cr_expect_eq(r.srcaddr, ipv4("10.0.0.2"));
-  cr_expect_eq(r.dstaddr, ipv4("8.8.4.4"));
-  cr_expect_eq(r.srcport, htons(22));
-  cr_expect_eq(r.dstport, htons(12345));
-  cr_expect_eq(r.input, htons(6));
-  cr_expect_eq(r.output, htons(5));
-}
-

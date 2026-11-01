@@ -619,7 +619,6 @@ void parse_v9(uv_work_t *req) {
             flows_to_insert.records[record_counter].First = now - duration;
           }
           if (!is_ipv6) {
-            swap_src_dst_v9_ipv4(&flows_to_insert.records[record_counter]);
 #ifdef CNETFLOW_DEBUG_BUILD
             printf_v9(stderr, &flows_to_insert, record_counter, args->frame_number, template_id, flowset_id);
 #endif

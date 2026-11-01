@@ -293,27 +293,6 @@ void *fix_endianness(void *buf, void *data, size_t len);
  */
 void printf_v5(FILE *, netflow_v5_flowset_t *, int);
 /**
- * @brief TODO: Document swap_src_dst_v5_ipv4
- *
- * @param record TODO
- * @return TODO
- */
-void swap_src_dst_v5_ipv4(netflow_v5_record_t *record);
-/**
- * @brief TODO: Document swap_src_dst_v9_ipv4
- *
- * @param record TODO
- * @return TODO
- */
-void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record);
-/**
- * @brief TODO: Document swap_src_dst_ipfix_ipv4
- *
- * @param record TODO
- * @return TODO
- */
-void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record);
-/**
  * @brief TODO: Document printf_v9
  *
  * @param file TODO
@@ -325,11 +304,5 @@ void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record);
  * @return TODO
  */
 void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i, uint32_t frame_number, uint16_t template_id, uint16_t flowset_id);
-/**
- * @brief TODO: Document is_ipv4_private
- *
- * @return TODO
- */
-int is_ipv4_private(uint32_t);
 extern endianness_e endianness;
 #endif // NETFLOW_H

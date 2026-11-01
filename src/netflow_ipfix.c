@@ -702,8 +702,6 @@ void parse_ipfix(uv_work_t *req) {
             // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
             // sizeof(flows_to_insert.records[record_counter].dstaddr));
 
-            swap_src_dst_ipfix_ipv4(&flows_to_insert.records[record_counter]);
-
             // swap_endianness(&flows_to_insert.records[record_counter].srcport,
             // sizeof(flows_to_insert.records[record_counter].srcport));
             // swap_endianness(&flows_to_insert.records[record_counter].dstport,

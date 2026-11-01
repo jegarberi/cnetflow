@@ -115,8 +115,6 @@ void parse_v5(uv_work_t *req) {
     // Note: We do NOT swap First/Last back to network order here.
     // We also do not swap other fields in place here; copy_v5_to_flow handles that non-destructively.
 
-    swap_src_dst_v5_ipv4(&netflow_packet_ptr->records[record_counter]);
-
     if (netflow_packet_ptr->records[record_counter].Last != 0 &&
         netflow_packet_ptr->records[record_counter].First != 0) {
       // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,

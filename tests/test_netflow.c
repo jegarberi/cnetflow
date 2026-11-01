@@ -63,43 +63,6 @@ static uint32_t ipv4(const char *dotted) {
   return ntohl(a.s_addr);
 }
 
-Test(netflow, swap_src_dst_v5_logic) {
-  netflow_v5_record_t r = {0};
-  r.srcaddr = ipv4("8.8.8.8"); // public
-  r.dstaddr = ipv4("192.168.1.10"); // private
-  r.srcport = htons(5555);
-  r.dstport = htons(80);
-  r.input = htons(1);
-  r.output = htons(2);
-
-  swap_src_dst_v5_ipv4(&r);
-  // Since src is public and dst is private, condition !is_private(src) is true => swap occurs
-  cr_expect_eq(r.srcaddr, ipv4("192.168.1.10"));
-  cr_expect_eq(r.dstaddr, ipv4("8.8.8.8"));
-  cr_expect_eq(r.srcport, htons(80));
-  cr_expect_eq(r.dstport, htons(5555));
-  cr_expect_eq(r.input, htons(2));
-  cr_expect_eq(r.output, htons(1));
-}
-
-Test(netflow, swap_src_dst_v9_logic) {
-  netflow_v9_record_insert_uint128_t r = {0};
-  r.srcaddr = ipv4("8.8.4.4"); // public
-  r.dstaddr = ipv4("10.0.0.2"); // private
-  r.srcport = htons(12345);
-  r.dstport = htons(22);
-  r.input = htons(5);
-  r.output = htons(6);
-
-  swap_src_dst_v9_ipv4(&r);
-  cr_expect_eq(r.srcaddr, ipv4("10.0.0.2"));
-  cr_expect_eq(r.dstaddr, ipv4("8.8.4.4"));
-  cr_expect_eq(r.srcport, htons(22));
-  cr_expect_eq(r.dstport, htons(12345));
-  cr_expect_eq(r.input, htons(6));
-  cr_expect_eq(r.output, htons(5));
-}
-
 Test(netflow, copy_v5_to_flow_copies_fields) {
   netflow_v5_flowset_t in = {0};
   in.header.count = 1;
@@ -127,20 +90,6 @@ Test(netflow, copy_v5_to_flow_copies_fields) {
   cr_expect_eq(out.records[0].dPkts, expected_pkts);
   cr_expect_eq(out.records[0].dOctets, expected_octets);
   cr_expect_eq(out.records[0].ip_version, (uint8_t) 4);
-}
-
-Test(netflow, is_ipv4_private_logic) {
-  cr_expect_eq(is_ipv4_private(ipv4("10.0.0.1")), 1);
-  cr_expect_eq(is_ipv4_private(ipv4("10.255.255.255")), 1);
-  cr_expect_eq(is_ipv4_private(ipv4("172.16.0.1")), 1);
-  cr_expect_eq(is_ipv4_private(ipv4("172.31.255.255")), 1);
-  cr_expect_eq(is_ipv4_private(ipv4("192.168.0.1")), 1);
-  cr_expect_eq(is_ipv4_private(ipv4("192.168.255.255")), 1);
-
-  cr_expect_eq(is_ipv4_private(ipv4("8.8.8.8")), 0);
-  cr_expect_eq(is_ipv4_private(ipv4("1.1.1.1")), 0);
-  cr_expect_eq(is_ipv4_private(ipv4("172.15.0.0")), 0);
-  cr_expect_eq(is_ipv4_private(ipv4("172.32.0.0")), 0);
 }
 
 Test(netflow, fix_endianness_values) {
