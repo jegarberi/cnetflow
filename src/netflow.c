@@ -466,12 +466,21 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
   char *tmp;
   // srcaddr/dstaddr are already in host byte order after parse_v9 applied swap_endianness.
   // ip_int_to_str expects network byte order (s_addr), so we swap once for display.
-  uint32_t srcaddr = netflow_packet->records[i].srcaddr;
-  uint32_t dstaddr = netflow_packet->records[i].dstaddr;
-  tmp = ip_int_to_str(htonl(srcaddr));
-  snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
-  tmp = ip_int_to_str(htonl(dstaddr));
-  snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
+  if (netflow_packet->records[i].ip_version == 6) {
+    uint128_t s6 = netflow_packet->records[i].srcaddr;
+    uint128_t d6 = netflow_packet->records[i].dstaddr;
+    swap_endianness(&s6, sizeof(s6));
+    swap_endianness(&d6, sizeof(d6));
+    inet_ntop(AF_INET6, &s6, ip_src_str, sizeof(ip_src_str));
+    inet_ntop(AF_INET6, &d6, ip_dst_str, sizeof(ip_dst_str));
+  } else {
+    uint32_t srcaddr = netflow_packet->records[i].srcaddr;
+    uint32_t dstaddr = netflow_packet->records[i].dstaddr;
+    tmp = ip_int_to_str(htonl(srcaddr));
+    snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
+    tmp = ip_int_to_str(htonl(dstaddr));
+    snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
+  }
 
   if (pcap_output_lines != NULL) {
     if (is_pcap_pass_2) {

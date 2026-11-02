@@ -226,6 +226,8 @@ char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
     }
   } else if (ip_version == 6) {
     struct in6_addr addr;
+    // parser stores v6 in host order (swapped like v4); back to network order
+    swap_endianness(&value, sizeof(value));
     memcpy(&addr, &value, 16);
     if (inet_ntop(AF_INET6, &addr, buf, INET6_ADDRSTRLEN) == NULL) {
       snprintf(buf, INET6_ADDRSTRLEN, "unknown");

@@ -618,13 +618,9 @@ void parse_v9(uv_work_t *req) {
             flows_to_insert.records[record_counter].Last = now;
             flows_to_insert.records[record_counter].First = now - duration;
           }
-          if (!is_ipv6) {
 #ifdef CNETFLOW_DEBUG_BUILD
-            printf_v9(stderr, &flows_to_insert, record_counter, args->frame_number, template_id, flowset_id);
+          printf_v9(stderr, &flows_to_insert, record_counter, args->frame_number, template_id, flowset_id);
 #endif
-          } else {
-            LOG_ERROR("ipv6 not supported at the moment...\n");
-          }
 
           local_v9_records++;
 
@@ -660,6 +656,10 @@ void parse_v9(uv_work_t *req) {
         collector_inc_received_flows(record_counter);
         if (args->flags & 2) {
             for (size_t i = 0; i < record_counter; i++) {
+                if (flows_to_insert.records[i].ip_version == 6) {
+                    printf_v9(stdout, &flows_to_insert, i, args->frame_number, template_id, flowset_id);
+                    continue;
+                }
                 uint32_t saddr = flows_to_insert.records[i].srcaddr;
                 uint32_t daddr = flows_to_insert.records[i].dstaddr;
                 if (saddr == 0 || daddr == 0) {
