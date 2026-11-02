@@ -27,25 +27,32 @@ extern arena_struct_t *arena_collector;
 
 // Response buffer for CURL
 typedef struct {
-  char *data;
+  char data[4096];
   size_t size;
 } curl_response_t;
 
+/**
+ * @brief TODO: Document ch_curl_write_callback
+ *
+ * @param contents TODO
+ * @param size TODO
+ * @param nmemb TODO
+ * @param userp TODO
+ * @return TODO
+ */
 static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
   size_t realsize = size * nmemb;
   curl_response_t *mem = (curl_response_t *) userp;
 
-  char *ptr = realloc(mem->data, mem->size + realsize + 1);
-  if (!ptr) {
-    CH_LOG_ERROR("Not enough memory for CURL response\n");
-    return 0;
+  size_t available = sizeof(mem->data) - mem->size - 1;
+  size_t to_copy = realsize < available ? realsize : available;
+  if (to_copy > 0) {
+    memcpy(mem->data + mem->size, contents, to_copy);
+    mem->size += to_copy;
+    mem->data[mem->size] = '\0';
   }
-
-  mem->data = ptr;
-  memcpy(&(mem->data[mem->size]), contents, realsize);
-  mem->size += realsize;
-  mem->data[mem->size] = 0;
-
+  /* Returning the complete input length tells libcurl the response was
+   * consumed even when the diagnostic buffer has been truncated. */
   return realsize;
 }
 
@@ -53,6 +60,11 @@ static size_t ch_curl_write_callback(void *contents, size_t size, size_t nmemb, 
 static uv_mutex_t cleanup_mutex;
 static uv_once_t cleanup_mutex_once = UV_ONCE_INIT;
 
+/**
+ * @brief TODO: Document init_cleanup_mutex
+ *
+ * @return TODO
+ */
 static void init_cleanup_mutex(void) {
   uv_mutex_init(&cleanup_mutex);
 }
@@ -65,6 +77,54 @@ static char ***ch_queries_ptrs = NULL;
 static int ch_queries_count = 0;
 static int ch_queries_capacity = 0;
 
+typedef struct {
+  ch_conn_t **conn;
+  char **query;
+  int *offset;
+  size_t *inserted;
+} ch_flush_ctx_t;
+
+static ch_flush_ctx_t *ch_flush_ctxs = NULL;
+static int ch_flush_ctx_count = 0;
+static int ch_flush_ctx_capacity = 0;
+
+/**
+ * @brief TODO: Document register_ch_flush_ctx
+ *
+ * @param conn TODO
+ * @param query TODO
+ * @param offset TODO
+ * @param inserted TODO
+ * @return TODO
+ */
+void register_ch_flush_ctx(ch_conn_t **conn, char **query, int *offset, size_t *inserted) {
+  uv_once(&cleanup_mutex_once, init_cleanup_mutex);
+  uv_mutex_lock(&cleanup_mutex);
+  if (ch_flush_ctx_count == ch_flush_ctx_capacity) {
+    int new_cap = ch_flush_ctx_capacity == 0 ? 16 : ch_flush_ctx_capacity * 2;
+    ch_flush_ctx_t *new_arr = realloc(ch_flush_ctxs, new_cap * sizeof(ch_flush_ctx_t));
+    if (new_arr) {
+      ch_flush_ctxs = new_arr;
+      ch_flush_ctx_capacity = new_cap;
+    }
+  }
+  if (ch_flush_ctx_count < ch_flush_ctx_capacity) {
+    ch_flush_ctxs[ch_flush_ctx_count].conn = conn;
+    ch_flush_ctxs[ch_flush_ctx_count].query = query;
+    ch_flush_ctxs[ch_flush_ctx_count].offset = offset;
+    ch_flush_ctxs[ch_flush_ctx_count].inserted = inserted;
+    ch_flush_ctx_count++;
+  }
+  uv_mutex_unlock(&cleanup_mutex);
+}
+
+/**
+ * @brief TODO: Document register_ch_cleanup
+ *
+ * @param conn_ptr TODO
+ * @param query_ptr TODO
+ * @return TODO
+ */
 void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
   uv_once(&cleanup_mutex_once, init_cleanup_mutex);
   uv_mutex_lock(&cleanup_mutex);
@@ -97,8 +157,29 @@ void register_ch_cleanup(ch_conn_t **conn_ptr, char **query_ptr) {
   uv_mutex_unlock(&cleanup_mutex);
 }
 
+/**
+ * @brief TODO: Document ch_db_cleanup_all
+ *
+ * @return TODO
+ */
 void ch_db_cleanup_all(void) {
   uv_mutex_lock(&cleanup_mutex);
+
+  for (int i = 0; i < ch_flush_ctx_count; i++) {
+    if (ch_flush_ctxs[i].inserted && *ch_flush_ctxs[i].inserted > 0 &&
+        ch_flush_ctxs[i].conn && *ch_flush_ctxs[i].conn && (*ch_flush_ctxs[i].conn)->connected &&
+        ch_flush_ctxs[i].query && *ch_flush_ctxs[i].query &&
+        ch_flush_ctxs[i].offset && *ch_flush_ctxs[i].offset > 0) {
+      ch_execute(*ch_flush_ctxs[i].conn, *ch_flush_ctxs[i].query, *ch_flush_ctxs[i].offset);
+      *ch_flush_ctxs[i].inserted = 0;
+      *ch_flush_ctxs[i].offset = 0;
+    }
+  }
+  free(ch_flush_ctxs);
+  ch_flush_ctxs = NULL;
+  ch_flush_ctx_count = 0;
+  ch_flush_ctx_capacity = 0;
+
   for (int i = 0; i < ch_conns_count; i++) {
     if (ch_conns_ptrs[i] && *ch_conns_ptrs[i]) {
       ch_disconnect(*ch_conns_ptrs[i]);
@@ -123,6 +204,13 @@ void ch_db_cleanup_all(void) {
   uv_mutex_unlock(&cleanup_mutex);
 }
 
+/**
+ * @brief TODO: Document ch_ip_uint128_to_string
+ *
+ * @param value TODO
+ * @param ip_version TODO
+ * @return TODO
+ */
 char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
   static THREAD_LOCAL char ret_string[4][INET6_ADDRSTRLEN];
   static THREAD_LOCAL int buffer_idx = 0;
@@ -138,6 +226,8 @@ char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
     }
   } else if (ip_version == 6) {
     struct in6_addr addr;
+    // parser stores v6 in host order (swapped like v4); back to network order
+    swap_endianness(&value, sizeof(value));
     memcpy(&addr, &value, 16);
     if (inet_ntop(AF_INET6, &addr, buf, INET6_ADDRSTRLEN) == NULL) {
       snprintf(buf, INET6_ADDRSTRLEN, "unknown");
@@ -148,7 +238,18 @@ char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version) {
   return buf;
 }
 
-ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, const char *user, const char *password) {
+/**
+ * @brief TODO: Document ch_connect
+ *
+ * @param host TODO
+ * @param port TODO
+ * @param database TODO
+ * @param user TODO
+ * @param password TODO
+ * @param params TODO
+ * @return TODO
+ */
+ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, const char *user, const char *password, const char *params) {
   ch_conn_t *conn = (ch_conn_t *) calloc(1, sizeof(ch_conn_t));
   if (!conn) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate connection structure\n", __FILE__, __LINE__, __func__);
@@ -160,6 +261,7 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
   conn->database = strdup(database ? database : "default");
   conn->user = strdup(user ? user : "default");
   conn->password = strdup(password ? password : "");
+  conn->params = params ? strdup(params) : NULL;
 
   if (!conn->host || !conn->database || !conn->user || !conn->password) {
     CH_LOG_ERROR("%s %d %s: Failed to duplicate connection strings\n", __FILE__, __LINE__, __func__);
@@ -176,7 +278,11 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
 
   // Test connection with a simple query
   char test_url[512];
-  snprintf(test_url, sizeof(test_url), "http://%s:%u/?query=SELECT%%201", host, port);
+  if (conn->params && conn->params[0] != '\0') {
+    snprintf(test_url, sizeof(test_url), "http://%s:%u/?query=SELECT%%201&%s", host, port, conn->params);
+  } else {
+    snprintf(test_url, sizeof(test_url), "http://%s:%u/?query=SELECT%%201", host, port);
+  }
 
   curl_easy_setopt(conn->curl, CURLOPT_URL, test_url);
   curl_easy_setopt(conn->curl, CURLOPT_TIMEOUT, 5L);
@@ -193,10 +299,6 @@ ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database, con
   curl_easy_setopt(conn->curl, CURLOPT_WRITEDATA, (void *) &response);
 
   CURLcode res = curl_easy_perform(conn->curl);
-
-  if (response.data) {
-    free(response.data);
-  }
 
   if (res != CURLE_OK) {
     CH_LOG_ERROR("%s %d %s: ClickHouse connection test failed: %s\n", __FILE__, __LINE__, __func__,
@@ -226,10 +328,18 @@ error:
     free(conn->user);
   if (conn->password)
     free(conn->password);
+  if (conn->params)
+    free(conn->params);
   free(conn);
   return NULL;
 }
 
+/**
+ * @brief TODO: Document ch_db_connect
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 WEAK void ch_db_connect(ch_conn_t **conn) {
   if (*conn != NULL) {
     if ((*conn)->connected) {
@@ -247,14 +357,21 @@ WEAK void ch_db_connect(ch_conn_t **conn) {
     EXIT_WITH_MSG(EXIT_FAILURE, "%s %d %s This should not happen...\n", __FILE__, __LINE__, __func__);
   }
 
-  // Parse connection string: host:port:database:user:password
+  // Extract params first if present
   char *conn_str_copy = strdup(conn_string);
+  char *params_ptr = strchr(conn_str_copy, '?');
+  if (params_ptr) {
+    *params_ptr = '\0';
+    params_ptr++; // Points to params
+  }
+
+  // Parse connection string: host:port:database:user:password
   char *saveptr;
   char *host = strtok_r(conn_str_copy, ":", &saveptr);
   char *port_str = strtok_r(NULL, ":", &saveptr);
   char *database = strtok_r(NULL, ":", &saveptr);
   char *user = strtok_r(NULL, ":", &saveptr);
-  char *password = strtok_r(NULL, "?", &saveptr);
+  char *password = strtok_r(NULL, ":", &saveptr);
 
   if (!host || !port_str) {
     CH_LOG_ERROR("Invalid CH_CONN_STRING format\n");
@@ -263,7 +380,7 @@ WEAK void ch_db_connect(ch_conn_t **conn) {
   }
 
   uint16_t port = atoi(port_str);
-  *conn = ch_connect(host, port, database, user, password);
+  *conn = ch_connect(host, port, database, user, password, params_ptr);
   free(conn_str_copy);
 
   static THREAD_LOCAL bool registered = false;
@@ -278,6 +395,12 @@ WEAK void ch_db_connect(ch_conn_t **conn) {
   }
 }
 
+/**
+ * @brief TODO: Document ch_disconnect
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 void ch_disconnect(ch_conn_t *conn) {
   if (!conn)
     return;
@@ -293,16 +416,30 @@ void ch_disconnect(ch_conn_t *conn) {
     free(conn->user);
   if (conn->password)
     free(conn->password);
+  if (conn->params)
+    free(conn->params);
   free(conn);
 }
 
+/**
+ * @brief TODO: Document ch_execute
+ *
+ * @param conn TODO
+ * @param query TODO
+ * @param query_len TODO
+ * @return TODO
+ */
 int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
   if (!conn || !conn->curl)
     return -1;
   if (query_len == 0)
     return -1;
   char url[512];
-  snprintf(url, sizeof(url), "http://%s:%u/?database=%s", conn->host, conn->port, conn->database);
+  if (conn->params && conn->params[0] != '\0') {
+    snprintf(url, sizeof(url), "http://%s:%u/?database=%s&%s", conn->host, conn->port, conn->database, conn->params);
+  } else {
+    snprintf(url, sizeof(url), "http://%s:%u/?database=%s", conn->host, conn->port, conn->database);
+  }
 
   curl_easy_setopt(conn->curl, CURLOPT_URL, url);
   curl_easy_setopt(conn->curl, CURLOPT_POSTFIELDS, query);
@@ -324,8 +461,6 @@ int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
 
   if (res != CURLE_OK) {
     CH_LOG_ERROR("%s %d %s: Query failed: %s\n", __FILE__, __LINE__, __func__, curl_easy_strerror(res));
-    if (response.data)
-      free(response.data);
     return -1;
   }
 
@@ -334,17 +469,18 @@ int ch_execute(ch_conn_t *conn, const char *query, size_t query_len) {
 
   if (http_code != 200) {
     CH_LOG_ERROR("%s %d %s: Query failed with HTTP %ld: %s\n", __FILE__, __LINE__, __func__, http_code,
-                 response.data ? response.data : "no response");
-    if (response.data)
-      free(response.data);
+                 response.size ? response.data : "no response");
     return -1;
   }
-
-  if (response.data)
-    free(response.data);
   return 0;
 }
 
+/**
+ * @brief TODO: Document ch_create_flows_table
+ *
+ * @param conn TODO
+ * @return TODO
+ */
 int ch_create_flows_table(ch_conn_t *conn) {
   const char *create_table_query = "CREATE TABLE IF NOT EXISTS flows ("
                                    "    inserted_at DateTime DEFAULT now(),"
@@ -378,159 +514,105 @@ int ch_create_flows_table(ch_conn_t *conn) {
 }
 
 
-WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
-  static THREAD_LOCAL ch_conn_t *conn = NULL;
-
-  ch_db_connect(&conn);
-  if (!conn || !conn->connected) {
+static int ch_insert_binary_record(ch_conn_t **conn, uint32_t exporter, const char *table,
+                                   const char *key_column, const char *data_column, const char *template_key,
+                                   const uint8_t *dump, size_t dump_size) {
+  ch_db_connect(conn);
+  if (!*conn || !(*conn)->connected) {
     CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
     return -1;
   }
 
-  // Convert exporter IP to string format
   swap_endianness(&exporter, sizeof(exporter));
   char exporter_str[INET_ADDRSTRLEN];
-  struct in_addr addr;
-  addr.s_addr = htonl(exporter);
+  struct in_addr addr = {.s_addr = htonl(exporter)};
   if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
     snprintf(exporter_str, sizeof(exporter_str), "unknown");
   }
 
-  // Build dump string safely: {aa,bb,...}
-  size_t needed_dump_len = 2 + (dump_size ? (dump_size * 2 + (dump_size - 1)) : 0) + 1; // {} + hex+commas + NUL
-  // Put a soft cap to avoid excessive memory usage
-  if (needed_dump_len > (size_t) (1 << 20)) { // >1MB string for a single row is suspicious
+  const size_t encoded_len = 2 + (dump_size ? dump_size * 3 - 1 : 0) + 1;
+  if (encoded_len > (size_t) (1 << 20)) {
     CH_LOG_ERROR("%s %d %s: dump too large (%zu bytes), refusing to build query\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
+                 encoded_len);
     return -1;
   }
-  char *str_dump = (char *) malloc(needed_dump_len);
-  if (!str_dump) {
+
+  char *encoded = malloc(encoded_len);
+  if (!encoded) {
     CH_LOG_ERROR("%s %d %s: Failed to allocate dump string buffer (%zu bytes)\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
+                 encoded_len);
     return -1;
   }
-  char *p = str_dump;
-  *p++ = '{';
+
+  char *cursor = encoded;
+  *cursor++ = '{';
   for (size_t i = 0; i < dump_size; i++) {
-    int n = snprintf(p, 3, "%02x", dump[i]);
-    p += n;
+    cursor += snprintf(cursor, 3, "%02x", dump[i]);
     if (i + 1 < dump_size) {
-      *p++ = ',';
+      *cursor++ = ',';
     }
   }
-  *p++ = '}';
-  *p = '\0';
+  *cursor++ = '}';
+  *cursor = '\0';
 
-  const char *prefix = "INSERT INTO templates (exporter,template_key,template) VALUES ";
-  size_t query_cap = strlen(prefix) + strlen(exporter_str) + strlen(template_key) + strlen(str_dump) + 32;
-  char *query = (char *) malloc(query_cap);
-  if (!query) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_cap);
-    free(str_dump);
+  const char *format = "INSERT INTO %s (exporter,%s,%s) VALUES ('%s','%s','%s')";
+  const int required = snprintf(NULL, 0, format, table, key_column, data_column, exporter_str, template_key, encoded);
+  if (required < 0) {
+    free(encoded);
     return -1;
   }
-  int written = snprintf(query, query_cap, "%s('%s','%s','%s')", prefix, exporter_str, template_key, str_dump);
-  if (written < 0 || (size_t) written >= query_cap) {
-    CH_LOG_ERROR("%s %d %s: snprintf truncated while building query\n", __FILE__, __LINE__, __func__);
-    free(str_dump);
+
+  const size_t query_size = (size_t) required + 1;
+  char *query = malloc(query_size);
+  if (!query) {
+    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_size);
+    free(encoded);
+    return -1;
+  }
+
+  const int written = snprintf(query, query_size, format, table, key_column, data_column, exporter_str, template_key,
+                               encoded);
+  if (written != required) {
+    CH_LOG_ERROR("%s %d %s: snprintf failed while building query\n", __FILE__, __LINE__, __func__);
+    free(encoded);
     free(query);
     return -1;
   }
 
-  int result = ch_execute(conn, query, (size_t) written);
+  const int result = ch_execute(*conn, query, (size_t) written);
   CH_LOG_INFO("%s\n", query);
-
-  free(str_dump);
+  free(encoded);
   free(query);
 
   if (result < 0) {
-    CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
+    CH_LOG_ERROR("%s %d %s: Failed to insert record into %s\n", __FILE__, __LINE__, __func__, table);
     return -1;
   }
-
-  CH_LOG_INFO("%s %d %s: Successfully inserted dump for template %s\n", __FILE__, __LINE__, __func__, template_key);
   return 0;
+}
+
+WEAK int ch_insert_template(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
+  static THREAD_LOCAL ch_conn_t *conn = NULL;
+  return ch_insert_binary_record(&conn, exporter, "templates", "template_key", "template", template_key, dump,
+                                 dump_size);
 }
 
 WEAK int ch_insert_dump(uint32_t exporter, char *template_key, const uint8_t *dump, const size_t dump_size) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
-
-  ch_db_connect(&conn);
-  if (!conn || !conn->connected) {
-    CH_LOG_ERROR("%s %d %s: Failed to connect\n", __FILE__, __LINE__, __func__);
-    return -1;
-  }
-
-  // Convert exporter IP to string format
-  swap_endianness(&exporter, sizeof(exporter));
-  char exporter_str[INET_ADDRSTRLEN];
-  struct in_addr addr;
-  addr.s_addr = htonl(exporter);
-  if (inet_ntop(AF_INET, &addr, exporter_str, sizeof(exporter_str)) == NULL) {
-    snprintf(exporter_str, sizeof(exporter_str), "unknown");
-  }
-
-  // Build dump string safely: {aa,bb,...}
-  size_t needed_dump_len = 2 + (dump_size ? (dump_size * 2 + (dump_size - 1)) : 0) + 1; // {} + hex+commas + NUL
-  if (needed_dump_len > (size_t) (1 << 20)) {
-    CH_LOG_ERROR("%s %d %s: dump too large (%zu bytes), refusing to build query\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
-    return -1;
-  }
-  char *str_dump = (char *) malloc(needed_dump_len);
-  if (!str_dump) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate dump string buffer (%zu bytes)\n", __FILE__, __LINE__, __func__,
-                 needed_dump_len);
-    return -1;
-  }
-  char *p = str_dump;
-  *p++ = '{';
-  for (size_t i = 0; i < dump_size; i++) {
-    int n = snprintf(p, 3, "%02x", dump[i]);
-    p += n;
-    if (i + 1 < dump_size) {
-      *p++ = ',';
-    }
-  }
-  *p++ = '}';
-  *p = '\0';
-
-  const char *prefix = "INSERT INTO dumps (exporter,template,dump) VALUES ";
-  size_t query_cap = strlen(prefix) + strlen(exporter_str) + strlen(template_key) + strlen(str_dump) + 32;
-  char *query = (char *) malloc(query_cap);
-  if (!query) {
-    CH_LOG_ERROR("%s %d %s: Failed to allocate query buffer (%zu bytes)\n", __FILE__, __LINE__, __func__, query_cap);
-    free(str_dump);
-    return -1;
-  }
-  int written = snprintf(query, query_cap, "%s('%s','%s','%s')", prefix, exporter_str, template_key, str_dump);
-  if (written < 0 || (size_t) written >= query_cap) {
-    CH_LOG_ERROR("%s %d %s: snprintf truncated while building query\n", __FILE__, __LINE__, __func__);
-    free(str_dump);
-    free(query);
-    return -1;
-  }
-
-  int result = ch_execute(conn, query, (size_t) written);
-  CH_LOG_INFO("%s\n", query);
-
-  free(str_dump);
-  free(query);
-
-  if (result < 0) {
-    CH_LOG_ERROR("%s %d %s: Failed to insert dump\n", __FILE__, __LINE__, __func__);
-    return -1;
-  }
-
-  CH_LOG_INFO("%s %d %s: Successfully inserted dump for dump %s\n", __FILE__, __LINE__, __func__, template_key);
-  return 0;
+  return ch_insert_binary_record(&conn, exporter, "dumps", "template", "dump", template_key, dump, dump_size);
 }
 
 
 extern int g_max_flows;
 extern int g_max_diff;
 
+/**
+ * @brief TODO: Document ch_insert_flows
+ *
+ * @param exporter TODO
+ * @param flows TODO
+ * @return TODO
+ */
 WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   static THREAD_LOCAL ch_conn_t *conn = NULL;
   static THREAD_LOCAL char *query = NULL;
@@ -575,6 +657,7 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
     static THREAD_LOCAL bool query_registered = false;
     if (!query_registered) {
       register_ch_cleanup(NULL, &query);
+      register_ch_flush_ctx(&conn, &query, &offset, &inserted);
       query_registered = true;
     }
   }
@@ -618,31 +701,73 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
     // Note: ch_ip_uint128_to_string uses a ring of 4 buffers, so we can call it again for dstaddr safely
     char *dstaddr = ch_ip_uint128_to_string(flows->records[i].dstaddr, flows->records[i].ip_version);
 
-    char value_str[1024];
-    int written =
-        snprintf(value_str, sizeof(value_str),
-                 "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
-                 exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
-                 flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
-                 (unsigned long long) flows->records[i].dPkts, (unsigned long long) flows->records[i].dOctets,
-                 flows->records[i].First, flows->records[i].Last,
-                 flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
-                 flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
+    uint32_t start_time = flows->records[i].First;
+    uint32_t total_dur = dur;
+    uint64_t total_pkts = flows->records[i].dPkts;
+    uint64_t total_octets = flows->records[i].dOctets;
 
-    if (unlikely(offset + written + 1 >= query_size)) {
-      size_t new_query_size = query_size * 2;
-      char *new_query = realloc(query, new_query_size);
-      if (!new_query) {
-        CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
+    int num_splits = (total_dur > 300) ? ((total_dur + 299) / 300) : 1;
+    uint32_t remaining_dur = total_dur;
+    uint64_t remaining_pkts = total_pkts;
+    uint64_t remaining_octets = total_octets;
+    uint32_t current_start = start_time;
+
+    while (remaining_dur > 0 || num_splits == 1) {
+      uint32_t current_dur = (remaining_dur > 300) ? 300 : remaining_dur;
+
+      uint64_t current_pkts = (total_dur > 0) ? ((total_pkts * current_dur) / total_dur) : total_pkts;
+      uint64_t current_octets = (total_dur > 0) ? ((total_octets * current_dur) / total_dur) : total_octets;
+
+      if (current_dur == remaining_dur) {
+        current_pkts = remaining_pkts;
+        current_octets = remaining_octets;
+      }
+
+      uint32_t current_last = current_start + current_dur;
+
+      /* Format directly into the reusable batch.  A row is well below 512
+       * bytes, including two IPv6 strings, so reserve that much up front and
+       * avoid a temporary 1 KiB stack buffer plus memcpy for every row. */
+      const size_t row_reserve = 512;
+      if (unlikely((size_t) query_size - (size_t) offset < row_reserve)) {
+        size_t new_query_size = (size_t) query_size * 2;
+        while (new_query_size - (size_t) offset < row_reserve) {
+          new_query_size *= 2;
+        }
+        char *new_query = realloc(query, new_query_size);
+        if (!new_query) {
+          CH_LOG_ERROR("%s %d %s: Failed to reallocate query buffer\n", __FILE__, __LINE__, __func__);
+          return -1;
+        }
+        query = new_query;
+        query_size = (int) new_query_size;
+      }
+
+      int written =
+          snprintf(query + offset, (size_t) query_size - (size_t) offset,
+                   "%s\t%s\t%s\t%u\t%u\t%u\t%u\t%u\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+                   exporter_str, srcaddr, dstaddr, flows->records[i].srcport,
+                   flows->records[i].dstport, flows->records[i].prot, flows->records[i].input, flows->records[i].output,
+                   (unsigned long long) current_pkts, (unsigned long long) current_octets,
+                   current_start, current_last,
+                   flows->records[i].tcp_flags, flows->records[i].tos, flows->records[i].src_as, flows->records[i].dst_as,
+                   flows->records[i].src_mask, flows->records[i].dst_mask, flows->records[i].ip_version);
+
+      if (unlikely(written < 0 || (size_t) written >= (size_t) query_size - (size_t) offset)) {
+        CH_LOG_ERROR("%s %d %s: Failed to format flow row\n", __FILE__, __LINE__, __func__);
         return -1;
       }
-      query = new_query;
-      query_size = (int) new_query_size;
-    }
 
-    memcpy(query + offset, value_str, written);
-    offset += written;
-    inserted++;
+      offset += written;
+      inserted++;
+
+      if (num_splits == 1) break;
+
+      remaining_dur -= current_dur;
+      remaining_pkts -= current_pkts;
+      remaining_octets -= current_octets;
+      current_start += current_dur;
+    }
   }
 
   if (inserted > 0 && (inserted >= (size_t) g_max_flows || (now - last) > (uint32_t) g_max_diff)) {
@@ -663,6 +788,13 @@ WEAK int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows)
 }
 
 
+/**
+ * @brief TODO: Document ch_insert_flows2
+ *
+ * @param exporter TODO
+ * @param flows TODO
+ * @return TODO
+ */
 int ch_insert_flows2(uint32_t exporter, netflow_v9_uint128_flowset_t *flows) {
   return ch_insert_flows(exporter, flows);
 }

@@ -1,0 +1,7 @@
+<map id="ch_db_cleanup_all" name="ch_db_cleanup_all">
+<area shape="rect" id="Node000001" title="TODO: Document ch_db_cleanup_all." alt="" coords="5,32,146,60"/>
+<area shape="rect" id="Node000002" href="$db__clickhouse_8c.html#a5fedbb98782bf8ade1496a97af7ab89f" title="TODO: Document ch_disconnect." alt="" coords="194,5,307,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="145,33,181,29,176,31,146,38"/>
+<area shape="rect" id="Node000003" href="$db__clickhouse_8c.html#af7633e5b3c65933843d10b02e873f839" title="TODO: Document ch_execute." alt="" coords="203,57,298,85"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="146,53,190,62,185,62,146,59"/>
+</map>

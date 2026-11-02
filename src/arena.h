@@ -45,12 +45,52 @@ typedef struct {
 } data_t;
 
 // static arena_struct_t arena;
+/**
+ * @brief TODO: Document arena_create
+ *
+ * @param arena TODO
+ * @param capacity TODO
+ * @return TODO
+ */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity);
+/**
+ * @brief TODO: Document arena_alloc
+ *
+ * @param arena TODO
+ * @param bytes TODO
+ * @return TODO
+ */
 void *arena_alloc(arena_struct_t *arena, size_t bytes);
 // void* arena_alloc(data_t *args);
+/**
+ * @brief TODO: Document arena_clean
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_clean(arena_struct_t *arena);
+/**
+ * @brief TODO: Document arena_destroy
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_destroy(arena_struct_t *arena);
+/**
+ * @brief TODO: Document arena_realloc
+ *
+ * @param arena TODO
+ * @param bytes TODO
+ * @return TODO
+ */
 int arena_realloc(arena_struct_t *arena, size_t bytes);
+/**
+ * @brief TODO: Document arena_free
+ *
+ * @param arena TODO
+ * @param address TODO
+ * @return TODO
+ */
 int arena_free(arena_struct_t *arena, void *address);
 #else
 // Malloc/Free fallback
@@ -66,11 +106,51 @@ typedef struct {
   uv_mutex_t mutex;
 } arena_struct_t;
 
+/**
+ * @brief TODO: Document arena_create
+ *
+ * @param arena TODO
+ * @param capacity TODO
+ * @return TODO
+ */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity);
+/**
+ * @brief TODO: Document arena_alloc
+ *
+ * @param arena TODO
+ * @param bytes TODO
+ * @return TODO
+ */
 void *arena_alloc(arena_struct_t *arena, size_t bytes);
+/**
+ * @brief TODO: Document arena_clean
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_clean(arena_struct_t *arena);
+/**
+ * @brief TODO: Document arena_destroy
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_destroy(arena_struct_t *arena);
+/**
+ * @brief TODO: Document arena_realloc
+ *
+ * @param arena TODO
+ * @param bytes TODO
+ * @return TODO
+ */
 int arena_realloc(arena_struct_t *arena, size_t bytes);
+/**
+ * @brief TODO: Document arena_free
+ *
+ * @param arena TODO
+ * @param address TODO
+ * @return TODO
+ */
 int arena_free(arena_struct_t *arena, void *address);
 #endif
 #endif // ARENA_H

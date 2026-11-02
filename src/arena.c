@@ -30,8 +30,15 @@
  * - `error` if memory allocation failed.
  */
 #ifdef USE_ARENA_ALLOCATOR
+/**
+ * @brief TODO: Document arena_create
+ *
+ * @param arena TODO
+ * @param capacity TODO
+ * @return TODO
+ */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
-  LOG_ERROR("%s %d %s \n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s \n", __FILE__, __LINE__, __func__);
   arena->base_address = malloc(capacity);
   if (arena->base_address == NULL) {
     return error;
@@ -47,11 +54,23 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   arena->free_list = NULL;
   arena->recycle = 0;
   arena->end = (size_t) arena->base_address + arena->size;
-  memset(arena->base_address, 0, arena->size);
+  /*
+   * Do not touch the complete reservation here.  The collector reserves
+   * several GiB across its arenas and arena_alloc() already zeroes every
+   * block before returning it.  Eagerly clearing the reservation turns all
+   * of those lazy virtual pages into resident memory during startup.
+   */
   uv_mutex_init(&arena->mutex);
   return ok;
 }
 #else
+/**
+ * @brief TODO: Document arena_create
+ *
+ * @param arena TODO
+ * @param capacity TODO
+ * @return TODO
+ */
 arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
   (void)capacity;
   arena->head = NULL;
@@ -76,6 +95,13 @@ arena_status arena_create(arena_struct_t *arena, const size_t capacity) {
  * due to insufficient space or invalid input.
  */
 #ifdef USE_ARENA_ALLOCATOR
+/**
+ * @brief TODO: Document arena_alloc
+ *
+ * @param arena TODO
+ * @param bytes TODO
+ * @return TODO
+ */
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   if (unlikely(bytes == 0)) {
     return NULL;
@@ -154,20 +180,16 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
   return address;
 }
 #else
+/**
+ * @brief TODO: Document arena_alloc
+ *
+ * @param arena TODO
+ * @param bytes TODO
+ * @return TODO
+ */
 void *arena_alloc(arena_struct_t *arena, size_t bytes) {
-  void *ptr = calloc(1, bytes);
-  if (ptr == NULL) return NULL;
-  arena_fallback_node_t *node = malloc(sizeof(arena_fallback_node_t));
-  if (node == NULL) {
-    free(ptr);
-    return NULL;
-  }
-  node->ptr = ptr;
-  uv_mutex_lock(&arena->mutex);
-  node->next = arena->head;
-  arena->head = node;
-  uv_mutex_unlock(&arena->mutex);
-  return ptr;
+  (void)arena;
+  return calloc(1, bytes);
 }
 #endif
 
@@ -183,6 +205,12 @@ void *arena_alloc(arena_struct_t *arena, size_t bytes) {
  * - Returns 0 upon successful completion.
  */
 #ifdef USE_ARENA_ALLOCATOR
+/**
+ * @brief TODO: Document arena_clean
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_clean(arena_struct_t *arena) {
   uv_mutex_lock(&arena->mutex);
   arena->offset = 0;
@@ -192,22 +220,19 @@ int arena_clean(arena_struct_t *arena) {
   arena->first_chunk = NULL;
   arena->last_chunk = NULL;
   arena->free_list = NULL;
-  memset(arena->base_address, 0, arena->size);
+  /* Allocations are cleared on reuse by arena_alloc(). */
   uv_mutex_unlock(&arena->mutex);
   return 0;
 }
 #else
+/**
+ * @brief TODO: Document arena_clean
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_clean(arena_struct_t *arena) {
-  uv_mutex_lock(&arena->mutex);
-  arena_fallback_node_t *curr = arena->head;
-  while (curr != NULL) {
-    arena_fallback_node_t *next = curr->next;
-    free(curr->ptr);
-    free(curr);
-    curr = next;
-  }
-  arena->head = NULL;
-  uv_mutex_unlock(&arena->mutex);
+  (void)arena;
   return 0;
 }
 #endif
@@ -223,6 +248,12 @@ int arena_clean(arena_struct_t *arena) {
  * - 0 if the arena was successfully destroyed.
  */
 #ifdef USE_ARENA_ALLOCATOR
+/**
+ * @brief TODO: Document arena_destroy
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_destroy(arena_struct_t *arena) {
   arena_clean(arena);
   uv_mutex_lock(&arena->mutex);
@@ -243,6 +274,12 @@ int arena_destroy(arena_struct_t *arena) {
   return 0;
 }
 #else
+/**
+ * @brief TODO: Document arena_destroy
+ *
+ * @param arena TODO
+ * @return TODO
+ */
 int arena_destroy(arena_struct_t *arena) {
   arena_clean(arena);
   uv_mutex_destroy(&arena->mutex);
@@ -265,11 +302,27 @@ int arena_destroy(arena_struct_t *arena) {
  * - `-1` if the memory reallocation failed.
  */
 #ifdef USE_ARENA_ALLOCATOR
+/**
+ * @brief TODO: Document arena_realloc
+ *
+ * @param arena TODO
+ * @param bytes_to_add TODO
+ * @return TODO
+ */
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
+  (void) arena;
+  (void) bytes_to_add;
   LOG_ERROR("%s %d %s arena_realloc not supported due to internal pointers\n", __FILE__, __LINE__, __func__);
   return -1;
 }
 #else
+/**
+ * @brief TODO: Document arena_realloc
+ *
+ * @param arena TODO
+ * @param bytes_to_add TODO
+ * @return TODO
+ */
 int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
   (void)arena;
   (void)bytes_to_add;
@@ -290,6 +343,13 @@ int arena_realloc(arena_struct_t *arena, size_t bytes_to_add) {
  * - Otherwise, performs the operation to logically "free" the address.
  */
 #ifdef USE_ARENA_ALLOCATOR
+/**
+ * @brief TODO: Document arena_free
+ *
+ * @param arena TODO
+ * @param address TODO
+ * @return TODO
+ */
 int arena_free(arena_struct_t *arena, void *address) {
   if (unlikely(address == NULL)) {
     return -1;
@@ -335,22 +395,18 @@ int arena_free(arena_struct_t *arena, void *address) {
   return 0;
 }
 #else
+/**
+ * @brief TODO: Document arena_free
+ *
+ * @param arena TODO
+ * @param address TODO
+ * @return TODO
+ */
 int arena_free(arena_struct_t *arena, void *address) {
-  if (address == NULL) return -1;
-  uv_mutex_lock(&arena->mutex);
-  arena_fallback_node_t **curr = &arena->head;
-  while (*curr != NULL) {
-    if ((*curr)->ptr == address) {
-      arena_fallback_node_t *to_free = *curr;
-      *curr = to_free->next;
-      free(to_free->ptr);
-      free(to_free);
-      uv_mutex_unlock(&arena->mutex);
-      return 0;
-    }
-    curr = &(*curr)->next;
+  (void)arena;
+  if (address != NULL) {
+    free(address);
   }
-  uv_mutex_unlock(&arena->mutex);
-  return -1;
+  return 0;
 }
 #endif

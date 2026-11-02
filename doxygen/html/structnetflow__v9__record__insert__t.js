@@ -1,0 +1,25 @@
+var structnetflow__v9__record__insert__t =
+[
+    [ "dOctets", "structnetflow__v9__record__insert__t.html#a06d153f24aae92799d99026e538786fe", null ],
+    [ "dPkts", "structnetflow__v9__record__insert__t.html#a04dd26b4b6207589b8c08de20eb268a9", null ],
+    [ "dst_as", "structnetflow__v9__record__insert__t.html#a8a5cbabafe7e4f8af61c757e67df3b9d", null ],
+    [ "dst_mask", "structnetflow__v9__record__insert__t.html#a99cd65fd2fd971f90c96d87853d3ccba", null ],
+    [ "dstaddr", "structnetflow__v9__record__insert__t.html#aa70b1f2f66109774dfc4193cf912d254", null ],
+    [ "dstport", "structnetflow__v9__record__insert__t.html#a513f5d452f1c95bde24132acc1dc1cc3", null ],
+    [ "First", "structnetflow__v9__record__insert__t.html#a006ab208c2cbb3e0796f849da8b9f904", null ],
+    [ "input", "structnetflow__v9__record__insert__t.html#aa7ae40cc09df071e70040520f2fc9f01", null ],
+    [ "ip_version", "structnetflow__v9__record__insert__t.html#a3143499b1820937afc27dfad8e760bfb", null ],
+    [ "ipv6dstaddr", "structnetflow__v9__record__insert__t.html#aacfc4b2c58c9d7e8c33e0a7fda860679", null ],
+    [ "ipv6nexthop", "structnetflow__v9__record__insert__t.html#a8e0ad9ef12c2e2c78c8b19d04f0d50f0", null ],
+    [ "ipv6srcaddr", "structnetflow__v9__record__insert__t.html#a50f9b102a345c6dbce583b200d113028", null ],
+    [ "Last", "structnetflow__v9__record__insert__t.html#ad6bfe30b5efb72566ddaf795299e83d4", null ],
+    [ "nexthop", "structnetflow__v9__record__insert__t.html#a3bb04e57d923ae7292f5ef8f964b5eec", null ],
+    [ "output", "structnetflow__v9__record__insert__t.html#a7c91dd5b435f306c4a838210f854e2aa", null ],
+    [ "prot", "structnetflow__v9__record__insert__t.html#a170f51d693273d3be757572fd2bdd837", null ],
+    [ "src_as", "structnetflow__v9__record__insert__t.html#a20d1bc59986cf0e3481186b9fcfca40f", null ],
+    [ "src_mask", "structnetflow__v9__record__insert__t.html#acb06b4faa84318ef0b96c6882607a9f5", null ],
+    [ "srcaddr", "structnetflow__v9__record__insert__t.html#a761b3b12ea24bee3b51213a627c43243", null ],
+    [ "srcport", "structnetflow__v9__record__insert__t.html#a2986477154cfd90dc49a2fe760da1ac5", null ],
+    [ "tcp_flags", "structnetflow__v9__record__insert__t.html#a6763fe5c4da3bdda5fa20c85272652d0", null ],
+    [ "tos", "structnetflow__v9__record__insert__t.html#a98f81045eec523e5f43a1415a184fa0f", null ]
+];

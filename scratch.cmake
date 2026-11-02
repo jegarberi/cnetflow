@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(test C)
+add_library(libuv_a INTERFACE IMPORTED)
+add_library(libuv::uv_a ALIAS libuv_a)
+add_library(libuv::libuv ALIAS libuv::uv_a)
+message(STATUS "Done")

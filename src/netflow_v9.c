@@ -17,18 +17,22 @@
 
 static hashmap_t *templates_nfv9_hashmap;
 
-uv_mutex_t v9_parse_mutex;
-
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_nf9;
 
+/**
+ * @brief TODO: Document init_v9
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @return TODO
+ */
 void init_v9(arena_struct_t *arena, const size_t cap) {
-  LOG_ERROR("%s %d %s: Initializing v9 (Hashmap)...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s: Initializing v9 (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_nfv9_hashmap = hashmap_create(arena, cap);
-  uv_mutex_init(&v9_parse_mutex);
 
 #ifdef USE_REDIS
-  LOG_ERROR("%s %d %s: Loading templates from Redis...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s: Loading templates from Redis...\n", __FILE__, __LINE__, __func__);
   char **keys = NULL;
   size_t count = 0;
   if (redis_get_keys("*-9-*", &keys, &count) == 0) {
@@ -60,7 +64,13 @@ void init_v9(arena_struct_t *arena, const size_t cap) {
 
 
 
-void *parse_v9(uv_work_t *req) {
+/**
+ * @brief TODO: Document parse_v9
+ *
+ * @param req TODO
+ * @return TODO
+ */
+void parse_v9(uv_work_t *req) {
   uint16_t *template_hashmap = NULL;
   parse_args_t *args = (parse_args_t *) req->data;
   uint64_t total_flows_in_packet = 0;
@@ -80,7 +90,7 @@ void *parse_v9(uv_work_t *req) {
     LOG_ERROR("%s %d %s: Too many flows\n", __FILE__, __LINE__, __func__);
     goto cleanup_template_and_unlock;
   }
-  LOG_ERROR("%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
+  LOG_DEBUG("%s %d %s: flowsets in data: %d\n", __FILE__, __LINE__, __func__, header->count);
   swap_endianness((void *) &(header->SysUptime), sizeof(header->SysUptime));
   if (header->SysUptime == 1384148828) {
     LOG_ERROR("%s %d %s: SysUptime == 1384148828\n", __FILE__, __LINE__, __func__);
@@ -99,10 +109,15 @@ void *parse_v9(uv_work_t *req) {
   size_t flowset_end = 0;
   uint16_t len = 0;
   size_t total_packet_length = args->len;
-  LOG_ERROR("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
+  LOG_DEBUG("%s %d %s: args->len: %lu\n", __FILE__, __LINE__, __func__, total_packet_length);
   int8_t has_padding = 0;
   flowset_base = sizeof(netflow_v9_header_t);
+  uint32_t flowset_iters = 0;
   while (flowset_base + 4 <= total_packet_length) {
+      if (++flowset_iters > 1000) {
+          LOG_ERROR("%s %d %s: Too many flowsets (>1000), aborting\n", __FILE__, __LINE__, __func__);
+          break;
+      }
       flowset = (flowset_union_t *) (args->data + flowset_base);
       len = flowset->record.length;
       swap_endianness(&len, sizeof(len));
@@ -125,10 +140,10 @@ void *parse_v9(uv_work_t *req) {
     uint16_t flowset_length = flowset->template.length;
 
     if (0 == flowset_id) {
-      LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
-      LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
+      LOG_DEBUG("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
+      LOG_DEBUG("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
       // this is a template flowset
-      LOG_ERROR("%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
+      LOG_DEBUG("%s %d %s: this is a template flowset\n", __FILE__, __LINE__, __func__);
       size_t pos = 4; // Skip flowset_id and length
       while (pos + 4 <= flowset_length) {
         uint8_t *template_ptr = args->data + flowset_base + pos;
@@ -138,9 +153,25 @@ void *parse_v9(uv_work_t *req) {
         if (unlikely(template_id == 0)) {
           goto cleanup_template_and_unlock;
         }
+
+        if (unlikely(field_count > 127)) {
+          LOG_ERROR("%s %d %s: field_count > 127, aborting template\n", __FILE__, __LINE__, __func__);
+          goto cleanup_template_and_unlock;
+        }
+
+        char redis_key[255];
+        snprintf(redis_key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
+        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
+
+        if (field_count == 0) {
+          LOG_ERROR("%s %d %s: Template withdrawal for template_id %d\n", __FILE__, __LINE__, __func__, template_id);
+          hashmap_delete(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
+          pos += 4;
+          continue;
+        }
         
-        LOG_ERROR("%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
-        LOG_ERROR("%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
+        LOG_DEBUG("%s %d %s template_id: %d\n", __FILE__, __LINE__, __func__, template_id);
+        LOG_DEBUG("%s %d %s field count: %d\n", __FILE__, __LINE__, __func__, field_count);
 
         if (unlikely(pos + 4 + field_count * 4 > flowset_length)) {
           LOG_ERROR("%s %d %s: Template field definition OOB\n", __FILE__, __LINE__, __func__);
@@ -156,17 +187,14 @@ void *parse_v9(uv_work_t *req) {
             goto cleanup_template_and_unlock;
           }
           if (t < sizeof(ipfix_field_types) / sizeof(ipfix_field_type_t)) {
-            LOG_ERROR("%s %d %s field: %d type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field, t, l,
+            LOG_DEBUG("%s %d %s field: %zu type: %u len: %u [%s]\n", __FILE__, __LINE__, __func__, field, t, l,
                       ipfix_field_types[t].name);
           } else {
-            LOG_ERROR("%s %d %s field: %d type: %u len: %u [unknown]\n", __FILE__, __LINE__, __func__, field, t, l);
+            LOG_DEBUG("%s %d %s field: %zu type: %u len: %u [unknown]\n", __FILE__, __LINE__, __func__, field, t, l);
           }
         }
         
-        char redis_key[255];
-        snprintf(redis_key, 255, "%s-9-%u", ip_int_to_str(args->exporter), template_id);
-        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
-        LOG_ERROR("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, redis_key);
+        LOG_DEBUG("%s %d %s: key: %s\n", __FILE__, __LINE__, __func__, redis_key);
 
         // Prepare template data (Network Byte Order for hashmap)
         size_t alloc_size = sizeof(uint16_t) * (field_count + 1) * 2;
@@ -182,10 +210,12 @@ void *parse_v9(uv_work_t *req) {
         memcpy(temp, template_ptr, alloc_size);
 
         // Store in Hashmap
-        uv_mutex_lock(&v9_parse_mutex);
-        hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
-        uv_mutex_unlock(&v9_parse_mutex);
-        LOG_ERROR("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
+        if (__atomic_load_n(&templates_nfv9_hashmap->size, __ATOMIC_RELAXED) < 65536U) {
+          hashmap_set(templates_nfv9_hashmap, arena_hashmap_nf9, &hkey, sizeof(uint64_t), temp);
+        } else {
+          LOG_ERROR("%s %d %s: Hashmap size >= 65536, ignoring new template\n", __FILE__, __LINE__, __func__);
+        }
+        LOG_DEBUG("%s %d %s Template saved in Hashmap [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
 
 
 
@@ -194,7 +224,7 @@ void *parse_v9(uv_work_t *req) {
         if (redis_set_template(redis_key, strlen(redis_key), temp, alloc_size) != 0) {
           LOG_ERROR("%s %d %s Error saving template in Redis [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
         } else {
-          LOG_ERROR("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
+          LOG_DEBUG("%s %d %s Template saved in Redis [%s]...\n", __FILE__, __LINE__, __func__, redis_key);
         }
 #endif
 
@@ -213,9 +243,9 @@ void *parse_v9(uv_work_t *req) {
         goto skip_v9_record_pass;
       }
       // this a record flowset
-      LOG_ERROR("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
-      LOG_ERROR("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
-      LOG_ERROR("%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
+      LOG_DEBUG("%s %d %s: flowset_id: %d\n", __FILE__, __LINE__, __func__, flowset_id);
+      LOG_DEBUG("%s %d %s: length: %d\n", __FILE__, __LINE__, __func__, flowset_length);
+      LOG_DEBUG("%s %d %s: this is a record flowset\n", __FILE__, __LINE__, __func__);
 
       // Validate flowset_base is within packet bounds
       if (unlikely(flowset_base >= total_packet_length)) {
@@ -235,9 +265,7 @@ void *parse_v9(uv_work_t *req) {
 
       uint16_t template_id = flowset_id;
       uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
-      uv_mutex_lock(&v9_parse_mutex);
       template_hashmap = (uint16_t *) hashmap_get(templates_nfv9_hashmap, &hkey, sizeof(uint64_t));
-      uv_mutex_unlock(&v9_parse_mutex);
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s template %d not found for exporter %s — discarding flowset\n", __FILE__, __LINE__, __func__, template_id,
@@ -250,7 +278,7 @@ void *parse_v9(uv_work_t *req) {
         // SKIP FLOWSET HEADER
         pos = 4;
         netflow_v9_uint128_flowset_t flows_to_insert;
-        memset(&flows_to_insert, 0, sizeof(flows_to_insert));
+        memset(&flows_to_insert.header, 0, sizeof(flows_to_insert.header));
         int is_ipv6 = 0;
         uint64_t local_v9_records = 0;
 
@@ -260,7 +288,8 @@ void *parse_v9(uv_work_t *req) {
 
         // Compute total size of one record based on template fields
         size_t total_record_size = 0;
-        for (size_t count = 2; count < field_count * 2 + 2; count += 2) {
+        const size_t template_entry_count = (size_t) field_count * 2 + 2;
+        for (size_t count = 2; count < template_entry_count; count += 2) {
             uint16_t flen = template_hashmap[count + 1];
             swap_endianness(&flen, sizeof(flen));
             total_record_size += flen;
@@ -278,6 +307,9 @@ void *parse_v9(uv_work_t *req) {
         if (unlikely(remainder != 0 && !(flowset_length % 4 == 0 && remainder < 4))) {
             LOG_ERROR("%s %d %s: Flowset %d data length %lu not divisible by record size %lu — template mismatch, discarding\n",
                       __FILE__, __LINE__, __func__, template_id, flowset_data_len, total_record_size);
+            if (args->flags != 1) { // Not a replay
+                cache_unparsed_flow(args->exporter, template_id, 9, diff, args->data + flowset_base, flowset_length);
+            }
             goto skip_v9_record_pass;
         }
 
@@ -286,11 +318,12 @@ void *parse_v9(uv_work_t *req) {
             LOG_ERROR("%s %d %s: Too many records in FlowSet (> 60), truncating\n", __FILE__, __LINE__, __func__);
             break;
           }
+          memset(&flows_to_insert.records[record_counter], 0, sizeof(flows_to_insert.records[record_counter]));
 #ifdef CNETFLOW_DEBUG_BUILD
-          fprintf(stdout, "exporter: %s template: %d record_no: %d field_count: %d",
+          fprintf(stdout, "exporter: %s template: %d record_no: %zu field_count: %d",
                   ip_int_to_str(args->exporter), template_id, record_counter + 1, field_count);
 #endif
-          for (size_t count = 2; count < field_count * 2 + 2; count = count + 2) {
+          for (size_t count = 2; count < template_entry_count; count += 2) {
 
             // CRITICAL FIX: Validate pointer is within packet bounds before accessing
             size_t pointer_offset = (size_t) pointer - (size_t) args->data;
@@ -312,7 +345,7 @@ void *parse_v9(uv_work_t *req) {
             if (unlikely(pointer_offset + field_length > total_packet_length)) {
               LOG_ERROR("%s %d %s: field at offset %lu length %u exceeds packet bounds\n", __FILE__, __LINE__, __func__,
                         pointer_offset, field_length);
-              if (has_padding) {
+              if (has_padding && (flowset_length - pos < total_record_size)) {
                 pos = flowset_length; // Force outer while loop to terminate
                 break;
               }
@@ -328,7 +361,6 @@ void *parse_v9(uv_work_t *req) {
             uint32_t val_tmp32 = 0;
             uint64_t *tmp64 = NULL;
             uint64_t val_tmp64 = 0;
-            uint128_t *tmp128 = NULL;
             uint128_t val_tmp128 = 0;
 
             switch (record_length) {
@@ -358,7 +390,6 @@ void *parse_v9(uv_work_t *req) {
                 swap_endianness(&val_tmp64, sizeof(val_tmp64));
                 break;
               case 16:
-                tmp128 = (uint128_t *) pointer;
                 memcpy(&val_tmp128, pointer, sizeof(uint128_t));
                 swap_endianness(&val_tmp128, sizeof(val_tmp128));
                 break;
@@ -587,14 +618,9 @@ void *parse_v9(uv_work_t *req) {
             flows_to_insert.records[record_counter].Last = now;
             flows_to_insert.records[record_counter].First = now - duration;
           }
-          if (!is_ipv6) {
-            swap_src_dst_v9_ipv4(&flows_to_insert.records[record_counter]);
 #ifdef CNETFLOW_DEBUG_BUILD
-            printf_v9(stderr, &flows_to_insert, record_counter, args->frame_number, template_id, flowset_id);
+          printf_v9(stderr, &flows_to_insert, record_counter, args->frame_number, template_id, flowset_id);
 #endif
-          } else {
-            LOG_ERROR("ipv6 not supported at the moment...\n");
-          }
 
           local_v9_records++;
 
@@ -630,6 +656,10 @@ void *parse_v9(uv_work_t *req) {
         collector_inc_received_flows(record_counter);
         if (args->flags & 2) {
             for (size_t i = 0; i < record_counter; i++) {
+                if (flows_to_insert.records[i].ip_version == 6) {
+                    printf_v9(stdout, &flows_to_insert, i, args->frame_number, template_id, flowset_id);
+                    continue;
+                }
                 uint32_t saddr = flows_to_insert.records[i].srcaddr;
                 uint32_t daddr = flows_to_insert.records[i].dstaddr;
                 if (saddr == 0 || daddr == 0) {
@@ -661,7 +691,6 @@ cleanup_template_and_unlock:
   args->processed_flows = total_flows_in_packet;
   args->status = collector_data_status_done;
 
-  return NULL;
 }
 
 
@@ -669,7 +698,17 @@ cleanup_template_and_unlock:
 
 
 
+/**
+ * @brief TODO: Document copy_v9_to_flow
+ *
+ * @param in TODO
+ * @param out TODO
+ * @param is_ipv6 TODO
+ * @param dump TODO
+ * @return TODO
+ */
 void copy_v9_to_flow(const netflow_v9_flowset_t * restrict in, netflow_v9_uint128_flowset_t * restrict out, int is_ipv6, uint8_t *dump) {
+  (void) dump;
   // fprintf(stderr, "%s %d %s copy_v9_to_flow entry\n", __FILE__, __LINE__, __func__);
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;
@@ -747,4 +786,49 @@ void copy_v9_to_flow(const netflow_v9_flowset_t * restrict in, netflow_v9_uint12
     }
   }
   // fprintf(stderr, "%s %d %s copy_v9_to_flow return\n", __FILE__, __LINE__, __func__);
+}
+
+/**
+ * @brief TODO: Document process_v9_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+void process_v9_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length) {
+    size_t packet_len = sizeof(netflow_v9_header_t) + length;
+    uint8_t *packet = malloc(packet_len);
+    if (!packet) return;
+
+    netflow_v9_header_t *hdr = (netflow_v9_header_t *)packet;
+    memset(hdr, 0, sizeof(netflow_v9_header_t));
+    hdr->version = swap_endian_16(9);
+    hdr->count = swap_endian_16(1); // 1 flowset
+    
+    // We stored diff = unix_secs - (SysUptime / 1000). 
+    // We can just set unix_secs = diff, and SysUptime = 0.
+    hdr->unix_secs = swap_endian_32(diff);
+    hdr->SysUptime = 0;
+
+    memcpy(packet + sizeof(netflow_v9_header_t), data, length);
+
+    parse_args_t args;
+    memset(&args, 0, sizeof(parse_args_t));
+    args.data = packet;
+    args.len = packet_len;
+    args.exporter = exporter;
+    args.flags = 1; // Flag to indicate this is a replay (prevents infinite recursion)
+
+    uv_work_t req;
+    memset(&req, 0, sizeof(uv_work_t));
+    req.data = &args;
+
+    // Call the parser directly
+    (void)template_id; // unused, we already have it in the cache but the parser parses it from data
+    parse_v9(&req);
+
+    free(packet);
 }

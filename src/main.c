@@ -4,6 +4,11 @@
 #include "log.h"
 #include <string.h>
 
+/**
+ * @brief TODO: Document print_compile_options
+ *
+ * @return TODO
+ */
 void print_compile_options(void) {
     printf("cnetflow compile options:\n");
     printf("  Database: ClickHouse\n");
@@ -30,6 +35,22 @@ void print_compile_options(void) {
     printf("  Metrics: ON\n");
 #else
     printf("  Metrics: OFF\n");
+#endif
+
+#ifdef ENABLE_MMSG
+#ifdef MMSG_BATCH_SIZE
+    printf("  MMSG: ON (Batch Size: %d)\n", MMSG_BATCH_SIZE);
+#else
+    printf("  MMSG: ON\n");
+#endif
+#else
+    printf("  MMSG: OFF\n");
+#endif
+
+#ifdef MAX_UNPARSED_FLOWS
+    printf("  Max Unparsed Flows Cache Size: %d\n", MAX_UNPARSED_FLOWS);
+#else
+    printf("  Max Unparsed Flows Cache Size: 1000 (default)\n");
 #endif
 
 #ifdef BUILD_STATIC
@@ -82,15 +103,16 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Starting main...\n");
   fprintf(stdout, "Starting main...\n");
   const char *tp_size = getenv("UV_THREADPOOL_SIZE");
+  (void) tp_size;
   LOG_INFO("Libuv threadpool size (UV_THREADPOOL_SIZE): %s\n", tp_size ? tp_size : "4 (default)");
   LOG_INFO("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
-  LOG_ERROR("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
-  LOG_ERROR("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s Init main...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s Starting collector...\n", __FILE__, __LINE__, __func__);
   collector_t col_config;
   collector_default(&col_config);
   col_config.pcap_file = pcap_file;
   collector_start(&col_config);
-  LOG_ERROR("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
   LOG_INFO("%s %d %s Exit main...\n", __FILE__, __LINE__, __func__);
   fprintf(stderr, "Exiting main...\n");
   fprintf(stdout, "Exiting main...\n");

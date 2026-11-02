@@ -1,0 +1,13 @@
+<map id="src/metrics.h" name="src/metrics.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="285,5,390,33"/>
+<area shape="rect" id="Node000002" href="$collector_8c.html" title=" " alt="" coords="5,81,116,109"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="274,40,111,83,109,78,273,35"/>
+<area shape="rect" id="Node000003" href="$metrics_8c.html" title=" " alt="" coords="140,81,245,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="301,40,219,83,217,78,296,41"/>
+<area shape="rect" id="Node000004" href="$netflow__ipfix_8c.html" title=" " alt="" coords="269,81,407,109"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="340,47,340,82,336,79,336,51"/>
+<area shape="rect" id="Node000005" href="$netflow__v5_8c.html" title=" " alt="" coords="431,81,557,109"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="380,37,469,81,464,80,379,42"/>
+<area shape="rect" id="Node000006" href="$netflow__v9_8c.html" title=" " alt="" coords="581,81,708,109"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="406,34,592,80,587,81,405,39"/>
+</map>

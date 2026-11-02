@@ -1,0 +1,42 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install core build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    cmake \
+    git \
+    wget \
+    python3 \
+    python3-pip \
+    python3-venv \
+    pkg-config \
+    tar \
+    xz-utils \
+    linux-libc-dev \
+    flex \
+    bison \
+    m4 \
+    clang \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Zig for cross-compiling to musl
+RUN wget https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz && \
+    tar -xf zig-linux-x86_64-0.13.0.tar.xz && \
+    mv zig-linux-x86_64-0.13.0 /usr/local/zig && \
+    ln -s /usr/local/zig/zig /usr/local/bin/zig && \
+    rm zig-linux-x86_64-0.13.0.tar.xz
+
+# Install Conan using --break-system-packages (allowed in Docker containers)
+RUN pip3 install conan==2.5.0 --break-system-packages
+
+# Configure Conan default profile
+RUN conan profile detect
+
+# Create working directory
+WORKDIR /app
+
+# Run build script in non-interactive mode
+CMD ["/bin/bash", "-c", "if [ -f .build_config ]; then source .build_config; fi && NON_INTERACTIVE=1 ./build.sh"]

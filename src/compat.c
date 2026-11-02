@@ -20,6 +20,15 @@
  * libuv should handle the ENOSYS error if it attempts to call it.
  */
 #if defined(COMPAT_CENTOS6) || (defined(__GLIBC__) && !__GLIBC_PREREQ(2, 14))
+/**
+ * @brief TODO: Document sendmmsg
+ *
+ * @param sockfd TODO
+ * @param msgvec TODO
+ * @param vlen TODO
+ * @param flags TODO
+ * @return TODO
+ */
 int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
   (void) sockfd;
   (void) msgvec;
@@ -34,6 +43,14 @@ int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
  * Shim for strlcpy which is missing in glibc < 2.38 (e.g. Ubuntu 20.04 with glibc 2.31).
  */
 #if defined(COMPAT_CENTOS6) || !defined(__GLIBC__) || !__GLIBC_PREREQ(2, 38)
+/**
+ * @brief TODO: Document strlcpy
+ *
+ * @param dst TODO
+ * @param src TODO
+ * @param dsize TODO
+ * @return TODO
+ */
 size_t strlcpy(char *dst, const char *src, size_t dsize) {
     const char *osrc = src;
     size_t nleft = dsize;

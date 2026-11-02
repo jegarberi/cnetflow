@@ -1,0 +1,17 @@
+<map id="ch_disconnect" name="ch_disconnect">
+<area shape="rect" id="Node000001" title="TODO: Document ch_disconnect." alt="" coords="490,59,604,86"/>
+<area shape="rect" id="Node000002" href="$db__clickhouse_8c.html#a6748389a830a885898a0b2e50204d1d0" title="TODO: Document ch_db_cleanup_all." alt="" coords="302,19,442,46"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="472,56,436,50,436,44,477,56"/>
+<area shape="rect" id="Node000005" href="$db__clickhouse_8c.html#adee94baeafd118e4ec3c9e58b2748ca3" title="TODO: Document ch_db_connect." alt="" coords="314,84,431,112"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="472,83,432,92,431,87,478,82"/>
+<area shape="rect" id="Node000003" href="$collector_8c.html#a06b4ac547fd361a0d52f901e6a452086" title="TODO: Document collector_start." alt="" coords="124,5,238,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="284,27,239,26,238,21,289,26"/>
+<area shape="rect" id="Node000004" href="$main_8c.html#a0ddf1224851353fc92bfbff6f499fa97" title=" " alt="" coords="5,5,60,33"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="106,21,61,22,59,17,110,17"/>
+<area shape="rect" id="Node000006" href="$db__clickhouse_8c.html#a8a15c97cc10b426108d18c4810ea3501" title="TODO: Document ch_insert_dump." alt="" coords="119,57,243,85"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="296,88,244,82,243,77,301,87"/>
+<area shape="rect" id="Node000007" href="$db__clickhouse_8c.html#a0bf90917c6a952e5dac4c9aea43221a0" title="TODO: Document ch_insert_flows." alt="" coords="120,109,242,137"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="295,108,243,118,242,113,301,107"/>
+<area shape="rect" id="Node000008" href="$db__clickhouse_8c.html#a426a027f3092e882358cbe0009401ad9" title="TODO: Document ch_insert_template." alt="" coords="108,161,254,189"/>
+<area shape="poly" id="edge7_Node000005_Node000008" title=" " alt="" coords="327,118,255,151,223,163,221,158,253,146,322,119"/>
+</map>

@@ -1,0 +1,68 @@
+<map id="collector_start" name="collector_start">
+<area shape="rect" id="Node000001" title="TODO: Document collector_start." alt="" coords="5,344,120,372"/>
+<area shape="rect" id="Node000002" href="$collector_8c.html#a73924fd66ab1a439eaebfff1b928f735" title=" " alt="" coords="210,5,284,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="62,343,67,288,82,208,95,165,113,121,136,80,166,44,197,27,194,31,169,48,141,83,118,123,100,166,87,210,72,289,67,344"/>
+<area shape="rect" id="Node000003" href="$arena_8c.html#a3b8a3af73de6eff910a885ab0b85a488" title="TODO: Document arena_create." alt="" coords="194,57,300,85"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="63,343,71,296,88,230,119,159,140,125,166,96,181,86,178,91,169,100,144,129,123,161,93,232,76,298,68,344"/>
+<area shape="rect" id="Node000004" href="$arena_8c.html#a24d9d25c2007d39d12186c10d404cd28" title="TODO: Document arena_destroy." alt="" coords="190,109,304,137"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="64,343,75,304,95,252,125,196,144,171,166,148,178,141,175,146,169,152,148,174,129,199,100,254,80,306,70,344"/>
+<area shape="rect" id="Node000006" href="$db__clickhouse_8c.html#a6748389a830a885898a0b2e50204d1d0" title="TODO: Document ch_db_cleanup_all." alt="" coords="177,161,318,189"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="67,343,102,275,131,235,166,200,177,194,174,198,169,204,135,238,107,277,72,344"/>
+<area shape="rect" id="Node000009" href="$collector_8c.html#a701a543d587347db8aa1d0eda834411a" title="TODO: Document check_backlog_cb." alt="" coords="178,213,317,241"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="72,342,111,298,137,273,166,252,180,246,177,250,169,256,140,277,114,302,77,345"/>
+<area shape="rect" id="Node000010" href="$redis__handler_8c.html#ae58cf552ba890589fab67b37a632896b" title="TODO: Document close_redis." alt="" coords="200,265,294,293"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="88,341,167,303,188,297,184,301,169,308,92,345"/>
+<area shape="rect" id="Node000011" href="$netflow__ipfix_8c.html#a57a319295d2b1cc2a29134cbb6dbc8bb" title="TODO: Document init_ipfix." alt="" coords="209,317,286,345"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="118,347,195,337,191,341,121,352"/>
+<area shape="rect" id="Node000019" href="$redis__handler_8c.html#aa90c5caca4f3848e6e7a079ada4e720e" title="TODO: Document init_redis." alt="" coords="207,489,288,517"/>
+<area shape="poly" id="edge20_Node000001_Node000019" title=" " alt="" coords="72,370,112,422,139,451,169,476,195,489,189,491,166,480,135,455,108,425,73,375"/>
+<area shape="rect" id="Node000020" href="$netflow_8c.html#a89a5c628fa849b950ef55caffe18190d" title="TODO: Document init_unparsed_flows_cache." alt="" coords="172,421,322,466"/>
+<area shape="poly" id="edge21_Node000001_Node000020" title=" " alt="" coords="92,370,169,406,182,413,177,415,167,411,93,375"/>
+<area shape="rect" id="Node000021" href="$netflow__v9_8c.html#a55158eca96f07105754fbf1a32f310b9" title="TODO: Document init_v9." alt="" coords="215,369,280,397"/>
+<area shape="poly" id="edge23_Node000001_Node000021" title=" " alt="" coords="119,363,201,375,197,378,121,368"/>
+<area shape="rect" id="Node000022" href="$collector_8c.html#a72f8377e5e7740b3e751778ca513159d" title="TODO: Document parse_pcap_file." alt="" coords="186,541,308,569"/>
+<area shape="poly" id="edge30_Node000001_Node000022" title=" " alt="" coords="68,369,84,403,104,445,133,489,169,526,178,533,172,534,166,531,129,492,100,447,79,405,69,375"/>
+<area shape="rect" id="Node000023" href="$collector_8c.html#ae25a4217338810f26f52a73829cb76b9" title="TODO: Document print_rss_max_usage." alt="" coords="168,643,327,670"/>
+<area shape="poly" id="edge31_Node000001_Node000023" title=" " alt="" coords="66,369,76,419,93,486,124,558,144,592,170,623,183,635,178,635,166,626,140,595,119,561,88,487,71,420,65,375"/>
+<area shape="rect" id="Node000024" href="$collector_8c.html#a8ee88fa73c1a38ef145a75f199ddf676" title="TODO: Document signal_handler." alt="" coords="390,592,507,620"/>
+<area shape="poly" id="edge33_Node000001_Node000024" title=" " alt="" coords="66,369,76,414,94,471,107,501,124,530,144,557,169,578,193,592,218,603,272,615,326,618,378,617,373,619,326,623,271,620,216,608,190,597,166,583,141,560,119,533,102,504,89,473,71,415,66,374"/>
+<area shape="rect" id="Node000025" href="$collector_8c.html#a7711c968e4f02f2fb37fa464400b3851" title="TODO: Document udp_handle." alt="" coords="199,695,296,722"/>
+<area shape="poly" id="edge34_Node000001_Node000025" title=" " alt="" coords="64,369,71,428,85,511,98,556,116,601,140,643,170,680,188,694,183,694,166,684,135,646,112,603,93,558,80,512,66,429,64,375"/>
+<area shape="rect" id="Node000005" href="$arena_8c.html#a39c81507f86acde6ffedbad685e1adc6" title="TODO: Document arena_clean." alt="" coords="398,59,499,86"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="304,107,385,87,381,91,307,111"/>
+<area shape="rect" id="Node000007" href="$db__clickhouse_8c.html#a5fedbb98782bf8ade1496a97af7ab89f" title="TODO: Document ch_disconnect." alt="" coords="392,111,505,138"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="304,159,379,141,375,144,307,163"/>
+<area shape="rect" id="Node000008" href="$db__clickhouse_8c.html#af7633e5b3c65933843d10b02e873f839" title="TODO: Document ch_execute." alt="" coords="402,163,496,190"/>
+<area shape="poly" id="edge7_Node000006_Node000008" title=" " alt="" coords="317,173,388,175,384,178,319,178"/>
+<area shape="rect" id="Node000012" href="$arena_8c.html#a08c2d2a7ddf1adacc8e2d92f14382595" title="TODO: Document arena_alloc." alt="" coords="582,420,678,448"/>
+<area shape="poly" id="edge11_Node000011_Node000012" title=" " alt="" coords="285,320,326,302,339,289,348,275,357,262,374,250,415,234,450,227,485,231,524,250,546,272,555,297,560,324,573,354,610,408,604,407,568,356,555,325,550,298,542,275,521,255,484,237,451,232,416,239,376,255,361,265,352,278,344,293,328,307,288,324"/>
+<area shape="rect" id="Node000013" href="$hashmap_8c.html#a40800e2582751941b5596610a87a0b35" title="TODO: Document hashmap_create." alt="" coords="384,472,513,500"/>
+<area shape="poly" id="edge12_Node000011_Node000013" title=" " alt="" coords="286,335,309,343,329,356,340,369,348,382,354,408,360,433,366,445,377,457,383,463,378,464,373,461,362,448,355,435,349,409,343,384,336,372,325,360,307,348,287,340"/>
+<area shape="rect" id="Node000014" href="$hashmap_8c.html#a14a59db0876d2f1a0b674b1c7e1cb9cb" title="TODO: Document hashmap_set." alt="" coords="394,316,503,344"/>
+<area shape="poly" id="edge14_Node000011_Node000014" title=" " alt="" coords="286,328,381,329,376,332,288,333"/>
+<area shape="rect" id="Node000016" href="$redis__handler_8c.html#a6466e0692d2816939e277c5f82e9f682" title="TODO: Document redis_free_keys." alt="" coords="387,368,510,396"/>
+<area shape="poly" id="edge17_Node000011_Node000016" title=" " alt="" coords="286,338,379,363,374,365,287,343"/>
+<area shape="rect" id="Node000017" href="$redis__handler_8c.html#a09040a6f876dbe0f7ca69f97c70ca09d" title="TODO: Document redis_get_keys." alt="" coords="390,264,508,292"/>
+<area shape="poly" id="edge18_Node000011_Node000017" title=" " alt="" coords="285,319,381,295,377,298,288,323"/>
+<area shape="rect" id="Node000018" href="$redis__handler_8c.html#a8a04b19836d98f28f1a64d6511f63a7c" title="TODO: Document redis_get_template." alt="" coords="375,420,522,448"/>
+<area shape="poly" id="edge19_Node000011_Node000018" title=" " alt="" coords="286,338,328,356,344,368,353,381,362,393,377,405,388,413,382,413,373,409,358,397,349,384,340,372,326,360,287,343"/>
+<area shape="poly" id="edge13_Node000013_Node000012" title=" " alt="" coords="499,469,569,451,564,453,501,474"/>
+<area shape="poly" id="edge15_Node000014_Node000012" title=" " alt="" coords="495,342,524,354,566,380,603,410,598,410,563,385,521,359,496,347"/>
+<area shape="rect" id="Node000015" href="$hashmap_8c.html#adee1e753d058df3f5bccf4d96886b49b" title="TODO: Document hashmap_hash." alt="" coords="570,316,690,344"/>
+<area shape="poly" id="edge16_Node000014_Node000015" title=" " alt="" coords="502,327,557,329,552,331,504,332"/>
+<area shape="poly" id="edge22_Node000020_Node000013" title=" " alt="" coords="322,456,371,468,366,470,323,462"/>
+<area shape="poly" id="edge24_Node000021_Node000012" title=" " alt="" coords="280,385,306,393,329,406,340,420,347,434,352,462,357,487,364,499,376,509,413,526,446,529,480,522,521,509,567,486,602,460,607,457,569,490,523,514,481,527,446,535,412,531,374,513,360,502,352,489,347,463,342,436,336,423,325,411,304,397,281,390"/>
+<area shape="poly" id="edge25_Node000021_Node000013" title=" " alt="" coords="280,387,305,395,328,406,344,419,353,432,362,445,377,457,388,465,382,465,373,461,358,448,349,435,340,423,326,411,303,400,281,392"/>
+<area shape="poly" id="edge26_Node000021_Node000014" title=" " alt="" coords="279,372,382,346,378,350,282,377"/>
+<area shape="poly" id="edge27_Node000021_Node000016" title=" " alt="" coords="280,380,374,381,369,384,282,385"/>
+<area shape="poly" id="edge28_Node000021_Node000017" title=" " alt="" coords="279,374,303,366,326,354,340,342,349,329,358,316,373,302,386,297,382,301,377,307,362,319,353,332,344,345,328,359,305,371,282,378"/>
+<area shape="poly" id="edge29_Node000021_Node000018" title=" " alt="" coords="280,389,378,414,374,417,281,394"/>
+<area shape="poly" id="edge32_Node000023_Node000024" title=" " alt="" coords="304,640,379,623,374,625,306,645"/>
+<area shape="rect" id="Node000026" href="$collector_8c.html#ae99a7f99852df1e293e44b962acfa21a" title="TODO: Document after_work_cb." alt="" coords="392,695,505,722"/>
+<area shape="poly" id="edge35_Node000025_Node000026" title=" " alt="" coords="296,706,380,708,374,709,296,711"/>
+<area shape="rect" id="Node000027" href="$arena_8c.html#a8ba2d594dfb73e9d0c41e27d8b806b8d" title="TODO: Document arena_free." alt="" coords="584,669,676,697"/>
+<area shape="poly" id="edge37_Node000025_Node000027" title=" " alt="" coords="295,694,375,681,477,676,572,680,566,680,477,681,375,686,296,699"/>
+<area shape="rect" id="Node000028" href="$collector_8c.html#a22a896102f9456b308b6ff677f16cd16" title="TODO: Document get_ip_str." alt="" coords="406,747,491,774"/>
+<area shape="poly" id="edge38_Node000025_Node000028" title=" " alt="" coords="296,718,394,746,389,746,295,723"/>
+<area shape="poly" id="edge36_Node000026_Node000027" title=" " alt="" coords="505,698,571,691,566,692,505,703"/>
+</map>

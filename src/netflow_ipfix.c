@@ -16,18 +16,23 @@
 #include "redis_handler.h"
 #endif
 static hashmap_t *templates_ipfix_hashmap;
-uv_mutex_t ipfix_parse_mutex;
 
 extern arena_struct_t *arena_collector;
 extern arena_struct_t *arena_hashmap_ipfix;
 
+/**
+ * @brief TODO: Document init_ipfix
+ *
+ * @param arena TODO
+ * @param cap TODO
+ * @return TODO
+ */
 void init_ipfix(arena_struct_t *arena, const size_t cap) {
-  LOG_ERROR("%s %d %s: Initializing IPFIX (Hashmap)...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s: Initializing IPFIX (Hashmap)...\n", __FILE__, __LINE__, __func__);
   templates_ipfix_hashmap = hashmap_create(arena, cap);
-  uv_mutex_init(&ipfix_parse_mutex);
 
 #ifdef USE_REDIS
-  LOG_ERROR("%s %d %s: Loading IPFIX templates from Redis...\n", __FILE__, __LINE__, __func__);
+  LOG_DEBUG("%s %d %s: Loading IPFIX templates from Redis...\n", __FILE__, __LINE__, __func__);
   char **keys = NULL;
   size_t count = 0;
   if (redis_get_keys("*-10-*", &keys, &count) == 0) {
@@ -44,9 +49,7 @@ void init_ipfix(arena_struct_t *arena, const size_t cap) {
              struct in_addr in;
              if (inet_pton(AF_INET, ip_str, &in) == 1) {
                  uint64_t hkey = ((uint64_t)in.s_addr << 32) | tid;
-                 uv_mutex_lock(&ipfix_parse_mutex);
                  hashmap_set(templates_ipfix_hashmap, arena, &hkey, sizeof(uint64_t), arena_val);
-                 uv_mutex_unlock(&ipfix_parse_mutex);
                  LOG_INFO("Loaded IPFIX template %s from Redis\n", keys[i]);
              }
           }
@@ -59,7 +62,13 @@ void init_ipfix(arena_struct_t *arena, const size_t cap) {
 #endif
 }
 
-void *parse_ipfix(uv_work_t *req) {
+/**
+ * @brief TODO: Document parse_ipfix
+ *
+ * @param req TODO
+ * @return TODO
+ */
+void parse_ipfix(uv_work_t *req) {
 
   uint16_t *template_hashmap = NULL;
   parse_args_t *args = (parse_args_t *) req->data;
@@ -94,6 +103,8 @@ void *parse_ipfix(uv_work_t *req) {
   size_t total_record_counter = 0;
   size_t record_counter = 0;
   size_t template_counter = 0;
+  (void) total_record_counter;
+  (void) template_counter;
   size_t flowset_base = 0;
   size_t flowset_end = 0;
   uint16_t len = 0;
@@ -103,8 +114,13 @@ void *parse_ipfix(uv_work_t *req) {
 
   // Process all sets in the IPFIX message
   flowset_base = sizeof(netflow_ipfix_header_t);
+  uint32_t flowset_iters = 0;
 
   while (flowset_base + 4 <= total_packet_length && flowset_base + 4 <= header->length) {
+    if (++flowset_iters > 1000) {
+      LOG_ERROR("%s %d %s: Too many sets (>1000), aborting\n", __FILE__, __LINE__, __func__);
+      break;
+    }
     flowset = (flowset_union_ipfix_t *) (args->data + flowset_base);
     len = flowset->record.length;
     swap_endianness(&len, sizeof(len));
@@ -139,15 +155,22 @@ void *parse_ipfix(uv_work_t *req) {
           break;
         }
 
+        if (unlikely(field_count > 127)) {
+          LOG_ERROR("%s %d %s: field_count > 127, aborting template\n", __FILE__, __LINE__, __func__);
+          break;
+        }
+
+        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
 
         // Template withdrawal (field_count = 0)
         if (field_count == 0) {
           LOG_ERROR("%s %d %s: Template withdrawal for ID: %d\n", __FILE__, __LINE__, __func__, template_id);
+          hashmap_delete(templates_ipfix_hashmap, &hkey, sizeof(uint64_t));
           pos += 4;
           continue;
         }
 
-        LOG_ERROR("%s %d %s: template_id: %d field_count: %d\n", __FILE__, __LINE__, __func__, template_id,
+        LOG_DEBUG("%s %d %s: template_id: %d field_count: %d\n", __FILE__, __LINE__, __func__, template_id,
                   field_count);
 
         size_t template_size = 4; // template_id + field_count
@@ -161,6 +184,7 @@ void *parse_ipfix(uv_work_t *req) {
           }
           uint16_t ft = (field_def_ptr[0] << 8) | field_def_ptr[1];
           uint16_t fl = (field_def_ptr[2] << 8) | field_def_ptr[3];
+          (void) fl;
 
           if (ft & 0x8000) {
             // Enterprise bit set
@@ -171,12 +195,13 @@ void *parse_ipfix(uv_work_t *req) {
             }
             uint32_t enterprise_id =
                 (field_def_ptr[4] << 24) | (field_def_ptr[5] << 16) | (field_def_ptr[6] << 8) | field_def_ptr[7];
-            LOG_ERROR("%s %d %s: field: %d type: %u (enterprise: %u) len: %u\n", __FILE__, __LINE__, __func__, i,
+            (void) enterprise_id;
+            LOG_DEBUG("%s %d %s: field: %d type: %u (enterprise: %u) len: %u\n", __FILE__, __LINE__, __func__, i,
                       ft & 0x7FFF, enterprise_id, fl);
             template_size += 8;
             field_def_ptr += 8;
           } else {
-            LOG_ERROR("%s %d %s: field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i, ft, fl);
+            LOG_DEBUG("%s %d %s: field: %d type: %u len: %u\n", __FILE__, __LINE__, __func__, i, ft, fl);
             template_size += 4;
             field_def_ptr += 4;
           }
@@ -185,8 +210,7 @@ void *parse_ipfix(uv_work_t *req) {
         // Store template in Redis
         char redis_key[255];
         snprintf(redis_key, 255, "%s-10-%u", ip_int_to_str(args->exporter), template_id);
-        uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
-        LOG_ERROR("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, redis_key);
+        LOG_DEBUG("%s %d %s: Storing template key: %s\n", __FILE__, __LINE__, __func__, redis_key);
 
         uint8_t *template_record_start = args->data + flowset_base + pos;
 
@@ -203,18 +227,21 @@ void *parse_ipfix(uv_work_t *req) {
         if (temp) {
           memcpy(temp, (void *) template_record_start, template_size);
           // Store in Hashmap
-          uv_mutex_lock(&ipfix_parse_mutex);
-          hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, &hkey, sizeof(uint64_t), temp);
-          uv_mutex_unlock(&ipfix_parse_mutex);
-          LOG_ERROR("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, redis_key);
+          if (__atomic_load_n(&templates_ipfix_hashmap->size, __ATOMIC_RELAXED) < 65536U) {
+            hashmap_set(templates_ipfix_hashmap, arena_hashmap_ipfix, &hkey, sizeof(uint64_t), temp);
+          } else {
+            LOG_ERROR("%s %d %s: Hashmap size >= 65536, ignoring new IPFIX template\n", __FILE__, __LINE__, __func__);
+          }
+          LOG_DEBUG("%s %d %s: IPFIX template saved to Hashmap [%s]\n", __FILE__, __LINE__, __func__, redis_key);
 
 #ifdef USE_REDIS
           if (redis_set_template(redis_key, strlen(redis_key), temp, template_size) != 0) {
             LOG_ERROR("%s %d %s: Error saving IPFIX template to Redis [%s]\n", __FILE__, __LINE__, __func__, redis_key);
           } else {
-            LOG_ERROR("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, redis_key);
+            LOG_DEBUG("%s %d %s: IPFIX template saved to Redis [%s]\n", __FILE__, __LINE__, __func__, redis_key);
           }
 #endif
+          check_and_replay_unparsed_flows(args->exporter, template_id);
         } else {
           LOG_ERROR("%s %d %s: Failed to allocate memory for template copy\n", __FILE__, __LINE__, __func__);
           goto cleanup_ipfix_and_unlock;
@@ -237,21 +264,23 @@ void *parse_ipfix(uv_work_t *req) {
         goto skip_ipfix_record_pass;
       }
 
-      LOG_ERROR("%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
+      LOG_DEBUG("%s %d %s: Processing IPFIX data set\n", __FILE__, __LINE__, __func__);
 
       uint16_t template_id = flowset_id;
       uint64_t hkey = ((uint64_t)args->exporter << 32) | template_id;
 
-      uv_mutex_lock(&ipfix_parse_mutex);
       template_hashmap = (uint16_t *) hashmap_get(templates_ipfix_hashmap, &hkey, sizeof(uint64_t));
-      uv_mutex_unlock(&ipfix_parse_mutex);
 
       if (template_hashmap == NULL) {
         LOG_ERROR("%s %d %s: Template %d not found for exporter %s\n", __FILE__, __LINE__, __func__, template_id,
                   ip_int_to_str(args->exporter));
+        if (args->flags != 1) { // Not a replay
+            cache_unparsed_flow(args->exporter, template_id, 10, diff, args->data + flowset_base, flowset_length);
+        }
+        goto skip_ipfix_record_pass;
       } else {
         if (args->exporter == 1090654892) {
-          LOG_ERROR("%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
+          LOG_DEBUG("%s %d %s: Exporter: %s [%u]\n", __FILE__, __LINE__, __func__, ip_int_to_str(args->exporter),
                     args->exporter);
         }
         void *pointer = args->data + flowset_base + 4; // Skip set header
@@ -263,7 +292,7 @@ void *parse_ipfix(uv_work_t *req) {
         swap_endianness(&field_count, sizeof(field_count));
 
         netflow_v9_uint128_flowset_t flows_to_insert;
-        memset(&flows_to_insert, 0, sizeof(flows_to_insert));
+        memset(&flows_to_insert.header, 0, sizeof(flows_to_insert.header));
         int is_ipv6 = 0;
         uint64_t local_ipfix_records = 0;
 
@@ -272,6 +301,8 @@ void *parse_ipfix(uv_work_t *req) {
         for (uint16_t i = 0; i < field_count; i++) {
             uint16_t flen = (temp_ptr[2] << 8) | temp_ptr[3];
             if (flen == 65535) { // Variable length field (not supported yet, skip size logic if needed)
+               // IMPORTANT: If future variable-length parsing is implemented, pos MUST advance by 
+               // at least 1 byte per field to prevent an infinite while loop when total_record_size=0
                total_record_size = 0;
                break; 
             }
@@ -284,17 +315,31 @@ void *parse_ipfix(uv_work_t *req) {
             goto unlock_mutex_parse_ipfix;
         }
 
+        size_t flowset_data_len = (flowset_length > 4) ? (flowset_length - 4) : 0;
+        size_t remainder = flowset_data_len % total_record_size;
+        if (unlikely(remainder != 0)) {
+            LOG_ERROR("%s %d %s: Flowset %d data length %lu not divisible by record size %lu — template mismatch, discarding\n",
+                      __FILE__, __LINE__, __func__, template_id, flowset_data_len, total_record_size);
+            if (args->flags != 1) { // Not a replay
+                cache_unparsed_flow(args->exporter, template_id, 10, diff, args->data + flowset_base, flowset_length);
+            }
+            goto skip_ipfix_record_pass;
+        }
+
         while (pos + total_record_size <= flowset_length) {
           if (record_counter >= 60) {
             LOG_ERROR("%s %d %s: Too many records in FlowSet (> 60), truncating\n", __FILE__, __LINE__, __func__);
             break;
           }
+          memset(&flows_to_insert.records[record_counter], 0, sizeof(flows_to_insert.records[record_counter]));
 #ifdef CNETFLOW_DEBUG_BUILD
           fprintf(stdout, "exporter: %s template: %d record_no: %lu field_count: %u\n", ip_int_to_str(args->exporter),
                   template_id, record_counter + 1, field_count);
 #endif
 
+#ifdef CNETFLOW_DEBUG_BUILD
           size_t reading_field = 0;
+#endif
 
           // Track exporter and flowset per valid data loop entry
           metrics_track_exporter(args->exporter);
@@ -305,7 +350,9 @@ void *parse_ipfix(uv_work_t *req) {
           uint8_t *stored_field_ptr = (uint8_t *) template_hashmap + 4;
 
           for (uint16_t i = 0; i < field_count; i++) {
+#ifdef CNETFLOW_DEBUG_BUILD
             reading_field++;
+#endif
             uint16_t field_type = (stored_field_ptr[0] << 8) | stored_field_ptr[1];
             uint16_t field_length = (stored_field_ptr[2] << 8) | stored_field_ptr[3];
 
@@ -616,15 +663,16 @@ void *parse_ipfix(uv_work_t *req) {
           // if (flows_to_insert.records[record_counter].prot == 1 &&
           // (flows_to_insert.records[record_counter].srcport > 0 ||
           // flows_to_insert.records[record_counter].dstport > 0)) {
-          //   EXIT_WITH_MSG(-1, "%s %d %s this should not happen...\n", __FILE__, __LINE__, __func__);
+          //   // fprintf(stderr, "%s %d %s copy_ipfix_to_flow return\n", __FILE__, __LINE__, __func__);
           // }
           // if (sysUptimeMillis != 0 ) {
 
-          LOG_ERROR("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
-          LOG_ERROR("%s %d %s: Last = %u\n", __FILE__, __LINE__, __func__,
+          LOG_DEBUG("%s %d %s: sysUptimeMillis = %lu\n", __FILE__, __LINE__, __func__, sysUptimeMillis);
+          LOG_DEBUG("%s %d %s: Last = %u\n", __FILE__, __LINE__, __func__,
                     flows_to_insert.records[record_counter].Last);
-          LOG_ERROR("%s %d %s: First = %u\n", __FILE__, __LINE__, __func__,
+          LOG_DEBUG("%s %d %s: First = %u\n", __FILE__, __LINE__, __func__,
                     flows_to_insert.records[record_counter].First);
+          (void) sysUptimeMillis;
           // swap_endianness(&flows_to_insert.records[record_counter].Last,
           //               sizeof(flows_to_insert.records[record_counter].Last));
           // swap_endianness(&flows_to_insert.records[record_counter].First,
@@ -653,8 +701,6 @@ void *parse_ipfix(uv_work_t *req) {
             // sizeof(flows_to_insert.records[record_counter].srcaddr));
             // swap_endianness(&flows_to_insert.records[record_counter].dstaddr,
             // sizeof(flows_to_insert.records[record_counter].dstaddr));
-
-            swap_src_dst_ipfix_ipv4(&flows_to_insert.records[record_counter]);
 
             // swap_endianness(&flows_to_insert.records[record_counter].srcport,
             // sizeof(flows_to_insert.records[record_counter].srcport));
@@ -733,7 +779,49 @@ cleanup_ipfix_and_unlock:
 unlock_mutex_parse_ipfix:
   args->processed_flows = total_flows_in_packet;
   args->status = collector_data_status_done;
-  return NULL;
 }
 
+/**
+ * @brief TODO: Document process_ipfix_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+void process_ipfix_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length) {
+    size_t packet_len = sizeof(netflow_ipfix_header_t) + length;
+    uint8_t *packet = malloc(packet_len);
+    if (!packet) return;
 
+    netflow_ipfix_header_t *hdr = (netflow_ipfix_header_t *)packet;
+    memset(hdr, 0, sizeof(netflow_ipfix_header_t));
+    hdr->version = swap_endian_16(10);
+    hdr->length = swap_endian_16((uint16_t)packet_len);
+    
+    // We stored diff = now - ExportTime. We can approximate ExportTime by just setting it to 0,
+    // but the parser does `diff = now - ExportTime`. So `now = diff`, `ExportTime = 0`.
+    hdr->ExportTime = 0;
+
+    memcpy(packet + sizeof(netflow_ipfix_header_t), data, length);
+
+    parse_args_t args;
+    memset(&args, 0, sizeof(parse_args_t));
+    args.data = packet;
+    args.len = packet_len;
+    args.exporter = exporter;
+    args.now = diff; // so diff = now - 0 = diff
+    args.flags = 1; // Replay flag
+
+    uv_work_t req;
+    memset(&req, 0, sizeof(uv_work_t));
+    req.data = &args;
+
+    // Call the parser directly
+    (void)template_id; // unused, already parsed from header
+    parse_ipfix(&req);
+
+    free(packet);
+}

@@ -23,10 +23,8 @@ extern arena_struct_t *arena_collector;
  * @param args_data   A pointer to a `parse_args_t` structure containing NetFlow
  *                    v5 data to be parsed and processed. Must include a valid
  *                    data buffer and mutex for synchronization.
- * @return            A pointer to result or data processed (depends on the
- *                    function usage; typically NULL if no return object is needed).
  */
-void *parse_v5(uv_work_t *req) {
+void parse_v5(uv_work_t *req) {
   parse_args_t *args = (parse_args_t *) req->data;
   args->status = collector_data_status_processing;
   netflow_v5_flowset_t *netflow_packet_ptr;
@@ -54,6 +52,10 @@ void *parse_v5(uv_work_t *req) {
     LOG_ERROR("%s %d %s Packet too short: expected %lu bytes, got %lu\n", __FILE__, __LINE__, __func__, expected_len,
               args->len);
     goto unlock_mutex_parse_v5;
+  }
+  if (args->len > expected_len) {
+    LOG_ERROR("%s %d %s Trailing garbage: expected %lu bytes, got %lu\n", __FILE__, __LINE__, __func__, expected_len,
+              args->len);
   }
   swap_endianness((void *) &(netflow_packet_ptr->header.SysUptime), sizeof(netflow_packet_ptr->header.SysUptime));
   swap_endianness((void *) &(netflow_packet_ptr->header.unix_secs), sizeof(netflow_packet_ptr->header.unix_secs));
@@ -113,8 +115,6 @@ void *parse_v5(uv_work_t *req) {
     // Note: We do NOT swap First/Last back to network order here.
     // We also do not swap other fields in place here; copy_v5_to_flow handles that non-destructively.
 
-    swap_src_dst_v5_ipv4(&netflow_packet_ptr->records[record_counter]);
-
     if (netflow_packet_ptr->records[record_counter].Last != 0 &&
         netflow_packet_ptr->records[record_counter].First != 0) {
       // swap_endianness(&netflow_packet_ptr->records[record_counter].Last,
@@ -142,7 +142,6 @@ void *parse_v5(uv_work_t *req) {
   // insert_v5(args->exporter, netflow_packet_ptr);
 
   netflow_v9_uint128_flowset_t flows_to_insert = {0};
-  memset(&flows_to_insert, 0, sizeof(flows_to_insert));
   copy_v5_to_flow(netflow_packet_ptr, &flows_to_insert);
   uint32_t exporter_host = args->exporter;
   swap_endianness((void *) &exporter_host, sizeof(exporter_host));
@@ -164,10 +163,16 @@ unlock_mutex_parse_v5:
   args->processed_flows = netflow_packet_ptr->header.count;
   args->status = collector_data_status_done;
 
-  return NULL;
 }
 
 
+/**
+ * @brief TODO: Document copy_v5_to_flow
+ *
+ * @param in TODO
+ * @param out TODO
+ * @return TODO
+ */
 void copy_v5_to_flow(const netflow_v5_flowset_t * restrict in, netflow_v9_uint128_flowset_t * restrict out) {
   out->header.count = in->header.count;
   out->header.SysUptime = in->header.SysUptime;

@@ -1,8 +1,43 @@
 services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8123:8123/tcp"
+    environment:
+      - CLICKHOUSE_USER=${CH_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CH_PASSWORD:-default}
+      - TZ
+    ulimits:
+      nofile: 262144
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./scripts/sql/clickhouse/docker-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+      - ./scripts/sql/clickhouse/001-tables.sql:/schema/001-tables.sql:ro
+      - ./scripts/sql/clickhouse/002-materialized-views.sql:/schema/002-materialized-views.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse client --host \"$$(hostname)\" --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" -q 'SELECT 1'"]
+      interval: 5s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 30
   cnetflow:
     build:
       context: .
     image: cnetflow
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     #restart: no
     restart: unless-stopped
     ports:
@@ -11,6 +46,27 @@ services:
       - UV_THREADPOOL_SIZE
       - CH_CONN_STRING
       - TZ
+      - CNETFLOW_BIND_IP=0.0.0.0
+      - CNETFLOW_BIND_PORT=2055
+      - CNETFLOW_MAX_FLOWS
+      - CNETFLOW_MAX_DIFF
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+  web:
+    build:
+      context: ../cnetflow-web
+    image: cnetflow-web
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:8080/tcp"
+    environment:
+      - CH_CONN_STRING
+      - LOCAL_NETS
+    volumes:
+      - ${MMDB_DIR:-./mmdb}:/mmdb:ro
   softflowd:
     image: kagurazakanyaa/softflowd
     command: [ "softflowd",  "-v","9","-i", "any" ,"-D", "-t","maxlife=60s" ,"-P" ,"udp" ,"-n", $SOFTFLOWD_DST ]
@@ -23,10 +79,14 @@ services:
     image: grafana/grafana
     restart: unless-stopped
     ports:
-      - 3001:3000/tcp
+      - 3002:3000/tcp
     environment:
       - CH_CONN_STRING
       - TZ
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/etc_dashboards/:/etc/grafana/json_dashboards/
+
+volumes:
+  clickhouse-data:
+  redis-data:

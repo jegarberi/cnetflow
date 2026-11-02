@@ -1,0 +1,17 @@
+<map id="ch_execute" name="ch_execute">
+<area shape="rect" id="Node000001" title="TODO: Document ch_execute." alt="" coords="483,109,578,137"/>
+<area shape="rect" id="Node000002" href="$db__clickhouse_8c.html#a5b06d7aae1ef37f614ba7c852cc3a5e1" title="TODO: Document ch_create_flows_table." alt="" coords="270,5,435,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="502,98,471,73,434,48,408,36,408,31,437,43,475,69,507,99"/>
+<area shape="rect" id="Node000003" href="$db__clickhouse_8c.html#a6748389a830a885898a0b2e50204d1d0" title="TODO: Document ch_db_cleanup_all." alt="" coords="282,57,423,85"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="466,105,402,88,403,83,471,105"/>
+<area shape="rect" id="Node000006" href="$db__clickhouse_8c.html#a8a15c97cc10b426108d18c4810ea3501" title="TODO: Document ch_insert_dump." alt="" coords="290,109,415,137"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="465,124,416,126,415,121,470,123"/>
+<area shape="rect" id="Node000007" href="$db__clickhouse_8c.html#a0bf90917c6a952e5dac4c9aea43221a0" title="TODO: Document ch_insert_flows." alt="" coords="292,161,413,189"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="471,141,403,163,402,158,466,142"/>
+<area shape="rect" id="Node000008" href="$db__clickhouse_8c.html#a426a027f3092e882358cbe0009401ad9" title="TODO: Document ch_insert_template." alt="" coords="280,213,426,241"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="507,147,475,177,437,203,408,215,407,210,434,198,471,173,502,149"/>
+<area shape="rect" id="Node000004" href="$collector_8c.html#a06b4ac547fd361a0d52f901e6a452086" title="TODO: Document collector_start." alt="" coords="108,57,222,85"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="264,72,223,74,221,69,269,70"/>
+<area shape="rect" id="Node000005" href="$main_8c.html#a0ddf1224851353fc92bfbff6f499fa97" title=" " alt="" coords="5,57,60,85"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="90,73,62,74,59,69,94,69"/>
+</map>

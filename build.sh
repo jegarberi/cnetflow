@@ -47,8 +47,13 @@ build_config() {
     local logging="$3"
     local redis="$4"
     local metrics="$5"
-    local static_build="$6"
-    local build_type="$7"
+    local mmsg="$6"
+    local mmsg_size="$7"
+    local max_unp_size="$8"
+    local mmdb="$9"
+    local mmdb_dir="${10}"
+    local static_build="${11}"
+    local build_type="${12}"
     
     local static_suffix=""
     local cmake_static_flag="OFF"
@@ -83,6 +88,7 @@ build_config() {
     echo "Running Conan install..."
     # Point to PROJECT_ROOT for conanfile.txt
     if [ "$static_build" == "ON" ]; then
+        export ac_cv_prog_lex_yytext_pointer=yes
         if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing \
             -pr:h "$CONAN_PROFILE_MUSL" -pr:b default \
             -s build_type="$build_type" \
@@ -92,6 +98,7 @@ build_config() {
             return 1
         fi
     else
+        export ac_cv_prog_lex_yytext_pointer=yes
         if ! "$CONAN_CMD" install "$PROJECT_ROOT" --output-folder=. --build=missing -s build_type="$build_type" -c "tools.build:cflags=['-std=gnu11']"; then
             echo "ERROR: Conan install failed for: $config_name ($build_type)"
             return 1
@@ -104,6 +111,11 @@ build_config() {
               -DENABLE_LOGGING="$logging" \
               -DUSE_REDIS="$redis" \
               -DENABLE_METRICS="$metrics" \
+              -DENABLE_MMSG="$mmsg" \
+              -DMMSG_BATCH_SIZE="$mmsg_size" \
+              -DMAX_UNPARSED_FLOWS="$max_unp_size" \
+              -DEMBED_MMDB="$mmdb" \
+              -DMMDB_DIR="$mmdb_dir" \
               -DBUILD_STATIC="$cmake_static_flag" \
               -DCMAKE_BUILD_TYPE="$build_type" \
               -DCMAKE_TOOLCHAIN_FILE="build/$build_type/generators/conan_toolchain.cmake" \
@@ -127,14 +139,21 @@ run_builds() {
     local log="$3"
     local rd="$4"
     local met="$5"
+    local msg="${6:-ON}"
+    local msg_size="${7:-40}"
+    local max_unp_size="${8:-1000}"
+    local mmdb="${9:-OFF}"
+    local mmdb_dir="${10:-}"
     
-    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Release"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "OFF" "Debug"
-    build_config "$name" "$ar" "$log" "$rd" "$met" "ON" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "OFF" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "ON" "Release"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "OFF" "Debug"
+    build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "ON" "Debug"
 }
 
-if [ -t 0 ]; then
+if [ -n "$NON_INTERACTIVE" ]; then
+    build_all="n"
+elif [ -t 0 ]; then
     read -p "Do you want to build ALL 16 combinations? (y/N): " build_all
 else
     build_all="y"
@@ -195,44 +214,176 @@ if [[ "$build_all" =~ ^[Yy]$ ]]; then
     # 16. All features enabled
     run_builds "Arena_Logging_Redis_Metrics" ON ON ON ON
 else
-    echo "Select features to enable (default is YES for all):"
-    read -p "Enable Arena Allocator? [Y/n]: " opt_arena
-    read -p "Enable Logging? [Y/n]: " opt_logging
-    read -p "Enable Redis? [Y/n]: " opt_redis
-    read -p "Enable Metrics? [Y/n]: " opt_metrics
+    CONFIG_FILE="${PROJECT_ROOT}/.build_config"
+    DEF_AR="Y"; DEF_LOG="Y"; DEF_RD="Y"; DEF_MET="Y"; DEF_MSG="Y"; DEF_MSG_SIZE="40"; DEF_MAX_UNP_SIZE="1000"; DEF_MMDB="N"; DEF_MMDB_DIR=""
+    DEF_MODE="B"; DEF_TYPE="B"
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    fi
 
-    ar="ON"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; fi
-    log="ON"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; fi
-    rd="ON"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; fi
-    met="ON"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; fi
+    if [ -z "$NON_INTERACTIVE" ]; then
+        echo "Select features to enable (press Enter to use defaults):"
+        read -p "Enable Arena Allocator? [$DEF_AR/n]: " opt_arena
+    opt_arena=${opt_arena:-$DEF_AR}
+    read -p "Enable Logging? [$DEF_LOG/n]: " opt_logging
+    opt_logging=${opt_logging:-$DEF_LOG}
+    read -p "Enable Redis? [$DEF_RD/n]: " opt_redis
+    opt_redis=${opt_redis:-$DEF_RD}
+    read -p "Enable Metrics? [$DEF_MET/n]: " opt_metrics
+    opt_metrics=${opt_metrics:-$DEF_MET}
+    read -p "Enable MMSG? [$DEF_MSG/n]: " opt_mmsg
+    opt_mmsg=${opt_mmsg:-$DEF_MSG}
+    read -p "Enable Embedding MMDB (City/ASN)? [$DEF_MMDB/n]: " opt_mmdb
+    opt_mmdb=${opt_mmdb:-$DEF_MMDB}
+
+    ar="ON"; DEF_AR="Y"; if [[ "$opt_arena" =~ ^[Nn]$ ]]; then ar="OFF"; DEF_AR="n"; fi
+    log="ON"; DEF_LOG="Y"; if [[ "$opt_logging" =~ ^[Nn]$ ]]; then log="OFF"; DEF_LOG="n"; fi
+    rd="ON"; DEF_RD="Y"; if [[ "$opt_redis" =~ ^[Nn]$ ]]; then rd="OFF"; DEF_RD="n"; fi
+    met="ON"; DEF_MET="Y"; if [[ "$opt_metrics" =~ ^[Nn]$ ]]; then met="OFF"; DEF_MET="n"; fi
+    msg="ON"; DEF_MSG="Y"; if [[ "$opt_mmsg" =~ ^[Nn]$ ]]; then msg="OFF"; DEF_MSG="n"; fi
+    mmdb="ON"; DEF_MMDB="Y"; if [[ "$opt_mmdb" =~ ^[Nn]$ ]]; then mmdb="OFF"; DEF_MMDB="n"; fi
+
+    mmdb_dir="$DEF_MMDB_DIR"
+    if [ "$mmdb" == "ON" ]; then
+        read -p "MMDB Directory Path [$DEF_MMDB_DIR]: " opt_mmdb_dir
+        opt_mmdb_dir=${opt_mmdb_dir:-$DEF_MMDB_DIR}
+        mmdb_dir="$opt_mmdb_dir"
+        DEF_MMDB_DIR="$mmdb_dir"
+        
+        # Check if files exist
+        if [ ! -f "$mmdb_dir/GeoLite2-City.mmdb" ] || [ ! -f "$mmdb_dir/GeoLite2-ASN.mmdb" ]; then
+            echo "ERROR: GeoLite2-City.mmdb or GeoLite2-ASN.mmdb not found in $mmdb_dir"
+            echo "Please download them and place them in the specified directory."
+            exit 1
+        fi
+        
+        # Make path absolute if it isn't
+        if [[ "$mmdb_dir" != /* ]]; then
+            mmdb_dir="$PROJECT_ROOT/$mmdb_dir"
+        fi
+    fi
+
+    msg_size="$DEF_MSG_SIZE"
+    if [ "$msg" == "ON" ]; then
+        read -p "MMSG Batch Size (default $DEF_MSG_SIZE): " opt_mmsg_size
+        opt_mmsg_size=${opt_mmsg_size:-$DEF_MSG_SIZE}
+        if [[ "$opt_mmsg_size" =~ ^[0-9]+$ ]]; then msg_size="$opt_mmsg_size"; fi
+    fi
+    DEF_MSG_SIZE="$msg_size"
+
+    max_unp_size="$DEF_MAX_UNP_SIZE"
+    read -p "Max Unparsed Flows Cache Size (default $DEF_MAX_UNP_SIZE): " opt_max_unp_size
+    opt_max_unp_size=${opt_max_unp_size:-$DEF_MAX_UNP_SIZE}
+    if [[ "$opt_max_unp_size" =~ ^[0-9]+$ ]]; then max_unp_size="$opt_max_unp_size"; fi
+    DEF_MAX_UNP_SIZE="$max_unp_size"
 
     name="Custom"
     if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
     if [ "$log" == "ON" ]; then name="${name}_Logging"; fi
     if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
     if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
+    if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
+    if [ "$mmdb" == "ON" ]; then name="${name}_MMDB"; fi
     if [ "$name" == "Custom" ]; then name="None"; fi
 
-    echo "Select Build Configurations (default is Both):"
-    read -p "Build Mode? [S]tatic / [D]ynamic / [B]oth: " opt_mode
-    read -p "Build Type? [R]elease / [D]ebug / [B]oth: " opt_type
+    echo "Select Build Configurations (press Enter to use defaults):"
+    read -p "Build Mode? [S]tatic / [D]ynamic / [B]oth [$DEF_MODE]: " opt_mode
+    opt_mode=${opt_mode:-$DEF_MODE}
+    read -p "Build Type? [R]elease / [D]ebug / [B]oth [$DEF_TYPE]: " opt_type
+    opt_type=${opt_type:-$DEF_TYPE}
 
     build_static_flags=()
+    DEF_MODE="B"
     if [[ "$opt_mode" =~ ^[Ss]$ ]]; then
         build_static_flags=("ON")
+        DEF_MODE="S"
     elif [[ "$opt_mode" =~ ^[Dd]$ ]]; then
         build_static_flags=("OFF")
+        DEF_MODE="D"
     else
         build_static_flags=("OFF" "ON")
     fi
 
     build_type_flags=()
+    DEF_TYPE="B"
     if [[ "$opt_type" =~ ^[Rr]$ ]]; then
         build_type_flags=("Release")
+        DEF_TYPE="R"
     elif [[ "$opt_type" =~ ^[Dd]$ ]]; then
         build_type_flags=("Debug")
+        DEF_TYPE="D"
     else
         build_type_flags=("Release" "Debug")
+    fi
+
+    cat > "$CONFIG_FILE" <<EOF
+DEF_AR="$DEF_AR"
+DEF_LOG="$DEF_LOG"
+DEF_RD="$DEF_RD"
+DEF_MET="$DEF_MET"
+DEF_MSG="$DEF_MSG"
+DEF_MSG_SIZE="$DEF_MSG_SIZE"
+DEF_MAX_UNP_SIZE="$DEF_MAX_UNP_SIZE"
+DEF_MMDB="$DEF_MMDB"
+DEF_MMDB_DIR="$DEF_MMDB_DIR"
+DEF_MODE="$DEF_MODE"
+DEF_TYPE="$DEF_TYPE"
+EOF
+
+        echo ""
+        read -p "Build static binary using Docker? (Bypasses local toolchain issues) [y/N]: " opt_docker
+        if [[ "$opt_docker" =~ ^[Yy]$ ]]; then
+            echo "Building Docker image..."
+            docker build -t cnetflow-static-builder -f "${PROJECT_ROOT}/Dockerfile.static" "${PROJECT_ROOT}"
+            echo "Running build inside Docker container..."
+            docker run --rm -v "$PROJECT_ROOT":/app -e IN_DOCKER=1 -e NON_INTERACTIVE=1 cnetflow-static-builder
+            echo "Docker build completed. Binaries are available in cmake-build-* directories."
+            exit 0
+        fi
+
+        echo ""
+        read -p "Build RPM for RHEL7/CentOS7 using Docker? [y/N]: " opt_rhel7
+        if [[ "$opt_rhel7" =~ ^[Yy]$ ]]; then
+            echo "Building RHEL7 Docker image (this will compile the code and create the RPM)..."
+            docker build -f "${PROJECT_ROOT}/Dockerfile.rhel7" -t cnetflow-rhel7-builder "${PROJECT_ROOT}"
+            echo "Extracting RPM..."
+            docker create --name temp-rhel7-builder cnetflow-rhel7-builder
+            mkdir -p "${PROJECT_ROOT}/cmake-build-rhel7"
+            docker cp temp-rhel7-builder:/build/build/ "${PROJECT_ROOT}/cmake-build-rhel7/" || echo "Warning: failed to copy RPM. Check Dockerfile.rhel7."
+            docker rm temp-rhel7-builder
+            echo "Docker RHEL7 build completed. RPMs are available in cmake-build-rhel7/build/"
+            exit 0
+        fi
+    else
+        # Non-interactive mode, compute variables from DEF_ values
+        ar="ON"; if [[ "$DEF_AR" == "n" ]]; then ar="OFF"; fi
+        log="ON"; if [[ "$DEF_LOG" == "n" ]]; then log="OFF"; fi
+        rd="ON"; if [[ "$DEF_RD" == "n" ]]; then rd="OFF"; fi
+        met="ON"; if [[ "$DEF_MET" == "n" ]]; then met="OFF"; fi
+        msg="ON"; if [[ "$DEF_MSG" == "n" ]]; then msg="OFF"; fi
+        mmdb="ON"; if [[ "$DEF_MMDB" == "n" ]]; then mmdb="OFF"; fi
+        msg_size="$DEF_MSG_SIZE"
+        max_unp_size="$DEF_MAX_UNP_SIZE"
+        mmdb_dir="$DEF_MMDB_DIR"
+
+        build_static_flags=()
+        if [[ "$DEF_MODE" == "S" ]]; then build_static_flags=("ON");
+        elif [[ "$DEF_MODE" == "D" ]]; then build_static_flags=("OFF");
+        else build_static_flags=("OFF" "ON"); fi
+
+        build_type_flags=()
+        if [[ "$DEF_TYPE" == "R" ]]; then build_type_flags=("Release");
+        elif [[ "$DEF_TYPE" == "D" ]]; then build_type_flags=("Debug");
+        else build_type_flags=("Release" "Debug"); fi
+
+        name="Custom"
+        if [ "$ar" == "ON" ]; then name="${name}_Arena"; fi
+        if [ "$log" == "ON" ]; then name="${name}_Logging"; fi
+        if [ "$rd" == "ON" ]; then name="${name}_Redis"; fi
+        if [ "$met" == "ON" ]; then name="${name}_Metrics"; fi
+        if [ "$msg" == "ON" ]; then name="${name}_MMSG"; fi
+        if [ "$mmdb" == "ON" ]; then name="${name}_MMDB"; fi
+        if [ "$name" == "Custom" ]; then name="None"; fi
     fi
 
     echo ""
@@ -242,7 +393,7 @@ else
     echo ""
     for btype in "${build_type_flags[@]}"; do
         for bmode in "${build_static_flags[@]}"; do
-            build_config "$name" "$ar" "$log" "$rd" "$met" "$bmode" "$btype"
+            build_config "$name" "$ar" "$log" "$rd" "$met" "$msg" "$msg_size" "$max_unp_size" "$mmdb" "$mmdb_dir" "$bmode" "$btype"
         done
     done
 fi

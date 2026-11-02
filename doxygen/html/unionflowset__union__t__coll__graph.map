@@ -1,0 +1,15 @@
+<map id="flowset_union_t" name="flowset_union_t">
+<area shape="rect" id="Node000001" title=" " alt="" coords="233,341,356,369"/>
+<area shape="rect" id="Node000002" href="$structnetflow__v9__flow__header__template__t.html" title=" " alt="" coords="12,224,190,268"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="151,274,223,315,270,341,265,341,221,320,149,279"/>
+<area shape="rect" id="Node000003" href="$structnetflow__v9__template__t.html" title=" " alt="" coords="5,123,176,151"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="94,164,102,223,96,223,92,169"/>
+<area shape="rect" id="Node000004" href="$structnetflow__v9__template__fields__t.html" title=" " alt="" coords="11,5,170,50"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="91,63,93,123,88,122,90,68"/>
+<area shape="rect" id="Node000005" href="$structnetflow__v9__record__t.html" title=" " alt="" coords="218,232,371,260"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="297,274,297,342,292,339,292,277"/>
+<area shape="rect" id="Node000006" href="$structnetflow__v9__record__value__t.html" title=" " alt="" coords="200,123,395,151"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="298,164,297,233,292,230,295,168"/>
+<area shape="rect" id="Node000007" href="$structnetflow__v9__options__t.html" title=" " alt="" coords="395,232,554,260"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="442,268,318,343,316,338,437,268"/>
+</map>

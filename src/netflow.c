@@ -125,6 +125,12 @@ uint64_t swap_endian_64(uint64_t value) {
          ((value & 0x000000000000FF00ULL) << 40) | ((value & 0x00000000000000FFULL) << 56);
 }
 */
+/**
+ * @brief TODO: Document swap_endian_128
+ *
+ * @param value TODO
+ * @return TODO
+ */
 uint128_t swap_endian_128(const uint128_t value) {
 #if defined(_MSC_VER)
   uint128_t result;
@@ -240,178 +246,219 @@ void *fix_endianness(void *buf, void *data, size_t len) {
   return buf;
 }
 
-int is_ipv4_private(const uint32_t ip) {
-  if ((ip >= 167772160 && ip <= 184549375) || // CLASS A PRIVATE
-      (ip >= 2886729728 && ip <= 2887778303) || // CLASS B PRIVATE
-      (ip >= 3232235520 && ip <= 3232301055)) // CLASS C PRIVATE
-  {
-    return 1;
-  }
-  return 0;
+
+
+#include <stdlib.h>
+#include "hashmap.h"
+#include "collector.h"
+#ifdef USE_REDIS
+/**
+ * @brief TODO: Document redis_store_unparsed_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+extern void redis_store_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+/**
+ * @brief TODO: Document redis_replay_unparsed_flows
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @return TODO
+ */
+extern void redis_replay_unparsed_flows(uint32_t exporter, uint16_t template_id);
+#endif
+
+static hashmap_t *unparsed_flows_hashmap = NULL;
+#ifndef USE_REDIS
+static size_t current_unparsed_flows = 0;
+#endif
+
+static uv_mutex_t unparsed_flows_mutex;
+extern arena_struct_t *arena_collector; // Use the main collector arena for the hashmap/dyn_array structures
+
+/**
+ * @brief TODO: Document init_unparsed_flows_cache
+ *
+ * @param arena TODO
+ * @return TODO
+ */
+void init_unparsed_flows_cache(arena_struct_t *arena) {
+    unparsed_flows_hashmap = hashmap_create(arena, 1024);
+    uv_mutex_init(&unparsed_flows_mutex);
 }
 
-void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record) {
+/**
+ * @brief TODO: Document cache_unparsed_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+void cache_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
+#ifdef USE_REDIS
+    // If Redis is used, we store it there (implementation in redis_handler.c)
+    redis_store_unparsed_flow(exporter, template_id, version, diff, data, length);
+#else
+    uv_mutex_lock(&unparsed_flows_mutex);
+    if (current_unparsed_flows >= max_unparsed_flows) {
+        LOG_ERROR("Max unparsed flows reached (%lu). Dropping flow.\n", current_unparsed_flows);
+        uv_mutex_unlock(&unparsed_flows_mutex);
+        return;
+    }
 
-  /*
-    char srcaddr[250];
-    char dstaddr[250];
-    memccpy(srcaddr, ip_int_to_str(record->srcaddr), '\0', 250);
-    memccpy(dstaddr, ip_int_to_str(record->dstaddr), '\0', 250);
-    LOG_ERROR("%lu %s %d %s: %s:%d  -> %s:%d \n", uv_thread_self(), __FILE__, __LINE__, __func__, srcaddr,
-            record->srcport, dstaddr, record->dstport);
-    */
-  if (!is_ipv4_private(record->srcaddr) || (is_ipv4_private(record->dstaddr) && record->dstport > record->srcport)) {
-    /*
-    LOG_ERROR("%lu %s %d %s is_ipv4_private(record->srcaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, is_ipv4_private(record->srcaddr));
-    LOG_ERROR("%lu %s %d %s record->srcaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
-            record->srcaddr);
-    LOG_ERROR("%lu %s %d %s is_ipv4_private(record->dstaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, is_ipv4_private(record->dstaddr));
-    LOG_ERROR("%lu %s %d %s record->dstaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
-            record->dstaddr);
-    LOG_ERROR("%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, record->dstport > record->srcport);
-    */
-    // LOG_ERROR("%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
+    uint64_t hkey = ((uint64_t)exporter << 32) | template_id;
+    dyn_array_t *arr = (dyn_array_t *) hashmap_get(unparsed_flows_hashmap, &hkey, sizeof(uint64_t));
+    
+    if (arr == NULL) {
+        arr = dyn_array_create(arena_collector, 4, sizeof(unparsed_flowset_t *));
+        hashmap_set(unparsed_flows_hashmap, arena_collector, &hkey, sizeof(uint64_t), arr);
+    }
 
-    const uint16_t tmp_port = record->dstport;
-    record->dstport = record->srcport;
-    record->srcport = tmp_port;
-    const uint32_t tmp_addr = record->dstaddr;
-    record->dstaddr = record->srcaddr;
-    record->srcaddr = tmp_addr;
-    const uint16_t tmp_interface = record->input;
-    record->input = record->output;
-    record->output = tmp_interface;
+    unparsed_flowset_t *flow = malloc(sizeof(unparsed_flowset_t) + length);
+    if (flow) {
+        flow->exporter = exporter;
+        flow->template_id = template_id;
+        flow->version = version;
+        flow->diff = diff;
+        flow->length = length;
+        memcpy(flow->data, data, length);
+        
+        dyn_array_push(arr, &flow);
+        current_unparsed_flows++;
+    }
 
-    const uint8_t tmp_mask = record->src_mask;
-    record->src_mask = record->dst_mask;
-    record->dst_mask = tmp_mask;
-
-    const uint32_t tmp_as = record->src_as;
-    record->src_as = record->dst_as;
-    record->dst_as = tmp_as;
-
-  } else {
-    // fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
-  }
+    uv_mutex_unlock(&unparsed_flows_mutex);
+#endif
 }
 
+/**
+ * @brief TODO: Document check_and_replay_unparsed_flows
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @return TODO
+ */
+void check_and_replay_unparsed_flows(uint32_t exporter, uint16_t template_id) {
+#ifdef USE_REDIS
+    redis_replay_unparsed_flows(exporter, template_id);
+#else
+    uv_mutex_lock(&unparsed_flows_mutex);
+    uint64_t hkey = ((uint64_t)exporter << 32) | template_id;
+    dyn_array_t *arr = (dyn_array_t *) hashmap_get(unparsed_flows_hashmap, &hkey, sizeof(uint64_t));
+    
+    if (arr == NULL) {
+        uv_mutex_unlock(&unparsed_flows_mutex);
+        return;
+    }
 
-void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record) {
+    // Remove the array from the hashmap so we don't process it concurrently
+    hashmap_delete(unparsed_flows_hashmap, &hkey, sizeof(uint64_t));
+    uv_mutex_unlock(&unparsed_flows_mutex);
 
-  /*
-    char srcaddr[250];
-    char dstaddr[250];
-    memccpy(srcaddr, ip_int_to_str(record->srcaddr), '\0', 250);
-    memccpy(dstaddr, ip_int_to_str(record->dstaddr), '\0', 250);
-    LOG_ERROR("%lu %s %d %s: %s:%d  -> %s:%d \n", uv_thread_self(), __FILE__, __LINE__, __func__, srcaddr,
-            record->srcport, dstaddr, record->dstport);
-    */
-  if (!is_ipv4_private(record->srcaddr) || (is_ipv4_private(record->dstaddr) && record->dstport > record->srcport)) {
-    /*
-    LOG_ERROR("%lu %s %d %s is_ipv4_private(record->srcaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, is_ipv4_private(record->srcaddr));
-    LOG_ERROR("%lu %s %d %s record->srcaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
-            record->srcaddr);
-    LOG_ERROR("%lu %s %d %s is_ipv4_private(record->dstaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, is_ipv4_private(record->dstaddr));
-    LOG_ERROR("%lu %s %d %s record->dstaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
-            record->dstaddr);
-    LOG_ERROR("%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, record->dstport > record->srcport);
-    */
-    // LOG_ERROR("%lu %s %d %s: swapping flow_v9 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
-
-    const uint16_t tmp_port = record->dstport;
-    record->dstport = record->srcport;
-    record->srcport = tmp_port;
-    const uint32_t tmp_addr = record->dstaddr;
-    record->dstaddr = record->srcaddr;
-    record->srcaddr = tmp_addr;
-    const uint16_t tmp_interface = record->input;
-    record->input = record->output;
-    record->output = tmp_interface;
-
-    const uint8_t tmp_mask = record->src_mask;
-    record->src_mask = record->dst_mask;
-    record->dst_mask = tmp_mask;
-
-    const uint32_t tmp_as = record->src_as;
-    record->src_as = record->dst_as;
-    record->dst_as = tmp_as;
-
-  } else {
-    // fprintf(stderr, "%s %d %s: NOT swapping flow_v9 src and dst\n", __FILE__, __LINE__, __func__);
-  }
+    // Now replay the flows
+    for (size_t i = 0; i < arr->len; i++) {
+        unparsed_flowset_t **flow_ptr = dyn_array_get(arr, i);
+        if (flow_ptr && *flow_ptr) {
+            unparsed_flowset_t *flow = *flow_ptr;
+            replay_single_flow(flow->exporter, flow->template_id, flow->version, flow->diff, flow->data, flow->length);
+            free(flow);
+            
+            uv_mutex_lock(&unparsed_flows_mutex);
+            current_unparsed_flows--;
+            uv_mutex_unlock(&unparsed_flows_mutex);
+        }
+    }
+    dyn_array_free(arr);
+#endif
 }
 
-void swap_src_dst_v5_ipv4(netflow_v5_record_t *record) {
+/**
+ * @brief TODO: Document process_v9_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+extern void process_v9_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length);
+/**
+ * @brief TODO: Document process_ipfix_single_flowset
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+extern void process_ipfix_single_flowset(uint32_t exporter, uint16_t template_id, uint32_t diff, uint8_t *data, uint32_t length);
 
-  /*
-    char srcaddr[250];
-    char dstaddr[250];
-    memccpy(srcaddr, ip_int_to_str(record->srcaddr), '\0', 250);
-    memccpy(dstaddr, ip_int_to_str(record->dstaddr), '\0', 250);
-    LOG_ERROR("%lu,%s %d %s: %s:%d  -> %s:%d \n", uv_thread_self(), __FILE__, __LINE__, __func__, srcaddr,
-            record->srcport, dstaddr, record->dstport);
-    */
-  if (!is_ipv4_private(record->srcaddr) || (is_ipv4_private(record->dstaddr) && record->dstport > record->srcport)) {
-    /*
-    LOG_ERROR("%lu %s %d %s is_ipv4_private(record->srcaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, is_ipv4_private(record->srcaddr));
-    LOG_ERROR("%lu %s %d %s record->srcaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
-            record->srcaddr);
-    LOG_ERROR("%lu %s %d %s is_ipv4_private(record->dstaddr): %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, is_ipv4_private(record->dstaddr));
-    LOG_ERROR("%lu %s %d %s record->dstaddr %u\n", uv_thread_self(), __FILE__, __LINE__, __func__,
-            record->dstaddr);
-    LOG_ERROR("%lu %s %d %s record->dstport > record->srcport: %d\n", uv_thread_self(), __FILE__, __LINE__,
-            __func__, record->dstport > record->srcport);
-    */
-    LOG_ERROR("%lu %s %d %s: swapping flow_v5 src and dst\n", uv_thread_self(), __FILE__, __LINE__, __func__);
-
-    const uint16_t tmp_port = record->dstport;
-    record->dstport = record->srcport;
-    record->srcport = tmp_port;
-    const uint32_t tmp_addr = record->dstaddr;
-    record->dstaddr = record->srcaddr;
-    record->srcaddr = tmp_addr;
-    const uint16_t tmp_interface = record->input;
-    record->input = record->output;
-    record->output = tmp_interface;
-
-    const uint8_t tmp_mask = record->src_mask;
-    record->src_mask = record->dst_mask;
-    record->dst_mask = tmp_mask;
-
-    const uint32_t tmp_as = record->src_as;
-    record->src_as = record->dst_as;
-    record->dst_as = tmp_as;
-
-
-  } else {
-    LOG_ERROR("%s %d %s: NOT swapping flow_v5 src and dst\n", __FILE__, __LINE__, __func__);
-  }
+/**
+ * @brief TODO: Document replay_single_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length) {
+    if (version == 9) {
+        process_v9_single_flowset(exporter, template_id, diff, data, length);
+    } else if (version == 10) {
+        process_ipfix_single_flowset(exporter, template_id, diff, data, length);
+    }
 }
 
+/**
+ * @brief TODO: Document printf_v5
+ *
+ * @param file TODO
+ * @param netflow_packet TODO
+ * @param i TODO
+ * @return TODO
+ */
 void printf_v5(FILE *file, netflow_v5_flowset_t *netflow_packet, int i) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
 
   char *tmp;
   tmp = ip_int_to_str(netflow_packet->records[i].srcaddr);
-  strncpy(ip_src_str, tmp, strlen(tmp));
+  snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
   uint16_t tmp_src_port = netflow_packet->records[i].srcport;
   uint16_t tmp_dst_port = netflow_packet->records[i].dstport;
   swap_endianness(&tmp_src_port, sizeof(tmp_src_port));
   swap_endianness(&tmp_dst_port, sizeof(tmp_dst_port));
   tmp = ip_int_to_str(netflow_packet->records[i].dstaddr);
-  strncpy(ip_dst_str, tmp, strlen(tmp));
+  snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, netflow_packet->records[i].prot);
 }
+/**
+ * @brief TODO: Document printf_v9
+ *
+ * @param file TODO
+ * @param netflow_packet TODO
+ * @param i TODO
+ * @param frame_number TODO
+ * @param template_id TODO
+ * @param flowset_id TODO
+ * @return TODO
+ */
 void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i, uint32_t frame_number, uint16_t template_id, uint16_t flowset_id) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
@@ -419,12 +466,21 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
   char *tmp;
   // srcaddr/dstaddr are already in host byte order after parse_v9 applied swap_endianness.
   // ip_int_to_str expects network byte order (s_addr), so we swap once for display.
-  uint32_t srcaddr = netflow_packet->records[i].srcaddr;
-  uint32_t dstaddr = netflow_packet->records[i].dstaddr;
-  tmp = ip_int_to_str(htonl(srcaddr));
-  strncpy(ip_src_str, tmp, strlen(tmp));
-  tmp = ip_int_to_str(htonl(dstaddr));
-  strncpy(ip_dst_str, tmp, strlen(tmp));
+  if (netflow_packet->records[i].ip_version == 6) {
+    uint128_t s6 = netflow_packet->records[i].srcaddr;
+    uint128_t d6 = netflow_packet->records[i].dstaddr;
+    swap_endianness(&s6, sizeof(s6));
+    swap_endianness(&d6, sizeof(d6));
+    inet_ntop(AF_INET6, &s6, ip_src_str, sizeof(ip_src_str));
+    inet_ntop(AF_INET6, &d6, ip_dst_str, sizeof(ip_dst_str));
+  } else {
+    uint32_t srcaddr = netflow_packet->records[i].srcaddr;
+    uint32_t dstaddr = netflow_packet->records[i].dstaddr;
+    tmp = ip_int_to_str(htonl(srcaddr));
+    snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
+    tmp = ip_int_to_str(htonl(dstaddr));
+    snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
+  }
 
   if (pcap_output_lines != NULL) {
     if (is_pcap_pass_2) {
@@ -449,6 +505,13 @@ void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t 
             netflow_packet->records[i].dstport, netflow_packet->records[i].prot);
   }
 }
+/**
+ * @brief TODO: Document printf_v10
+ *
+ * @param file TODO
+ * @param record TODO
+ * @return TODO
+ */
 void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   char ip_src_str[50] = {0};
   char ip_dst_str[50] = {0};
@@ -457,7 +520,7 @@ void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   uint32_t net_srcaddr = record->srcaddr;
   swap_endianness(&net_srcaddr, sizeof(net_srcaddr));
   tmp = ip_int_to_str(net_srcaddr);
-  strncpy(ip_src_str, tmp, strlen(tmp));
+  snprintf(ip_src_str, sizeof(ip_src_str), "%s", tmp);
   
   uint16_t tmp_src_port = record->srcport;
   uint16_t tmp_dst_port = record->dstport;
@@ -465,7 +528,7 @@ void printf_v10(FILE *file, netflow_v9_record_insert_uint128_t *record) {
   uint32_t net_dstaddr = record->dstaddr;
   swap_endianness(&net_dstaddr, sizeof(net_dstaddr));
   tmp = ip_int_to_str(net_dstaddr);
-  strncpy(ip_dst_str, tmp, strlen(tmp));
+  snprintf(ip_dst_str, sizeof(ip_dst_str), "%s", tmp);
   
   fprintf(file, "%s:%u -> %s:%u prot: %u\n", ip_src_str, tmp_src_port, ip_dst_str,
           tmp_dst_port, record->prot);

@@ -23,6 +23,7 @@ typedef struct {
     char *password;
     bool connected;
     char userpwd[256];
+    char *params;
 } ch_conn_t;
 
 // Function declarations
@@ -37,7 +38,7 @@ typedef struct {
  * @return Pointer to ch_conn_t structure or NULL on failure
  */
 ch_conn_t *ch_connect(const char *host, uint16_t port, const char *database,
-                      const char *user, const char *password);
+                      const char *user, const char *password, const char *params);
 
 /**
  * Connects to ClickHouse using environment variable CH_CONN_STRING
@@ -84,8 +85,44 @@ int ch_insert_flows(uint32_t exporter, netflow_v9_uint128_flowset_t *flows);
 char *ch_ip_uint128_to_string(uint128_t value, uint8_t ip_version);
 
 
+/**
+ * @brief TODO: Document ch_insert_template
+ *
+ * @param exporter TODO
+ * @param template_key TODO
+ * @param dump TODO
+ * @param dump_size TODO
+ * @return TODO
+ */
 int ch_insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
+/**
+ * @brief TODO: Document ch_insert_dump
+ *
+ * @param exporter TODO
+ * @param template_key TODO
+ * @param dump TODO
+ * @param dump_size TODO
+ * @return TODO
+ */
 int ch_insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size) ;
+/**
+ * @brief TODO: Document insert_template
+ *
+ * @param exporter TODO
+ * @param template_key TODO
+ * @param dump TODO
+ * @param dump_size TODO
+ * @return TODO
+ */
 int insert_template(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
+/**
+ * @brief TODO: Document insert_dump
+ *
+ * @param exporter TODO
+ * @param template_key TODO
+ * @param dump TODO
+ * @param dump_size TODO
+ * @return TODO
+ */
 int insert_dump(uint32_t exporter, char * template_key,const uint8_t * dump, const size_t dump_size);
 #endif // DB_CLICKHOUSE_H

@@ -31,11 +31,58 @@ typedef struct {
   arena_struct_t *arena;
 } hashmap_t;
 
+/**
+ * @brief TODO: Document hashmap_create
+ *
+ * @param arena TODO
+ * @param bucket_count TODO
+ * @return TODO
+ */
 hashmap_t *hashmap_create(arena_struct_t *arena, size_t bucket_count);
+/**
+ * @brief TODO: Document hashmap_hash
+ *
+ * @param hashmap TODO
+ * @param key TODO
+ * @param len TODO
+ * @return TODO
+ */
 size_t hashmap_hash(hashmap_t *hashmap, void *key, size_t len);
+/**
+ * @brief TODO: Document hashmap_set
+ *
+ * @param hashmap TODO
+ * @param arena TODO
+ * @param key TODO
+ * @param key_len TODO
+ * @param value TODO
+ * @return TODO
+ */
 int hashmap_set(hashmap_t *hashmap, arena_struct_t *arena, void *key, size_t key_len, void *value);
+/**
+ * @brief TODO: Document hashmap_get
+ *
+ * @param hashmap TODO
+ * @param key TODO
+ * @param key_len TODO
+ * @return TODO
+ */
 void *hashmap_get(hashmap_t *hashmap, void *key, size_t key_len);
+/**
+ * @brief TODO: Document hashmap_delete
+ *
+ * @param hashmap TODO
+ * @param key TODO
+ * @param key_len TODO
+ * @return TODO
+ */
 int hashmap_delete(hashmap_t *hashmap, void *key, size_t key_len);
+/**
+ * @brief TODO: Document hashmap_destroy
+ *
+ * @param hashmap TODO
+ * @return TODO
+ */
 void hashmap_destroy(hashmap_t *hashmap);
 
 #endif // HASHMAP_H

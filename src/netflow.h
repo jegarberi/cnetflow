@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "arena.h"
 
 #if defined(__linux__)
 #include <endian.h>
@@ -131,6 +132,55 @@ typedef struct {
   netflow_v9_record_insert_uint128_t records[60];
 } netflow_v9_uint128_flowset_t;
 
+typedef struct {
+  uint32_t exporter;
+  uint16_t template_id;
+  uint16_t version; // 9 or 10 (IPFIX)
+  uint32_t length;
+  uint32_t diff;
+  uint8_t data[]; // Flexible array member
+} unparsed_flowset_t;
+
+/**
+ * @brief TODO: Document cache_unparsed_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+void cache_unparsed_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+/**
+ * @brief TODO: Document init_unparsed_flows_cache
+ *
+ * @param arena TODO
+ * @return TODO
+ */
+void init_unparsed_flows_cache(arena_struct_t *arena);
+/**
+ * @brief TODO: Document check_and_replay_unparsed_flows
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @return TODO
+ */
+void check_and_replay_unparsed_flows(uint32_t exporter, uint16_t template_id);
+/**
+ * @brief TODO: Document replay_single_flow
+ *
+ * @param exporter TODO
+ * @param template_id TODO
+ * @param version TODO
+ * @param diff TODO
+ * @param data TODO
+ * @param length TODO
+ * @return TODO
+ */
+void replay_single_flow(uint32_t exporter, uint16_t template_id, uint16_t version, uint32_t diff, uint8_t *data, uint32_t length);
+
 typedef enum {
   NETFLOW_NO_ENDIAN = 0,
   NETFLOW_BIG_ENDIAN = 1,
@@ -145,16 +195,58 @@ typedef enum {
   NETFLOW_IPFIX = 10
 } NETFLOW_VERSION;
 
+/**
+ * @brief TODO: Document detect_version
+ *
+ * @param data TODO
+ * @return TODO
+ */
 NETFLOW_VERSION detect_version(void *data);
+/**
+ * @brief TODO: Document detect_endianness
+ *
+ * @return TODO
+ */
 endianness_e detect_endianness(void);
+/**
+ * @brief TODO: Document swap_endian_64
+ *
+ * @param value TODO
+ * @return TODO
+ */
 uint64_t swap_endian_64(uint64_t value);
+/**
+ * @brief TODO: Document swap_endian_32
+ *
+ * @param value TODO
+ * @return TODO
+ */
 uint32_t swap_endian_32(uint32_t value);
+/**
+ * @brief TODO: Document swap_endian_16
+ *
+ * @param value TODO
+ * @return TODO
+ */
 uint16_t swap_endian_16(uint16_t value);
+/**
+ * @brief TODO: Document swap_endian_128
+ *
+ * @param value TODO
+ * @return TODO
+ */
 uint128_t swap_endian_128(uint128_t value);
 
 #if CNETFLOW_BIG_ENDIAN_ARCH
 #define swap_endianness(value, len) ((void) 0)
 #else
+/**
+ * @brief TODO: Document swap_endianness
+ *
+ * @param value TODO
+ * @param len TODO
+ * @return TODO
+ */
 static inline void swap_endianness(void *value, size_t len) {
   switch (len) {
     case 2: {
@@ -185,12 +277,32 @@ static inline void swap_endianness(void *value, size_t len) {
 }
 #endif
 
+/**
+ * @brief TODO: Document fix_endianness
+ *
+ * @param buf TODO
+ * @param data TODO
+ * @param len TODO
+ * @return TODO
+ */
 void *fix_endianness(void *buf, void *data, size_t len);
+/**
+ * @brief TODO: Document printf_v5
+ *
+ * @return TODO
+ */
 void printf_v5(FILE *, netflow_v5_flowset_t *, int);
-void swap_src_dst_v5_ipv4(netflow_v5_record_t *record);
-void swap_src_dst_v9_ipv4(netflow_v9_record_insert_uint128_t *record);
-void swap_src_dst_ipfix_ipv4(netflow_v9_record_insert_uint128_t *record);
+/**
+ * @brief TODO: Document printf_v9
+ *
+ * @param file TODO
+ * @param netflow_packet TODO
+ * @param i TODO
+ * @param frame_number TODO
+ * @param template_id TODO
+ * @param flowset_id TODO
+ * @return TODO
+ */
 void printf_v9(FILE *file, netflow_v9_uint128_flowset_t *netflow_packet, size_t i, uint32_t frame_number, uint16_t template_id, uint16_t flowset_id);
-int is_ipv4_private(uint32_t);
 extern endianness_e endianness;
 #endif // NETFLOW_H
