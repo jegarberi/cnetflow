@@ -904,7 +904,7 @@ void udp_handle(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf, const stru
   /* libuv's work queue is otherwise unbounded.  Once database latency makes
    * workers fall behind, continuing to allocate packet copies only converts
    * transient overload into multi-GiB growth and eventual process failure. */
-  if (unlikely(__atomic_load_n(&active_requests, __ATOMIC_RELAXED) >= g_max_pending_requests)) {
+  if (unlikely(active_requests >= g_max_pending_requests)) {
     static uint64_t dropped_for_backpressure = 0;
     dropped_for_backpressure++;
     if ((dropped_for_backpressure & 0xffffU) == 1U) {
