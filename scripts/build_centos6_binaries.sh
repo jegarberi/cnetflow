@@ -128,7 +128,7 @@ build_config() {
 
     # Copy binary to output folder
     # Copy binary to output folder
-    local output_name="cnetflow_${safe_config_name}${static_suffix}${debug_suffix}"
+    local output_name="cnetflow_${safe_config_name}${static_suffix}${debug_suffix}_centos6"
     if [ -f "cnetflow" ]; then
         cp "cnetflow" "${OUTPUT_BIN_DIR}/${output_name}"
         echo "SUCCESS: Created ${OUTPUT_BIN_DIR}/${output_name}"
