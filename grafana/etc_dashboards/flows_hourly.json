@@ -1,47 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "db",
-      "label": "cnetflow",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "grafana-postgresql-datasource",
-      "pluginName": "PostgreSQL"
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "12.2.1"
-    },
-    {
-      "type": "datasource",
-      "id": "grafana-postgresql-datasource",
-      "name": "PostgreSQL",
-      "version": "12.2.1"
-    },
-    {
-      "type": "panel",
-      "id": "piechart",
-      "name": "Pie chart",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "table",
-      "name": "Table",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -65,8 +22,8 @@
   "panels": [
     {
       "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "P7BDC25D1694EF984"
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -146,75 +103,37 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT time_bucket('$__interval'::interval, bucket::TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'GMT-3') AS time ,\n       sum(total_bytes) as input_octets\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND input =  $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY time\nORDER BY time DESC ;",
+          "editorType": "sql",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT $__timeInterval(bucket) AS time, sum(total_bytes) AS input_octets\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND input = ${Interface}\nGROUP BY time\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
         },
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "SELECT time_bucket('$__interval'::interval, bucket::TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'GMT-3') AS time ,\n       sum(total_bytes) as output_octets\nFROM flows_hourly \nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY time\nORDER BY time DESC ;",
+          "editorType": "sql",
           "refId": "B",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT $__timeInterval(bucket) AS time, sum(total_bytes) AS output_octets\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND output = ${Interface}\nGROUP BY time\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
         }
       ],
-      "title": "Input",
+      "title": "Interface traffic",
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "P7BDC25D1694EF984"
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -231,35 +150,7 @@
           "mappings": [],
           "unit": "bytes"
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "octets",
-                  "192.168.100.78 190.55.24.83",
-                  "fe80::7a9a:18ff:fed9:ff2 fe80::3af8:fdd5:eed2:a40d",
-                  "192.168.100.1 192.168.100.63"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 10,
@@ -289,75 +180,37 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT sum(doctets) as octets,\n       srcaddr,\n       dstaddr\nFROM flows\nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(first + INTERVAL '3 HOUR')\nGROUP BY srcaddr,dstaddr\nORDER by octets DESC\n\nlimit $N;",
+          "editorType": "sql",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets, srcaddr, dstaddr\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND input = ${Interface}\nGROUP BY srcaddr, dstaddr\nORDER BY octets DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         },
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "SELECT sum(doctets) as octets,\n       srcaddr,\n       dstaddr\nFROM flows\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(first + INTERVAL '3 HOUR')\nGROUP BY srcaddr,dstaddr\nORDER by octets DESC\nlimit $N;",
+          "editorType": "sql",
           "refId": "B",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets, srcaddr, dstaddr\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND output = ${Interface}\nGROUP BY srcaddr, dstaddr\nORDER BY octets DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         }
       ],
-      "title": "Input",
+      "title": "Top conversations",
       "type": "piechart"
     },
     {
       "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "P7BDC25D1694EF984"
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -417,75 +270,37 @@
         "frameIndex": 1,
         "showHeader": true
       },
-      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT sum(total_bytes) as octets_in,\n       dstport as dstport,\n       prot as protocol\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstport,protocol\nORDER BY octets_in DESC \nLIMIT $N;",
+          "editorType": "sql",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets_in, dstport, protocol\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND input = ${Interface}\nGROUP BY dstport, protocol\nORDER BY octets_in DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         },
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "SELECT sum(total_bytes) as octets_out,\n       dstport as dstport,\n       prot as protocol\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstport,protocol\nORDER BY octets_out DESC \nLIMIT $N;",
+          "editorType": "sql",
           "refId": "B",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets_out, dstport, protocol\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND output = ${Interface}\nGROUP BY dstport, protocol\nORDER BY octets_out DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         }
       ],
-      "title": "Top Port Protocol",
+      "title": "Top port / protocol",
       "type": "table"
     },
     {
       "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "P7BDC25D1694EF984"
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -545,129 +360,53 @@
         "frameIndex": 0,
         "showHeader": true
       },
-      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "\nSELECT sum(total_bytes) as octets_in,\n       srcaddr as src_addr\nFROM flows_hourly \nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY srcaddr\norder by octets_in desc\n",
+          "editorType": "sql",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets_in, srcaddr AS src_addr\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND input = ${Interface}\nGROUP BY src_addr\nORDER BY octets_in DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         },
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "\nSELECT sum(total_bytes) as octets_out,\n       srcaddr as src_addr\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY src_addr\norder by octets_out desc",
+          "editorType": "sql",
           "refId": "B",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets_out, srcaddr AS src_addr\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND output = ${Interface}\nGROUP BY src_addr\nORDER BY octets_out DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         },
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "\nSELECT sum(total_bytes) as octets_in,\n       dstaddr as dst_addr\nFROM flows_hourly \nWHERE 1=1\nAND exporter = '$Exporter'\nAND input = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstaddr\norder by octets_in desc",
+          "editorType": "sql",
           "refId": "C",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets_in, dstaddr AS dst_addr\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND input = ${Interface}\nGROUP BY dst_addr\nORDER BY octets_in DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         },
         {
-          "dataset": "cnetflow",
           "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P7BDC25D1694EF984"
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
           },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "\nSELECT sum(total_bytes) as octets_out,\n       dstaddr as dst_addr\nFROM flows_hourly\nWHERE 1=1\nAND exporter = '$Exporter'\nAND output = $Interface \nAND $__timeFilter(bucket + INTERVAL '3 HOUR')\nGROUP BY dstaddr\norder by octets_out desc",
+          "editorType": "sql",
           "refId": "D",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
+          "rawSql": "SELECT sum(total_bytes) AS octets_out, dstaddr AS dst_addr\nFROM flows_5minute_mv\nWHERE exporter = '${Exporter}' AND $__timeFilter(bucket) AND output = ${Interface}\nGROUP BY dst_addr\nORDER BY octets_out DESC\nLIMIT ${N}",
+          "format": 1,
+          "queryType": "table"
         }
       ],
-      "title": "Output - Top SrcAddr",
+      "title": "Top addresses",
       "type": "table"
     }
   ],
@@ -677,58 +416,49 @@
   "templating": {
     "list": [
       {
-        "allowCustomValue": false,
-        "current": {},
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "P7BDC25D1694EF984"
-        },
-        "definition": "select distinct(exporter) from flows where first > now() - interval '7 day' group by exporter ;",
-        "description": "Exporter",
-        "includeAll": false,
-        "label": "Exporter",
+        "type": "query",
         "name": "Exporter",
-        "options": [],
-        "query": "select distinct(exporter) from flows where first > now() - interval '7 day' group by exporter ;",
-        "refresh": 1,
-        "regex": "",
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "allowCustomValue": false,
-        "current": {},
+        "label": "Exporter",
         "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "P7BDC25D1694EF984"
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
         },
-        "definition": "select interface from (select input as interface from flows where first > now() - interval '7 day' AND exporter = '$Exporter' group by input UNION select output as interface from flows where first > now() - interval '7 day'  AND exporter = '$Exporter' group by output) group by interface;",
-        "description": "Interface",
-        "label": "Interface",
-        "name": "Interface",
-        "options": [],
-        "query": "select interface from (select input as interface from flows where first > now() - interval '7 day' AND exporter = '$Exporter' group by input UNION select output as interface from flows where first > now() - interval '7 day'  AND exporter = '$Exporter' group by output) group by interface;",
+        "query": "SELECT DISTINCT exporter FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 7 DAY ORDER BY exporter",
+        "definition": "SELECT DISTINCT exporter FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 7 DAY ORDER BY exporter",
         "refresh": 1,
-        "regex": "",
-        "type": "query"
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {},
+        "options": []
       },
       {
+        "type": "query",
+        "name": "Interface",
+        "label": "Interface",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT arrayJoin([input, output]) AS iface FROM flows_5minute_mv WHERE exporter = '${Exporter}' AND bucket > now() - INTERVAL 7 DAY ORDER BY iface",
+        "definition": "SELECT DISTINCT arrayJoin([input, output]) AS iface FROM flows_5minute_mv WHERE exporter = '${Exporter}' AND bucket > now() - INTERVAL 7 DAY ORDER BY iface",
+        "refresh": 1,
+        "sort": 3,
+        "multi": false,
+        "includeAll": false,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "textbox",
+        "name": "N",
+        "label": "Top N",
+        "query": "20",
         "current": {
           "text": "20",
           "value": "20"
         },
-        "description": "TOP N",
-        "label": "N",
-        "name": "N",
-        "options": [
-          {
-            "selected": true,
-            "text": "20",
-            "value": "20"
-          }
-        ],
-        "query": "20",
-        "type": "textbox"
+        "options": []
       }
     ]
   },
@@ -738,9 +468,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "cnetflow - time_bucket",
+  "title": "cnetflow - Interface",
   "uid": "ad6jqhn",
-  "version": 112,
-  "weekStart": "",
-  "id": null
+  "version": 1,
+  "weekStart": ""
 }

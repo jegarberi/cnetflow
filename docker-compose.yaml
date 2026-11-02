@@ -78,10 +78,15 @@ services:
   grafana:
     image: grafana/grafana
     restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
     ports:
       - 3002:3000/tcp
     environment:
-      - CH_CONN_STRING
+      - GF_PLUGINS_PREINSTALL_SYNC=grafana-clickhouse-datasource
+      - CH_USER=${CH_USER:-default}
+      - CH_PASSWORD=${CH_PASSWORD:-default}
       - TZ
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
