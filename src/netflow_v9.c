@@ -279,7 +279,6 @@ void parse_v9(uv_work_t *req) {
         pos = 4;
         netflow_v9_uint128_flowset_t flows_to_insert;
         memset(&flows_to_insert.header, 0, sizeof(flows_to_insert.header));
-        int is_ipv6 = 0;
         uint64_t local_v9_records = 0;
 
         // Track the exporter and flowsets per completely parsed template loop
@@ -438,15 +437,12 @@ void parse_v9(uv_work_t *req) {
               case IPFIX_FT_IPVERSION:
                 switch (val_tmp8) {
                   case 4:
-                    is_ipv6 = 0;
                     flows_to_insert.records[record_counter].ip_version = 4;
                     break;
                   case 6:
-                    is_ipv6 = 1;
                     flows_to_insert.records[record_counter].ip_version = 6;
                     break;
                   default:
-                    is_ipv6 = 0;
                     flows_to_insert.records[record_counter].ip_version = 4;
                     break;
                 }
@@ -461,11 +457,9 @@ void parse_v9(uv_work_t *req) {
               case IPFIX_FT_SOURCEIPV6ADDRESS:
                 flows_to_insert.records[record_counter].srcaddr = val_tmp128;
                 flows_to_insert.records[record_counter].ip_version = 6;
-                is_ipv6 = 1;
                 break;
               case IPFIX_FT_DESTINATIONIPV6ADDRESS:
                 flows_to_insert.records[record_counter].dstaddr = val_tmp128;
-                is_ipv6 = 1;
                 break;
               case IPFIX_FT_OCTETDELTACOUNT:
                 switch (record_length) {
@@ -583,7 +577,6 @@ void parse_v9(uv_work_t *req) {
                 break;
               case IPFIX_FT_BGPNEXTHOPIPV6ADDRESS:
                 flows_to_insert.records[record_counter].nexthop = val_tmp128;
-                is_ipv6 = 1;
                 break;
               case IPFIX_FT_TCPCONTROLBITS:
                 flows_to_insert.records[record_counter].tcp_flags = val_tmp8;
