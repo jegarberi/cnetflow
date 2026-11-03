@@ -1,0 +1,477 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "refId": "A",
+          "rawSql": "SELECT sum(flow_count) AS flows\nFROM flows_5minute_mv\nWHERE $__timeFilter(bucket)\n  AND exporter IN (${exporter:singlequote})\n  AND protocol IN (${protocol:csv})\n  AND input IN (${ifacein:csv})\n  AND output IN (${ifaceout:csv})\n  AND ('${srcaddr}' = '' OR srcaddr = '${srcaddr}')\n  AND ('${dstaddr}' = '' OR dstaddr = '${dstaddr}')\n  AND ('${srcport}' = '' OR srcport = toUInt16OrZero('${srcport}'))\n  AND ('${dstport}' = '' OR dstport = toUInt16OrZero('${dstport}'))",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "title": "Flows",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 2
+      },
+      "id": 2,
+      "options": {
+        "displayLabels": [
+          "percent",
+          "value",
+          "name"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "allValues"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "refId": "A",
+          "rawSql": "SELECT toString(protocol) AS protocol, sum(total_bytes) AS bytes\nFROM flows_5minute_mv\nWHERE $__timeFilter(bucket)\n  AND exporter IN (${exporter:singlequote})\n  AND protocol IN (${protocol:csv})\n  AND input IN (${ifacein:csv})\n  AND output IN (${ifaceout:csv})\n  AND ('${srcaddr}' = '' OR srcaddr = '${srcaddr}')\n  AND ('${dstaddr}' = '' OR dstaddr = '${dstaddr}')\n  AND ('${srcport}' = '' OR srcport = toUInt16OrZero('${srcport}'))\n  AND ('${dstport}' = '' OR dstport = toUInt16OrZero('${dstport}'))\nGROUP BY protocol\nORDER BY bytes DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "title": "Bytes by protocol",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 2
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "refId": "A",
+          "rawSql": "SELECT $__timeInterval(bucket) AS time, sum(total_bytes) AS bytes\nFROM flows_5minute_mv\nWHERE $__timeFilter(bucket)\n  AND exporter IN (${exporter:singlequote})\n  AND protocol IN (${protocol:csv})\n  AND input IN (${ifacein:csv})\n  AND output IN (${ifaceout:csv})\n  AND ('${srcaddr}' = '' OR srcaddr = '${srcaddr}')\n  AND ('${dstaddr}' = '' OR dstaddr = '${dstaddr}')\n  AND ('${srcport}' = '' OR srcport = toUInt16OrZero('${srcport}'))\n  AND ('${dstport}' = '' OR dstport = toUInt16OrZero('${dstport}'))\nGROUP BY time\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
+        }
+      ],
+      "title": "Traffic",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bucket"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 172
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "refId": "A",
+          "rawSql": "SELECT bucket, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output,\n       sum(total_packets) AS packets, sum(total_bytes) AS bytes\nFROM flows_5minute_mv\nWHERE $__timeFilter(bucket)\n  AND exporter IN (${exporter:singlequote})\n  AND protocol IN (${protocol:csv})\n  AND input IN (${ifacein:csv})\n  AND output IN (${ifaceout:csv})\n  AND ('${srcaddr}' = '' OR srcaddr = '${srcaddr}')\n  AND ('${dstaddr}' = '' OR dstaddr = '${dstaddr}')\n  AND ('${srcport}' = '' OR srcport = toUInt16OrZero('${srcport}'))\n  AND ('${dstport}' = '' OR dstport = toUInt16OrZero('${dstport}'))\nGROUP BY bucket, exporter, srcaddr, dstaddr, srcport, dstport, protocol, input, output\nORDER BY bytes DESC\nLIMIT 1000",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "title": "Top flows (5-minute buckets)",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "exporter",
+        "label": "Exporter",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT exporter FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY exporter",
+        "definition": "SELECT DISTINCT exporter FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY exporter",
+        "refresh": 1,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "query",
+        "name": "protocol",
+        "label": "Protocol",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT protocol FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY protocol",
+        "definition": "SELECT DISTINCT protocol FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY protocol",
+        "refresh": 1,
+        "sort": 3,
+        "multi": true,
+        "includeAll": true,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "query",
+        "name": "ifacein",
+        "label": "Interface in",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT input FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY input",
+        "definition": "SELECT DISTINCT input FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY input",
+        "refresh": 1,
+        "sort": 3,
+        "multi": true,
+        "includeAll": true,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "query",
+        "name": "ifaceout",
+        "label": "Interface out",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT output FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY output",
+        "definition": "SELECT DISTINCT output FROM flows_5minute_mv WHERE bucket > now() - INTERVAL 1 DAY ORDER BY output",
+        "refresh": 1,
+        "sort": 3,
+        "multi": true,
+        "includeAll": true,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "textbox",
+        "name": "srcaddr",
+        "label": "Source address",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "type": "textbox",
+        "name": "dstaddr",
+        "label": "Destination address",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "type": "textbox",
+        "name": "srcport",
+        "label": "Source port",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "type": "textbox",
+        "name": "dstport",
+        "label": "Destination port",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "cnetflow - Traffic",
+  "uid": "cnetflow-traffic",
+  "version": 1
+}
